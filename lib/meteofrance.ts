@@ -52,6 +52,7 @@ const DATE_KEYS = [
   "update_time", "updated_at", "date_production", "dateproduction",
   "production_date", "reference_time", "basetime", "date_publication",
   "publication_date", "date_diffusion", "diffusion_date", "created_at",
+  "maj", "date_maj", "datemaj", "mise_a_jour", "derniere_maj",
 ];
 const ECH_J1 = ["j1", "j+1", "demain", "tomorrow"];
 const ECH_J2 = ["j2", "j+2"];
