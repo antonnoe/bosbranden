@@ -87,7 +87,7 @@ responsive vanaf 320px breed.
 ```html
 <iframe
   src="https://JOUW-DOMEIN.vercel.app/?embed=1"
-  width="750" height="1450" style="width:100%;max-width:750px;border:0;"
+  width="750" height="1100" style="width:100%;max-width:750px;border:0;"
   loading="lazy" title="Brandrisico Frankrijk — Météo des forêts">
 </iframe>
 ```
@@ -98,7 +98,7 @@ responsive vanaf 320px breed.
 <div style="max-width:750px;margin:0 auto;">
   <iframe
     src="https://JOUW-DOMEIN.vercel.app/?embed=1"
-    style="width:100%;border:0;height:1450px;"
+    style="width:100%;border:0;height:1100px;"
     loading="lazy" title="Brandrisico Frankrijk — Météo des forêts">
   </iframe>
 </div>
