@@ -1,0 +1,443 @@
+:root {
+  --primair: #800000;
+  --primair-04: rgba(128, 0, 0, 0.04);
+  --primair-08: rgba(128, 0, 0, 0.08);
+  --primair-15: rgba(128, 0, 0, 0.15);
+  --primair-30: rgba(128, 0, 0, 0.3);
+  --primair-55: rgba(128, 0, 0, 0.55);
+  --primair-80: rgba(128, 0, 0, 0.8);
+  --tekst: #332727;
+  --achtergrond: #fbf8f6;
+  --geen-data: #d9d9d9;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Mulish", -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.8em;
+  color: var(--tekst);
+  background: var(--achtergrond);
+  font-size: 16px;
+}
+
+h1,
+h2 {
+  font-family: "Poppins", "Mulish", sans-serif;
+  color: var(--primair);
+  line-height: 1.35;
+  margin: 0 0 0.4em;
+}
+
+h1 {
+  font-size: 1.7rem;
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+h3 {
+  font-family: "Poppins", "Mulish", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 600;
+  margin: 0 0 0.3em;
+}
+
+a {
+  color: var(--primair);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--primair-80);
+}
+
+.omhulsel {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 24px 20px 40px;
+}
+
+.embed .omhulsel {
+  padding: 10px 12px 20px;
+  max-width: none;
+}
+
+.site-kop {
+  border-bottom: 3px solid var(--primair-15);
+  padding-bottom: 14px;
+  margin-bottom: 22px;
+}
+
+.site-kop p {
+  margin: 0;
+  color: var(--primair-80);
+}
+
+.sectie {
+  background: #fff;
+  border: 1px solid var(--primair-08);
+  border-radius: 10px;
+  padding: 18px 20px;
+  margin-bottom: 22px;
+  box-shadow: 0 1px 3px var(--primair-04);
+}
+
+.embed .sectie {
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+/* ---- Fable-progressbar (geen spinner) ---- */
+.voortgang {
+  margin: 14px 0;
+}
+
+.voortgang-lijn {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--primair-15);
+  overflow: hidden;
+  position: relative;
+}
+
+.voortgang-accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 28%;
+  border-radius: 2px;
+  background: var(--primair);
+  animation: voortgang-glijden 1.7s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+  will-change: transform;
+}
+
+@keyframes voortgang-glijden {
+  0% {
+    transform: translateX(-110%);
+  }
+  100% {
+    transform: translateX(460%);
+  }
+}
+
+.voortgang-fase {
+  margin-top: 8px;
+  font-size: 0.88rem;
+  color: var(--primair-55);
+  transition: opacity 0.45s ease;
+  min-height: 1.8em;
+}
+
+.voortgang-fase.wisselt {
+  opacity: 0;
+}
+
+/* ---- Postcode-formulier ---- */
+.postcode-vorm {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.postcode-vorm input {
+  font-family: inherit;
+  font-size: 1.05rem;
+  padding: 9px 12px;
+  border: 1.5px solid var(--primair-30);
+  border-radius: 8px;
+  width: 9.5em;
+  max-width: 100%;
+  letter-spacing: 0.08em;
+  background: #fff;
+  color: var(--tekst);
+}
+
+.postcode-vorm input:focus {
+  outline: 2px solid var(--primair-55);
+  outline-offset: 1px;
+  border-color: var(--primair-55);
+}
+
+.knop {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 9px 20px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primair);
+  color: #fff;
+  cursor: pointer;
+}
+
+.knop:hover {
+  background: var(--primair-80);
+}
+
+.knop:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
+}
+
+.fout-melding {
+  background: var(--primair-04);
+  border-left: 3px solid var(--primair);
+  padding: 8px 14px;
+  border-radius: 0 8px 8px 0;
+  margin-top: 12px;
+}
+
+/* ---- Resultaatkaarten ---- */
+.resultaat {
+  margin-top: 16px;
+  border-top: 1px solid var(--primair-08);
+  padding-top: 14px;
+}
+
+.resultaat-kop {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dep-code {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--primair-80);
+  background: var(--primair-08);
+  border-radius: 6px;
+  padding: 1px 8px;
+}
+
+.niveau-rij {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.niveau-blok {
+  flex: 1 1 200px;
+  min-width: 170px;
+  border-radius: 10px;
+  padding: 12px 14px;
+  line-height: 1.5;
+}
+
+.niveau-blok .blok-dag {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+
+.niveau-blok .blok-niveau {
+  font-family: "Poppins", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.niveau-blok .blok-fr {
+  font-size: 0.85rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.niveau-toelichting {
+  font-size: 0.95rem;
+  margin: 6px 0 10px;
+}
+
+/* ---- Kaart ---- */
+.kaart-balk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.toggle {
+  display: inline-flex;
+  border: 1.5px solid var(--primair-30);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.toggle button {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 7px 16px;
+  border: none;
+  background: #fff;
+  color: var(--primair);
+  cursor: pointer;
+}
+
+.toggle button[aria-pressed="true"] {
+  background: var(--primair);
+  color: #fff;
+}
+
+.toggle button:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: -2px;
+}
+
+.kaart-vlak {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.kaart-vlak path.dep {
+  stroke: #fff;
+  stroke-width: 1.2;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.kaart-vlak path.dep:hover {
+  filter: brightness(0.85);
+}
+
+.kaart-vlak path.dep:focus {
+  outline: none;
+}
+
+.kaart-vlak path.dep:focus-visible {
+  outline: none;
+  stroke: var(--primair);
+  stroke-width: 3;
+}
+
+.kaart-vlak path.dep.gekozen {
+  stroke: var(--primair);
+  stroke-width: 2.5;
+}
+
+.legenda {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  margin-top: 10px;
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda i {
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.dep-paneel {
+  margin-top: 14px;
+  border: 1px solid var(--primair-15);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--primair-04);
+}
+
+.paneel-kop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.paneel-sluit {
+  border: none;
+  background: none;
+  color: var(--primair);
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.paneel-sluit:hover {
+  background: var(--primair-08);
+}
+
+/* ---- Compliance ---- */
+.bron-regel {
+  font-size: 0.88rem;
+  color: var(--primair-80);
+  margin-top: 10px;
+}
+
+.disclaimer {
+  font-size: 0.88rem;
+  background: var(--primair-04);
+  border: 1px solid var(--primair-08);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.site-voet {
+  border-top: 3px solid var(--primair-15);
+  margin-top: 10px;
+  padding-top: 14px;
+  font-size: 0.9rem;
+  color: var(--primair-80);
+}
+
+@media (max-width: 420px) {
+  h1 {
+    font-size: 1.35rem;
+  }
+
+  .omhulsel {
+    padding: 16px 12px 28px;
+  }
+
+  .sectie {
+    padding: 14px 12px;
+  }
+
+  .postcode-vorm input {
+    width: 100%;
+  }
+
+  .knop {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voortgang-accent {
+    animation-duration: 3.5s;
+  }
+}
