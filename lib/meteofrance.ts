@@ -170,6 +170,77 @@ export function normaliseer(raw: Json): DangerData {
   return { niveaus, bijgewerkt, datumJ1, datumJ2 };
 }
 
+// ---------------------------------------------------------------------------
+// CSV-parsing. De werkelijke respons van /carte/encours is puntkomma-CSV:
+//   reference_time;dep_code;niveau_j1;niveau_j2;dep_nom
+//   2026-07-06T14:50:06Z;11;3;4;Aude
+// De kolommen worden op naam herkend (headerregel), met de bovenstaande
+// volgorde als terugval wanneer een headerregel ontbreekt.
+// ---------------------------------------------------------------------------
+
+export function normaliseerCsv(tekst: string): DangerData | null {
+  const regels = tekst
+    .replace(/^﻿/, "")
+    .split(/\r?\n/)
+    .map((r) => r.trim())
+    .filter(Boolean);
+  if (regels.length === 0) return null;
+
+  let kolommen = { ref: 0, dep: 1, j1: 2, j2: 3 };
+  let start = 0;
+
+  const kop = regels[0].split(";").map((k) => k.trim().toLowerCase());
+  const isHeader = kop.some((k) => /[a-z_]{3,}/.test(k) && !/^\d/.test(k)) && alsDepCode(kop[1]) === null;
+  if (isHeader) {
+    start = 1;
+    const vind = (test: (k: string) => boolean, terugval: number) => {
+      const i = kop.findIndex(test);
+      return i >= 0 ? i : terugval;
+    };
+    kolommen = {
+      ref: vind((k) => k.includes("time") || k.includes("date") || k.includes("reference"), 0),
+      dep: vind((k) => k.includes("dep") && k.includes("code"), 1),
+      j1: vind((k) => k.includes("j1") || k.includes("j+1"), 2),
+      j2: vind((k) => k.includes("j2") || k.includes("j+2"), 3),
+    };
+  }
+
+  const niveaus: DangerData["niveaus"] = {};
+  let bijgewerkt: string | null = null;
+
+  for (const regel of regels.slice(start)) {
+    const velden = regel.split(";").map((v) => v.trim());
+    const dep = alsDepCode(velden[kolommen.dep]);
+    if (!dep) continue;
+    niveaus[dep] = {
+      j1: alsNiveau(velden[kolommen.j1]),
+      j2: alsNiveau(velden[kolommen.j2]),
+    };
+    const ref = velden[kolommen.ref];
+    if (!bijgewerkt && ref && ref.length >= 8) bijgewerkt = ref;
+  }
+
+  if (Object.keys(niveaus).length === 0) return null;
+  return { niveaus, bijgewerkt, datumJ1: null, datumJ2: null };
+}
+
+// Verwerkt een ruwe respons-body: JSON indien mogelijk, anders CSV.
+export function verwerkBody(body: string): {
+  vorm: "json" | "csv" | "onbekend";
+  raw: unknown;
+  data: DangerData | null;
+} {
+  try {
+    const raw = JSON.parse(body);
+    return { vorm: "json", raw, data: normaliseer(raw) };
+  } catch {
+    // geen JSON: probeer puntkomma-CSV
+  }
+  const data = normaliseerCsv(body);
+  if (data) return { vorm: "csv", raw: body.split(/\r?\n/).slice(0, 5), data };
+  return { vorm: "onbekend", raw: body.slice(0, 500), data: null };
+}
+
 // Compacte structuurschets van een JSON-waarde (voor /api/debug):
 // sleutels + types, arrays tot 2 voorbeelditems.
 export function structuurSchets(node: Json, diepte = 0): Json {

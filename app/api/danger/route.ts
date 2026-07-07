@@ -3,7 +3,7 @@
 // normaliseert naar { niveaus, bijgewerkt } en geeft nooit de API-key door.
 
 import { NextResponse } from "next/server";
-import { haalRuweKaartOp, normaliseer, structuurSchets, CACHE_SECONDEN } from "@/lib/meteofrance";
+import { haalRuweKaartOp, verwerkBody, structuurSchets, CACHE_SECONDEN } from "@/lib/meteofrance";
 
 export const revalidate = 21600; // 6 uur
 
@@ -21,20 +21,10 @@ export async function GET() {
       );
     }
 
-    let raw: unknown;
-    try {
-      raw = JSON.parse(body);
-    } catch {
-      return NextResponse.json(
-        { fout: "Respons van Météo-France is geen JSON.", detail: body.slice(0, 300) },
-        { status: 502 }
-      );
-    }
+    const { vorm, raw, data } = verwerkBody(body);
+    const aantal = data ? Object.keys(data.niveaus).length : 0;
 
-    const data = normaliseer(raw);
-    const aantal = Object.keys(data.niveaus).length;
-
-    if (aantal === 0) {
+    if (!data || aantal === 0) {
       // Structuur onbekend gebleken: rapporteer de schets zodat dit direct
       // zichtbaar is (zie ook /api/debug). Buiten het seizoen (okt–mei) kan de
       // API ook een lege kaart teruggeven.
@@ -43,8 +33,9 @@ export async function GET() {
           fout: "Geen departementsniveaus gevonden in de respons van Météo-France.",
           opmerking:
             "De Météo des forêts wordt alleen tijdens het seizoen (juni t/m september) dagelijks gepubliceerd. Controleer /api/debug voor de ruwe structuur.",
+          vorm,
           structuur: structuurSchets(raw),
-          bijgewerkt: data.bijgewerkt,
+          bijgewerkt: data?.bijgewerkt ?? null,
         },
         { status: 502 }
       );

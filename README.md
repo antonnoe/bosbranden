@@ -11,6 +11,13 @@ Next.js (App Router, TypeScript), bedoeld voor deployment op Vercel.
 via de API `https://public-api.meteofrance.fr/public/DPMeteoForets/v1`
 (endpoint `GET /carte/encours`, niveaus J+1 en J+2 voor alle departementen).
 
+Geverifieerde responsstructuur (07-07-2026): puntkomma-CSV met kolommen
+`reference_time;dep_code;niveau_j1;niveau_j2;dep_nom`, bijvoorbeeld
+`2026-07-06T14:50:06Z;11;3;4;Aude`. De `reference_time` wordt als
+updatedatum getoond. De normalisator accepteert daarnaast defensief ook
+JSON-varianten, mocht Météo-France het formaat ooit wijzigen (controleer
+dan `/api/debug`).
+
 De gegevens vallen onder de **Etalab Licence Ouverte / Open Licence**. Die
 licentie brengt drie verplichtingen mee, die deze tool als volgt naleeft:
 

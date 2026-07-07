@@ -1,32 +1,26 @@
-// /api/debug — testroute om de werkelijke responsstructuur van
-// {MF_BASIS}/carte/encours te verifiëren (de swagger is alleen via het
-// ingelogde Météo-France-portaal beschikbaar). Geeft een structuurschets
-// (sleutels + types + 2 voorbeelditems per array) terug en logt die ook.
-// Bevat nooit de API-key. De data zelf valt onder de Etalab licence ouverte.
+// /api/debug — testroute om de werkelijke respons van {MF_BASIS}/carte/encours
+// te verifiëren. Geverifieerd (07-07-2026): de respons is puntkomma-CSV met
+// kolommen reference_time;dep_code;niveau_j1;niveau_j2;dep_nom.
+// Deze route toont de vorm (csv/json), de eerste regels resp. een
+// structuurschets, en het genormaliseerde resultaat. Bevat nooit de API-key.
 
 import { NextResponse } from "next/server";
-import { haalRuweKaartOp, normaliseer, structuurSchets } from "@/lib/meteofrance";
+import { haalRuweKaartOp, verwerkBody, structuurSchets } from "@/lib/meteofrance";
 
 export const revalidate = 21600;
 
 export async function GET() {
   try {
     const { status, body } = await haalRuweKaartOp();
-    let raw: unknown = null;
-    let json = true;
-    try {
-      raw = JSON.parse(body);
-    } catch {
-      json = false;
-    }
-    const schets = json ? structuurSchets(raw) : body.slice(0, 2000);
-    console.log("[debug] /carte/encours status:", status);
-    console.log("[debug] structuur:", JSON.stringify(schets).slice(0, 4000));
+    const { vorm, raw, data } = verwerkBody(body);
+    const structuur = vorm === "json" ? structuurSchets(raw) : raw;
+    console.log("[debug] /carte/encours status:", status, "vorm:", vorm);
+    console.log("[debug] structuur:", JSON.stringify(structuur).slice(0, 4000));
     return NextResponse.json({
       upstreamStatus: status,
-      isJson: json,
-      structuur: schets,
-      genormaliseerd: json ? normaliseer(raw) : null,
+      vorm,
+      structuur,
+      genormaliseerd: data,
     });
   } catch (e) {
     return NextResponse.json(
