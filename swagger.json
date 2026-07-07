@@ -1,0 +1,312 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "DonneesPubliquesMeteoForets",
+    "contact": {
+      "name": "Support API Données Publiques",
+      "url": "https://donneespubliques.meteofrance.fr/?fond=produit&id_produit=305&id_rubrique=50",
+      "email": "vd@meteo.fr"
+    },
+    "version": "v1"
+  },
+  "servers": [
+    {
+      "url": "https://public-api.meteofrance.fr/public/DPMeteoForets/v1"
+    }
+  ],
+  "security": [
+    {
+      "default": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Produits Meteo des forêts",
+      "description": "Download services of the forest weather flow putting together an information file of the status at D1, D2, two synthesis national maps at D1, D2 and a synthesis bulletin at D1 and D2. The files downloaded are those of the most recent (current) forest weather broadcast."
+    }
+  ],
+  "paths": {
+    "/carte/encours": {
+      "get": {
+        "tags": [
+          "Produits Meteo des forêts"
+        ],
+        "summary": "Download the forest weather “map” CSV file at D1 and D2,at departmental level.",
+        "description": "Sends the forest fire danger levels for days D1 and D2, for all departements",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Donnée inexsitante"
+          }
+        },
+        "security": [
+          {
+            "default": []
+          }
+        ],
+        "x-auth-type": "Application & Application User",
+        "x-throttling-tier": "Unlimited"
+      }
+    },
+    "/carte/departement/encours": {
+      "get": {
+        "tags": [
+          "Produits Meteo des forêts"
+        ],
+        "summary": "Download the forest weather “map” (CSV, JSON) file, at departmental level.",
+        "description": "Sends the forest fire danger levels for selected day(s) and departement(s)",
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "description": "Format de retour des données, JSON ou CSV",
+            "required": true,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "csv",
+                "json"
+              ]
+            }
+          },
+          {
+            "name": "echeance",
+            "in": "query",
+            "description": "Echéance J1, J2 ou J1J2",
+            "required": true,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "J1J2",
+                "J1",
+                "J2"
+              ]
+            }
+          },
+          {
+            "name": "id-departement",
+            "in": "query",
+            "description": "Identifiant du département",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "6",
+                "7",
+                "8",
+                "9",
+                "10",
+                "11",
+                "12",
+                "13",
+                "14",
+                "15",
+                "16",
+                "17",
+                "18",
+                "19",
+                "21",
+                "22",
+                "23",
+                "24",
+                "25",
+                "26",
+                "27",
+                "28",
+                "29",
+                "2A",
+                "2B",
+                "30",
+                "31",
+                "32",
+                "33",
+                "34",
+                "35",
+                "36",
+                "37",
+                "38",
+                "39",
+                "40",
+                "41",
+                "42",
+                "43",
+                "44",
+                "45",
+                "46",
+                "47",
+                "48",
+                "49",
+                "50",
+                "51",
+                "52",
+                "53",
+                "54",
+                "55",
+                "56",
+                "57",
+                "58",
+                "59",
+                "60",
+                "61",
+                "62",
+                "63",
+                "64",
+                "65",
+                "66",
+                "67",
+                "68",
+                "69",
+                "70",
+                "71",
+                "72",
+                "73",
+                "74",
+                "75",
+                "76",
+                "77",
+                "78",
+                "79",
+                "80",
+                "81",
+                "82",
+                "83",
+                "84",
+                "85",
+                "86",
+                "87",
+                "88",
+                "89",
+                "90",
+                "91",
+                "92",
+                "93",
+                "94",
+                "95"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK (Si une liste vide est renvoyée, c'est que le département est absent ou inexistant)"
+          },
+          "400": {
+            "description": "Contrôle de paramètres en erreur"
+          },
+          "404": {
+            "description": "Donnée inexsitante"
+          }
+        },
+        "security": [
+          {
+            "default": []
+          }
+        ],
+        "x-auth-type": "Application & Application User",
+        "x-throttling-tier": "Unlimited"
+      }
+    },
+    "/vignettenationale-J1/encours": {
+      "get": {
+        "tags": [
+          "Produits Meteo des forêts"
+        ],
+        "summary": "Download the PNG sticker of the national forest weather map for day D+1 in high definition",
+        "description": "Sends the national map of forest fire danger levels for D1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Donnée inexsitante"
+          }
+        },
+        "security": [
+          {
+            "default": []
+          }
+        ],
+        "x-auth-type": "Application & Application User",
+        "x-throttling-tier": "Unlimited"
+      }
+    },
+    "/vignettenationale-J2/encours": {
+      "get": {
+        "tags": [
+          "Produits Meteo des forêts"
+        ],
+        "summary": "Download the PNG sticker of the national forest weather map for day D+2 in high definition",
+        "description": "Sends the national map of forest fire danger levels for D2",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Donnée inexsitante"
+          }
+        },
+        "security": [
+          {
+            "default": []
+          }
+        ],
+        "x-auth-type": "Application & Application User",
+        "x-throttling-tier": "Unlimited"
+      }
+    },
+    "/bulletinnational-J1-et-J2/encours": {
+      "get": {
+        "tags": [
+          "Produits Meteo des forêts"
+        ],
+        "summary": "Download the PNG sticker of the national forest weather map for days D+1 and D+2 in high definition",
+        "description": "Sends the national map of forest fire danger levels for the 2 days",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "404": {
+            "description": "Donnée inexsitante"
+          }
+        },
+        "security": [
+          {
+            "default": []
+          }
+        ],
+        "x-auth-type": "Application & Application User",
+        "x-throttling-tier": "Unlimited"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "default": {
+        "type": "oauth2",
+        "flows": {
+          "implicit": {
+            "authorizationUrl": "https://public-api.meteofrance.fr/authorize",
+            "scopes": {}
+          }
+        }
+      }
+    }
+  }
+}
