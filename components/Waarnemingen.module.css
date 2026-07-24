@@ -31,6 +31,16 @@
   color: rgba(51, 39, 39, 0.75);
 }
 
+.kaartContainer {
+  position: relative;
+  width: 100%;
+}
+
+:global(.embed) .kaartContainer {
+  max-width: 540px;
+  margin: 0 auto;
+}
+
 .mapPin {
   cursor: pointer;
   outline: none;
@@ -41,6 +51,7 @@
   stroke: #fff;
   stroke-width: 2.2;
   vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
 }
 
 .mapPin circle {
@@ -55,20 +66,84 @@
   stroke-width: 3.2;
 }
 
-.waarnemingPaneel {
-  margin-top: 14px;
-  border: 1px solid rgba(128, 0, 0, 0.15);
+.pinPopup {
+  position: absolute;
+  z-index: 20;
+  width: min(310px, calc(100% - 20px));
+  max-height: 390px;
+  overflow: auto;
+  padding: 14px 16px 13px;
+  border: 1px solid rgba(128, 0, 0, 0.22);
   border-radius: 10px;
-  padding: 14px 16px;
-  background: rgba(128, 0, 0, 0.035);
+  background: #fff;
+  color: #332727;
+  box-shadow: 0 8px 24px rgba(45, 25, 25, 0.22);
+  text-align: left;
+  line-height: 1.45;
+}
+
+.pinPopup h3 {
+  margin: 0;
+  padding-right: 25px;
+  font-size: 0.98rem;
+  line-height: 1.4;
+}
+
+.popupRechtsOnder {
+  transform: translate(18px, 18px);
+}
+
+.popupLinksOnder {
+  transform: translate(calc(-100% - 18px), 18px);
+}
+
+.popupRechtsBoven {
+  transform: translate(18px, calc(-100% - 18px));
+}
+
+.popupLinksBoven {
+  transform: translate(calc(-100% - 18px), calc(-100% - 18px));
+}
+
+.popupSluit {
+  position: absolute;
+  top: 7px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #800000;
+  font: inherit;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.popupSluit:hover,
+.popupSluit:focus-visible {
+  background: rgba(128, 0, 0, 0.08);
+  outline: none;
+}
+
+.popupBron {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+/* Het oude detailpaneel onder de kaart wordt vervangen door de pin-popup. */
+.waarnemingPaneel {
+  display: none;
 }
 
 .detailGrid {
   display: grid;
-  grid-template-columns: minmax(125px, auto) 1fr;
-  gap: 4px 12px;
-  margin: 8px 0 10px;
-  font-size: 0.92rem;
+  grid-template-columns: minmax(105px, auto) 1fr;
+  gap: 4px 10px;
+  margin: 9px 0 10px;
+  font-size: 0.86rem;
 }
 
 .detailLabel {
@@ -76,14 +151,22 @@
 }
 
 .caveat {
-  margin: 10px 0 0;
-  padding-top: 9px;
+  margin: 9px 0 0;
+  padding-top: 8px;
   border-top: 1px solid rgba(128, 0, 0, 0.12);
-  font-size: 0.86rem;
-  line-height: 1.6;
+  font-size: 0.79rem;
+  line-height: 1.5;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 560px) {
+  .pinPopup {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin-top: 10px;
+    transform: none;
+  }
+
   .detailGrid {
     grid-template-columns: 1fr;
     gap: 0;
