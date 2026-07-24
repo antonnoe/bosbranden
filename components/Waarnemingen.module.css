@@ -1,0 +1,95 @@
+.bediening {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 8px 0 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(128, 0, 0, 0.12);
+  border-radius: 8px;
+  background: rgba(128, 0, 0, 0.035);
+}
+
+.checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.92rem;
+}
+
+.checkbox input {
+  width: 17px;
+  height: 17px;
+  accent-color: #800000;
+}
+
+.status {
+  margin: 0;
+  font-size: 0.84rem;
+  color: rgba(51, 39, 39, 0.75);
+}
+
+.mapPin {
+  cursor: pointer;
+  outline: none;
+}
+
+.mapPin path {
+  fill: #800000;
+  stroke: #fff;
+  stroke-width: 2.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.mapPin circle {
+  fill: #fff;
+  pointer-events: none;
+}
+
+.mapPin:hover path,
+.mapPin:focus-visible path,
+.mapPinSelected path {
+  fill: #5f0000;
+  stroke-width: 3.2;
+}
+
+.waarnemingPaneel {
+  margin-top: 14px;
+  border: 1px solid rgba(128, 0, 0, 0.15);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: rgba(128, 0, 0, 0.035);
+}
+
+.detailGrid {
+  display: grid;
+  grid-template-columns: minmax(125px, auto) 1fr;
+  gap: 4px 12px;
+  margin: 8px 0 10px;
+  font-size: 0.92rem;
+}
+
+.detailLabel {
+  font-weight: 600;
+}
+
+.caveat {
+  margin: 10px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid rgba(128, 0, 0, 0.12);
+  font-size: 0.86rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 520px) {
+  .detailGrid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .detailGrid > :nth-child(even) {
+    margin-bottom: 6px;
+  }
+}

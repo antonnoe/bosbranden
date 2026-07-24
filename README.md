@@ -2,12 +2,16 @@
 
 Nederlandstalige tool die het verwachte **bosbrandgevaar in Frankrijk
 (métropole, incl. Corsica)** toont voor morgen (J+1) en overmorgen (J+2), per
-departement — via een postcode-check en een klikbare kaart. Gebouwd met
-Next.js (App Router, TypeScript), bedoeld voor deployment op Vercel.
+departement — via een postcode-check en een klikbare kaart. De kaart kan ook
+recente **NASA FIRMS VIIRS-satellietwaarnemingen van hittebronnen** tonen als
+rustige, aanklikbare pins. Gebouwd met Next.js (App Router, TypeScript), bedoeld
+voor deployment op Vercel.
 
-## Databron en licentie
+## Databronnen en licenties
 
-**Enige databron:** Météo-France — [Météo des forêts](https://meteofrance.com/meteo-des-forets),
+### Météo-France — brandrisico
+
+Météo-France — [Météo des forêts](https://meteofrance.com/meteo-des-forets),
 via de API `https://public-api.meteofrance.fr/public/DPMeteoForets/v1`
 (endpoint `GET /carte/encours`, niveaus J+1 en J+2 voor alle departementen).
 
@@ -18,126 +22,118 @@ updatedatum getoond. De normalisator accepteert daarnaast defensief ook
 JSON-varianten, mocht Météo-France het formaat ooit wijzigen (controleer
 dan `/api/debug`).
 
-De gegevens vallen onder de **Etalab Licence Ouverte / Open Licence**. Die
-licentie brengt drie verplichtingen mee, die deze tool als volgt naleeft:
+De gegevens vallen onder de **Etalab Licence Ouverte / Open Licence**. De tool
+toont de bron, de datum van de laatste update en neemt de niveaus ongewijzigd
+over. De Météo des forêts wordt alleen tijdens het seizoen (juni t/m september)
+dagelijks gepubliceerd.
 
-1. **Bronvermelding** — "Bron: Météo-France — Météo des forêts" staat met
-   hyperlink op elke weergave (postcoderesultaat én kaart).
-2. **Datum van laatste update** — de productie-/updatedatum uit de
-   API-respons wordt bij elke weergave getoond.
-3. **Geen verminking van de data** — niveaus worden 1-op-1 overgenomen,
-   nooit herberekend, afgerond of anders gelabeld dan de bron. De vier
-   risicokleuren zijn de officiële Météo-France-kleuren.
+### NASA FIRMS — satellietwaarnemingen
 
-De Météo des forêts wordt alleen tijdens het seizoen (juni t/m september)
-dagelijks rond 17.00 uur gepubliceerd. Buiten het seizoen toont de tool een
-nette melding dat er geen gegevens beschikbaar zijn.
+De pinlaag gebruikt de officiële
+[NASA FIRMS Area API](https://firms.modaps.eosdis.nasa.gov/api/area/) en haalt
+VIIRS-detecties op van NOAA-20, NOAA-21 en Suomi NPP. Er worden alleen
+waarnemingen van de afgelopen 24 uur met nominale of hoge betrouwbaarheid
+geselecteerd. Punten buiten de metropolitane Franse departementsgrenzen worden
+verwijderd.
+
+Een VIIRS-detectie is een gemeten thermische anomalie en **niet automatisch een
+door de autoriteiten bevestigde natuurbrand**. De interface gebruikt daarom
+consequent de termen `satellietwaarneming`, `hittebron` en `detectie`.
 
 **Kaartgeometrie:** gegenereerd uit
 [gregoiredavid/france-geojson](https://github.com/gregoiredavid/france-geojson)
 (`departements-version-simplifiee.geojson`, afgeleid van IGN GEOFLA,
-eveneens **Etalab Licence Ouverte**). Regenereren kan met
-`npm run generate:map`.
+**Etalab Licence Ouverte**). Regenereren kan met `npm run generate:map`.
 
 ## Architectuur
 
-- `app/api/danger` — serverless route die `/carte/encours` ophaalt met de
-  API-key in de `apikey`-header, **6 uur cachet** (Next.js `revalidate`) en
-  normaliseert naar `{ niveaus: { "01": { j1, j2 }, … }, bijgewerkt }`.
-  De frontend praat uitsluitend met deze route; de API-key komt nooit in
-  clientcode of in de repo.
-- `app/api/debug` — testroute die de werkelijke responsstructuur van
-  Météo-France rapporteert (structuurschets: sleutels, types, 2
-  voorbeelditems per array). Handig bij een API-wijziging.
-- `lib/departements.ts` — statische tabel van alle 96 metropolitane
-  departementen met code, naam en prefectuur-URL
-  (patroon `https://www.<slug>.gouv.fr`; enige afwijking: Paris/75 →
-  `prefectures-regions.gouv.fr/ile-de-france`).
-- `lib/kaart-paths.ts` — gegenereerde SVG-paths per departement
-  (`data-dep`-attribuut = departementcode).
+- `app/api/danger` — serverless route voor Météo-France; 6 uur cache.
+- `app/api/waarnemingen` — serverless route voor NASA FIRMS; 15 minuten cache.
+  De FIRMS MAP_KEY blijft uitsluitend server-side.
+- `app/api/debug` — testroute voor de Météo-France-responsstructuur.
+- `lib/firms.ts` — ophalen, CSV-parsing, tijdsfilter en normalisatie van FIRMS.
+- `lib/departement-punt.ts` — point-in-polygon-filter zodat alleen punten binnen
+  de metropolitane Franse departementen worden getoond.
+- `lib/departements.ts` — tabel van alle 96 metropolitane departementen.
+- `lib/kaart-paths.ts` — gegenereerde SVG-paths per departement.
 
 Postcode-logica: eerste 2 cijfers = departementcode; `20xxx` toont
-Corse-du-Sud (2A) én Haute-Corse (2B); `97`/`98` geeft de melding dat de
-tool alleen Frankrijk métropole dekt.
+Corse-du-Sud (2A) én Haute-Corse (2B); `97`/`98` geeft de melding dat de tool
+alleen Frankrijk métropole dekt.
 
 ## Deployment op Vercel
 
-1. Importeer deze repository in Vercel (framework: Next.js, geen extra
-   instellingen nodig).
+1. Importeer deze repository in Vercel (framework: Next.js).
 2. Zet bij **Settings → Environment Variables**:
 
    | Naam | Waarde |
    |---|---|
-   | `METEOFRANCE_API_KEY` | de API-key van het Météo-France-portaal |
+   | `METEOFRANCE_API_KEY` | API-key voor Météo des forêts |
+   | `FIRMS_MAP_KEY` | gratis NASA FIRMS MAP_KEY |
 
-   De key genereer je op [portail-api.meteofrance.fr](https://portail-api.meteofrance.fr)
-   bij de API "Météo des forêts" (DPMeteoForets) via *API Key → Generate key*.
+   De Météo-France-key genereer je op
+   [portail-api.meteofrance.fr](https://portail-api.meteofrance.fr).
+
+   De FIRMS-key vraag je gratis aan via
+   [NASA FIRMS Web Services](https://firms.modaps.eosdis.nasa.gov/api/area/).
+   De key heeft volgens NASA een ruime transactielimiet; deze app gebruikt door
+   de servercache hoogstens drie bronaanvragen per kwartier.
 3. Deploy. Controleer daarna:
-   - `https://<jouw-domein>/api/debug` — laat de responsstructuur zien;
-   - `https://<jouw-domein>/` — de tool zelf;
-   - `https://<jouw-domein>/?embed=1` — de embed-variant.
+   - `/api/debug` — Météo-France-responsstructuur;
+   - `/api/waarnemingen` — genormaliseerde FIRMS-waarnemingen;
+   - `/` — de tool zelf;
+   - `/?embed=1` — de embed-variant.
+
+Zonder `FIRMS_MAP_KEY` blijft de risicokaart normaal werken en wordt de pinlaag
+netjes als tijdelijk niet beschikbaar weergegeven. Er worden nooit test- of
+demopinnen als live gegevens getoond.
 
 ## Embedden
 
 De tool ondersteunt `?embed=1`: geen sitekop/-voet, compacte marges,
 responsive vanaf 320px breed.
 
-**NING 2.0** (HTML-blok):
+**NING 2.0**:
 
 ```html
 <iframe
   src="https://JOUW-DOMEIN.vercel.app/?embed=1"
-  width="750" height="1100" style="width:100%;max-width:750px;border:0;"
-  loading="lazy" title="Brandrisico Frankrijk — Météo des forêts">
+  width="750" height="1250" style="width:100%;max-width:750px;border:0;"
+  loading="lazy" title="Brandrisico en satellietwaarnemingen Frankrijk">
 </iframe>
 ```
 
-**Infofrankrijk (WordPress/Divi)** — voeg een *Code*-module toe met:
+**Infofrankrijk (WordPress/Divi)**:
 
 ```html
 <div style="max-width:750px;margin:0 auto;">
   <iframe
     src="https://JOUW-DOMEIN.vercel.app/?embed=1"
-    style="width:100%;border:0;height:1100px;"
-    loading="lazy" title="Brandrisico Frankrijk — Météo des forêts">
+    style="width:100%;border:0;height:1250px;"
+    loading="lazy" title="Brandrisico en satellietwaarnemingen Frankrijk">
   </iframe>
 </div>
 ```
 
-Tip: pas `height` aan als je huisstijl meer of minder ruimte nodig heeft;
-de inhoud groeit mee vanaf 320px breedte.
-
 ## Jaarlijkse checklist
 
-- [ ] **Vóór seizoensstart (begin april):** controleer op
-      [portail-api.meteofrance.fr](https://portail-api.meteofrance.fr) of de
-      endpointversie (`/DPMeteoForets/v1`) nog actueel is en bekijk
-      `/api/debug` of de responsstructuur ongewijzigd is.
-- [ ] **07-07-2027: de API-key vervalt.** Genereer op het portaal een nieuwe
-      key en werk `METEOFRANCE_API_KEY` in Vercel bij (daarna redeployen of
-      wachten tot de cache van 6 uur verloopt).
-- [ ] Steekproef: kloppen de prefectuur-links nog? (De rijksoverheid wijzigt
-      soms domeinen; het patroon is `www.<departement>.gouv.fr`.)
-- [ ] Controleer de licentieverplichtingen (bronvermelding, updatedatum,
-      geen bewerking van de data) na eventuele UI-wijzigingen.
+- [ ] Vóór seizoensstart: controleer de Météo-France-endpoint en `/api/debug`.
+- [ ] Controleer vóór het seizoen de geldigheid van beide API-keys in Vercel.
+- [ ] Controleer steekproefsgewijs prefectuur-links.
+- [ ] Controleer na wijzigingen de bronvermeldingen en disclaimers.
+- [ ] Controleer of NASA FIRMS de sensornamen of CSV-kolommen heeft gewijzigd.
 
 ## Lokaal ontwikkelen
 
 ```bash
 npm install
-METEOFRANCE_API_KEY=… npm run dev
+METEOFRANCE_API_KEY=… FIRMS_MAP_KEY=… npm run dev
 ```
-
-Zonder key blijft de site werken; `/api/danger` geeft dan een nette
-foutmelding en de kaart kleurt grijs ("geen gegevens").
 
 ## Overig
 
-- Geen analytics, geen cookies; als externe bron alleen Google Fonts
-  (Poppins/Mulish).
-- Footer linkt naar [feux-foret.gouv.fr](https://feux-foret.gouv.fr)
-  ("Officiële preventie-informatie").
-- Disclaimer op elke weergave: de Météo des forêts toont het **verwachte
-  gevaarniveau**, geen actuele branden. Zie je rook of vuur: bel 18 of 112
-  (doven/slechthorenden: 114). Volg bij een brand altijd FR-Alert en de
-  instructies van prefectuur en mairie.
+- Geen analytics, cookies of advertenties; als externe frontendbron alleen
+  Google Fonts (Poppins/Mulish).
+- Footer linkt naar officiële preventie-informatie, Météo-France en NASA FIRMS.
+- Zie je rook of vuur: bel 18 of 112 (doven/slechthorenden: 114). Volg altijd
+  FR-Alert en de instructies van prefectuur en mairie.

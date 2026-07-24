@@ -1,14 +1,16 @@
 "use client";
 
 // Hoofdcomponent: postcode-check + klikbare kaart, met verplichte
-// bronvermelding, updatedatum en disclaimer (licentie-eisen Météo-France).
+// bronvermelding, updatedatum en disclaimers voor Météo-France en NASA FIRMS.
 
 import { useEffect, useMemo, useState } from "react";
 import { DEP_BY_CODE, departementVoorPostcode, type Departement } from "@/lib/departements";
 import { NIVEAUS, niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
+import type { Waarneming, WaarnemingenAntwoord } from "@/lib/waarnemingen";
 import Voortgang from "@/components/Voortgang";
 import NiveauBlok from "@/components/NiveauBlok";
 import FranceKaart from "@/components/FranceKaart";
+import styles from "@/components/Waarnemingen.module.css";
 
 export type Niveaus = Record<string, { j1: number | null; j2: number | null }>;
 
@@ -44,7 +46,7 @@ function Disclaimer() {
 
 function formatteerDatum(iso: string): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso; // onbekend formaat: toon zoals de bron het geeft
+  if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat("nl-NL", {
     dateStyle: "full",
     timeStyle: "short",
@@ -52,10 +54,19 @@ function formatteerDatum(iso: string): string {
   }).format(d);
 }
 
+function formatteerGetal(waarde: number): string {
+  return new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(waarde);
+}
+
 export default function Tool({ embed }: { embed: boolean }) {
   const [data, setData] = useState<DangerAntwoord | null>(null);
   const [laden, setLaden] = useState(true);
   const [laadFout, setLaadFout] = useState<string | null>(null);
+
+  const [waarnemingenData, setWaarnemingenData] = useState<WaarnemingenAntwoord | null>(null);
+  const [waarnemingenLaden, setWaarnemingenLaden] = useState(true);
+  const [toonWaarnemingen, setToonWaarnemingen] = useState(true);
+  const [gekozenWaarnemingId, setGekozenWaarnemingId] = useState<string | null>(null);
 
   const [postcode, setPostcode] = useState("");
   const [gezocht, setGezocht] = useState<string | null>(null);
@@ -94,12 +105,44 @@ export default function Tool({ embed }: { embed: boolean }) {
     };
   }, [embed]);
 
+  useEffect(() => {
+    let actief = true;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/waarnemingen");
+        const json: WaarnemingenAntwoord = await res.json();
+        if (actief) setWaarnemingenData(json);
+      } catch {
+        if (actief) {
+          setWaarnemingenData({
+            beschikbaar: false,
+            waarnemingen: [],
+            bijgewerkt: null,
+            bron: "NASA FIRMS — VIIRS",
+            periodeUren: 24,
+            opmerking: "Actuele satellietwaarnemingen zijn tijdelijk niet beschikbaar.",
+          });
+        }
+      } finally {
+        if (actief) setWaarnemingenLaden(false);
+      }
+    })();
+
+    return () => {
+      actief = false;
+    };
+  }, []);
+
   const zoekresultaat = useMemo(
     () => (gezocht === null ? null : departementVoorPostcode(gezocht)),
     [gezocht]
   );
 
   const niveaus = data?.niveaus ?? {};
+  const waarnemingen = waarnemingenData?.waarnemingen ?? [];
+  const gekozenWaarneming =
+    waarnemingen.find((waarneming) => waarneming.id === gekozenWaarnemingId) ?? null;
 
   return (
     <div className="omhulsel">
@@ -107,8 +150,8 @@ export default function Tool({ embed }: { embed: boolean }) {
         <header className="site-kop">
           <h1>Brandrisico Frankrijk</h1>
           <p>
-            Het verwachte bosbrandgevaar per departement voor morgen en overmorgen,
-            volgens de Météo des forêts van Météo-France.
+            Het verwachte bosbrandgevaar per departement, met een rustige laag van recente
+            satellietwaarnemingen van hittebronnen.
           </p>
         </header>
       )}
@@ -219,14 +262,53 @@ export default function Tool({ embed }: { embed: boolean }) {
         </div>
 
         <p style={{ marginTop: 0 }}>
-          Klik of tik op een departement voor de details.
+          Klik op een departement voor het risico. Klik op een pin voor de gemeten
+          satellietgegevens.
         </p>
+
+        <div className={styles.bediening}>
+          <label className={styles.checkbox}>
+            <input
+              type="checkbox"
+              checked={
+                toonWaarnemingen &&
+                !!waarnemingenData?.beschikbaar &&
+                waarnemingen.length > 0
+              }
+              disabled={!waarnemingenData?.beschikbaar || waarnemingen.length === 0}
+              onChange={(e) => {
+                setToonWaarnemingen(e.target.checked);
+                if (!e.target.checked) setGekozenWaarnemingId(null);
+              }}
+            />
+            Satellietwaarnemingen tonen
+          </label>
+          <p className={styles.status} aria-live="polite">
+            {waarnemingenLaden
+              ? "Waarnemingen laden…"
+              : waarnemingenData?.beschikbaar
+                ? waarnemingen.length === 0
+                  ? "Geen VIIRS-detecties boven Frankrijk in de afgelopen 24 uur."
+                  : `${waarnemingen.length} VIIRS-detecties in de afgelopen 24 uur.`
+                : waarnemingenData?.opmerking ?? "Waarnemingen niet beschikbaar."}
+          </p>
+        </div>
 
         <FranceKaart
           niveaus={niveaus}
           echeance={echeance}
           gekozen={gekozenDep}
-          onKies={(code) => setGekozenDep((huidig) => (huidig === code ? null : code))}
+          onKies={(code) => {
+            setGekozenWaarnemingId(null);
+            setGekozenDep((huidig) => (huidig === code ? null : code));
+          }}
+          waarnemingen={waarnemingen}
+          toonWaarnemingen={toonWaarnemingen && !!waarnemingenData?.beschikbaar}
+          gekozenWaarneming={gekozenWaarnemingId}
+          onKiesWaarneming={(id) => {
+            setGekozenDep(null);
+            setGekozenWaarnemingId((huidig) => (huidig === id ? null : id));
+          }}
         />
 
         <div className="legenda" aria-hidden="true">
@@ -238,7 +320,19 @@ export default function Tool({ embed }: { embed: boolean }) {
           <span>
             <i style={{ background: GEEN_DATA_KLEUR }} /> geen gegevens
           </span>
+          {waarnemingenData?.beschikbaar && waarnemingen.length > 0 && (
+            <span>
+              <i style={{ background: "#800000", borderRadius: "50%" }} /> satellietdetectie
+            </span>
+          )}
         </div>
+
+        {gekozenWaarneming && (
+          <WaarnemingPaneel
+            waarneming={gekozenWaarneming}
+            onSluit={() => setGekozenWaarnemingId(null)}
+          />
+        )}
 
         {gekozenDep && DEP_BY_CODE[gekozenDep] && (
           <div className="dep-paneel" aria-live="polite">
@@ -290,6 +384,14 @@ export default function Tool({ embed }: { embed: boolean }) {
               rel="noopener noreferrer"
             >
               Météo-France — Météo des forêts
+            </a>{" "}
+            ·{" "}
+            <a
+              href="https://firms.modaps.eosdis.nasa.gov/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              NASA FIRMS
             </a>
           </p>
         )}
@@ -301,6 +403,80 @@ export default function Tool({ embed }: { embed: boolean }) {
           </p>
         )}
       </footer>
+    </div>
+  );
+}
+
+function WaarnemingPaneel({
+  waarneming,
+  onSluit,
+}: {
+  waarneming: Waarneming;
+  onSluit: () => void;
+}) {
+  const departement = DEP_BY_CODE[waarneming.departementCode];
+
+  return (
+    <div className={styles.waarnemingPaneel} aria-live="polite">
+      <div className="paneel-kop">
+        <h3>
+          Satellietwaarneming{" "}
+          {departement ? (
+            <span className="dep-code">{waarneming.departementCode}</span>
+          ) : null}
+        </h3>
+        <button
+          type="button"
+          className="paneel-sluit"
+          aria-label="Paneel sluiten"
+          onClick={onSluit}
+        >
+          ×
+        </button>
+      </div>
+
+      <div className={styles.detailGrid}>
+        <span className={styles.detailLabel}>Locatie</span>
+        <span>
+          {departement?.naam ?? `departement ${waarneming.departementCode}`} ·{" "}
+          {waarneming.latitude.toFixed(4)}, {waarneming.longitude.toFixed(4)}
+        </span>
+
+        <span className={styles.detailLabel}>Waargenomen</span>
+        <span>{formatteerDatum(waarneming.waargenomenOp)}</span>
+
+        <span className={styles.detailLabel}>Sensor</span>
+        <span>
+          {waarneming.instrument} · {waarneming.satelliet}
+          {waarneming.dagNacht ? ` · ${waarneming.dagNacht}` : ""}
+        </span>
+
+        <span className={styles.detailLabel}>Betrouwbaarheid</span>
+        <span>{waarneming.betrouwbaarheid}</span>
+
+        {waarneming.frp !== null && (
+          <>
+            <span className={styles.detailLabel}>FRP</span>
+            <span>{formatteerGetal(waarneming.frp)} MW</span>
+          </>
+        )}
+      </div>
+
+      <p style={{ margin: 0, fontSize: "0.88rem" }}>
+        Bron:{" "}
+        <a
+          href="https://firms.modaps.eosdis.nasa.gov/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          NASA FIRMS — VIIRS
+        </a>
+      </p>
+      <p className={styles.caveat}>
+        Dit is een door een satelliet gemeten hittebron. Het is niet automatisch een door
+        de Franse autoriteiten bevestigde natuurbrand. FRP is het geschatte uitgestraalde
+        vermogen en zegt niet hoeveel hectare is verbrand.
+      </p>
     </div>
   );
 }
