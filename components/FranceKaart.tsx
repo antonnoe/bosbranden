@@ -75,9 +75,9 @@ export default function FranceKaart({
             waarneming.latitude
           );
           const geselecteerd = gekozenWaarneming === waarneming.id;
-          const label = `Satellietwaarneming in departement ${waarneming.departementCode}, ${
+          const label = `Satellietwaarneming in departement ${waarneming.departementCode}, betrouwbaarheid ${
             waarneming.betrouwbaarheid
-          }e betrouwbaarheid, ${formatteerKorteDatum(waarneming.waargenomenOp)}`;
+          }, ${formatteerKorteDatum(waarneming.waargenomenOp)}`;
 
           return (
             <g
