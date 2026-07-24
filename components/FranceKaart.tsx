@@ -1,23 +1,33 @@
 "use client";
 
-// Klikbare SVG-kaart van Frankrijk (métropole incl. Corsica).
-// Elk departement is een <path data-dep="..."> , ingekleurd naar niveau,
-// en volledig met toetsenbord en touch te bedienen.
+// Klikbare SVG-kaart van Frankrijk (métropole incl. Corsica), met optionele
+// rustige pinlaag voor recente NASA FIRMS-satellietwaarnemingen.
 
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
+import { projecteerCoordinaat } from "@/lib/kaart-projectie";
 import { niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
+import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
+import styles from "@/components/Waarnemingen.module.css";
 
 export default function FranceKaart({
   niveaus,
   echeance,
   gekozen,
   onKies,
+  waarnemingen,
+  toonWaarnemingen,
+  gekozenWaarneming,
+  onKiesWaarneming,
 }: {
   niveaus: Niveaus;
   echeance: "j1" | "j2";
   gekozen: string | null;
   onKies: (code: string) => void;
+  waarnemingen: Waarneming[];
+  toonWaarnemingen: boolean;
+  gekozenWaarneming: string | null;
+  onKiesWaarneming: (id: string) => void;
 }) {
   return (
     <svg
@@ -26,7 +36,7 @@ export default function FranceKaart({
       role="group"
       aria-label={`Kaart van Frankrijk met bosbrandgevaar per departement (${
         echeance === "j1" ? "morgen" : "overmorgen"
-      })`}
+      })${toonWaarnemingen ? " en satellietwaarnemingen van de afgelopen 24 uur" : ""}`}
     >
       {KAART_PADEN.map((pad) => {
         const waarde = niveaus[pad.code]?.[echeance] ?? null;
@@ -57,6 +67,56 @@ export default function FranceKaart({
           </path>
         );
       })}
+
+      {toonWaarnemingen &&
+        waarnemingen.map((waarneming) => {
+          const { x, y } = projecteerCoordinaat(
+            waarneming.longitude,
+            waarneming.latitude
+          );
+          const geselecteerd = gekozenWaarneming === waarneming.id;
+          const label = `Satellietwaarneming in departement ${waarneming.departementCode}, ${
+            waarneming.betrouwbaarheid
+          }e betrouwbaarheid, ${formatteerKorteDatum(waarneming.waargenomenOp)}`;
+
+          return (
+            <g
+              key={waarneming.id}
+              className={`${styles.mapPin}${geselecteerd ? ` ${styles.mapPinSelected}` : ""}`}
+              transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`}
+              role="button"
+              tabIndex={0}
+              aria-label={label}
+              aria-pressed={geselecteerd}
+              onClick={(e) => {
+                e.stopPropagation();
+                onKiesWaarneming(waarneming.id);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onKiesWaarneming(waarneming.id);
+                }
+              }}
+            >
+              <title>{label}</title>
+              <path d="M0-12C-6.6-12-11-7.6-11-1.5C-11 6 0 15 0 15S11 6 11-1.5C11-7.6 6.6-12 0-12Z" />
+              <circle cy="-1.5" r="3.2" />
+            </g>
+          );
+        })}
     </svg>
   );
+}
+
+function formatteerKorteDatum(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("nl-NL", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  }).format(d);
 }
