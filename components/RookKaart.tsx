@@ -1,23 +1,53 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import styles from "@/components/RookKaart.module.css";
 
 const TIJDEN = [0, 6, 12, 24] as const;
 type Tijdstap = (typeof TIJDEN)[number];
 
+interface RookMetadata {
+  beschikbaar: boolean;
+  gevraagdUur: number;
+  geldigVoor: string | null;
+  laag: string;
+  eenheid: string;
+  laagsteKlasse: string;
+  toelichting: string;
+}
+
 export default function RookKaart() {
   const [tijdstap, setTijdstap] = useState<Tijdstap>(0);
   const [dekking, setDekking] = useState(62);
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState(false);
+  const [metadata, setMetadata] = useState<RookMetadata | null>(null);
   const afbeeldingUrl = useMemo(() => `/api/rook?uur=${tijdstap}`, [tijdstap]);
+
+  useEffect(() => {
+    let actief = true;
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/rook?meta=1&uur=${tijdstap}`, { cache: "no-store" });
+        const json = (await res.json()) as RookMetadata;
+        if (actief) setMetadata(json);
+      } catch {
+        if (actief) setMetadata(null);
+      }
+    })();
+
+    return () => {
+      actief = false;
+    };
+  }, [tijdstap]);
 
   function kiesTijd(volgende: Tijdstap) {
     setTijdstap(volgende);
     setLaden(true);
     setFout(false);
+    setMetadata(null);
   }
 
   const kaartLabel = `CAMS-verwachting van rook uit natuurbranden voor ${
@@ -65,6 +95,18 @@ export default function RookKaart() {
             />
           </label>
         </div>
+
+        {!laden && !fout && (
+          <p className={styles.geladenStatus} aria-live="polite">
+            <strong>CAMS-laag geladen.</strong>{" "}
+            {metadata?.geldigVoor ? (
+              <>Modeltijd: {formatteerModeltijd(metadata.geldigVoor)}. </>
+            ) : null}
+            Lichtblauw is de laagste klasse ({metadata?.laagsteKlasse ?? "0–2 µg/m³"}). Een vrijwel
+            volledig lichtblauwe kaart betekent dus geen of zeer weinig voorspelde natuurbrandrook op
+            leefniveau — niet dat de kaart nog moet laden.
+          </p>
+        )}
 
         <div className={styles.kaartKader} role="img" aria-label={kaartLabel}>
           <img
@@ -126,4 +168,14 @@ export default function RookKaart() {
       </section>
     </div>
   );
+}
+
+function formatteerModeltijd(iso: string): string {
+  const datum = new Date(iso);
+  if (Number.isNaN(datum.getTime())) return iso;
+  return new Intl.DateTimeFormat("nl-NL", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(datum);
 }
