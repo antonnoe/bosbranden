@@ -3,16 +3,20 @@ import type { FrAlertAntwoord, FrAlertMelding, FrAlertZekerheid } from "@/lib/fr
 
 export const runtime = "nodejs";
 
-const LIJST_URL = "https://fr-alert.gouv.fr/les-alertes";
-const MAX_DETAILPAGINAS = 24;
-const MAX_OUDERDOM_DAGEN = 14;
+const LIJST_URLS = [
+  "https://fr-alert.gouv.fr/les-alertes/33/type/Actual/all",
+  "https://www.fr-alert.gouv.fr/les-alertes/33/type/Actual/all",
+  "https://fr-alert.gouv.fr/les-alertes",
+  "https://fr-alert.gouv.fr/tableau-alertes/2026",
+] as const;
+const MAX_DETAILPAGINAS = 60;
+const MAX_OUDERDOM_DAGEN = 21;
 const USER_AGENT =
-  "Infofrankrijk-Bosbrandenkaart/1.0 (+https://www.nederlanders.fr/bosbranden)";
+  "Infofrankrijk-Bosbrandenkaart/1.1 (+https://www.nederlanders.fr/bosbranden)";
 
 export async function GET() {
   try {
-    const lijstHtml = await haalTekstOp(LIJST_URL, 300);
-    const links = vindAlertLinks(lijstHtml).slice(0, MAX_DETAILPAGINAS);
+    const links = await haalAlertLinksOp();
 
     if (links.length === 0) {
       return antwoord({
@@ -24,7 +28,7 @@ export async function GET() {
       });
     }
 
-    const meldingen = await verwerkInBatches(links, 6, leesMelding);
+    const meldingen = await verwerkInBatches(links.slice(0, MAX_DETAILPAGINAS), 6, leesMelding);
     const recenteMeldingen = meldingen
       .filter((melding): melding is FrAlertMelding => melding !== null)
       .filter(isRecent)
@@ -42,16 +46,13 @@ export async function GET() {
     });
   } catch (fout) {
     console.error("FR-Alert ophalen mislukt", fout);
-    return antwoord(
-      {
-        beschikbaar: false,
-        meldingen: [],
-        bijgewerkt: null,
-        bron: "FR-Alert",
-        opmerking: "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
-      },
-      200
-    );
+    return antwoord({
+      beschikbaar: false,
+      meldingen: [],
+      bijgewerkt: null,
+      bron: "FR-Alert",
+      opmerking: "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
+    });
   }
 }
 
@@ -59,39 +60,56 @@ function antwoord(body: FrAlertAntwoord, status = 200) {
   return NextResponse.json(body, {
     status,
     headers: {
-      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=900",
+      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
     },
   });
 }
 
+async function haalAlertLinksOp(): Promise<string[]> {
+  const links = new Set<string>();
+
+  for (const lijstUrl of LIJST_URLS) {
+    try {
+      const html = await haalTekstOp(lijstUrl, 120);
+      for (const link of vindAlertLinks(html, lijstUrl)) links.add(link);
+      if (links.size >= 20) break;
+    } catch (fout) {
+      console.warn("FR-Alert-lijst overgeslagen", lijstUrl, fout);
+    }
+  }
+
+  return [...links];
+}
+
 async function leesMelding(url: string): Promise<FrAlertMelding | null> {
   try {
-    const html = await haalTekstOp(url, 300);
+    const html = await haalTekstOp(url, 120);
     const tekst = htmlNaarTekst(html);
 
-    if (!/Incendie\s*-\s*Feu de forêt/i.test(tekst)) return null;
-    if (/\b(?:EXERCICE|TEST D['’ ]?ALERTE)\b/i.test(tekst)) return null;
+    if (!/Incendie\s*[-–]\s*Feu de forêt/i.test(tekst)) return null;
+    if (/\b(?:EXERCICE|TEST D['’ ]?ALERTE|MESSAGE DE TEST)\b/i.test(tekst)) return null;
 
     const koppen = [...html.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
       .map((match) => htmlNaarTekst(match[1]))
       .filter(Boolean);
-    const categorieIndex = koppen.findIndex((kop) => /Incendie\s*-\s*Feu de forêt/i.test(kop));
+    const categorieIndex = koppen.findIndex((kop) =>
+      /Incendie\s*[-–]\s*Feu de forêt/i.test(kop)
+    );
     const titel =
       koppen[categorieIndex + 1] ??
       koppen.find((kop) => /(?:feu de forêt|incendie)/i.test(kop)) ??
       "Natuurbrandmelding";
     const locatie = vindLocatie(tekst, titel);
-    const coordinaten = await geocodeer(locatie, titel);
+    const coordinaten = vindCoordinatenInHtml(html) ?? (await geocodeer(locatie, titel));
     if (!coordinaten) return null;
 
-    const datumTijden = [...html.matchAll(/datetime=["']([^"']+)["']/gi)]
-      .map((match) => normaliseerDatum(match[1]))
-      .filter((waarde): waarde is string => waarde !== null);
+    const datumTijden = vindDatumTijden(html, tekst);
     const begonnenOp = datumTijden[0] ?? null;
     const eindigtOp = datumTijden.length > 1 ? datumTijden[datumTijden.length - 1] : null;
     const zekerheid = vertaalZekerheid(tekst.match(/Certitude\s*:\s*([^\n]+)/i)?.[1]);
     const bron =
-      tekst.match(/Source\s*:\s*([^\n]+)/i)?.[1]?.trim() || "Franse autoriteiten via FR-Alert";
+      tekst.match(/Source\s*:\s*([^\n]+)/i)?.[1]?.trim() ||
+      "Franse autoriteiten via FR-Alert";
     const id = url.split("/").pop() || url;
 
     return {
@@ -113,25 +131,45 @@ async function leesMelding(url: string): Promise<FrAlertMelding | null> {
   }
 }
 
-function vindAlertLinks(html: string): string[] {
+function vindAlertLinks(html: string, basisUrl: string): string[] {
   const links = new Set<string>();
-  for (const match of html.matchAll(/href=["']([^"']*\/les-alertes\/FR-ALERT\.[^"'#?]+)["']/gi)) {
-    try {
-      links.add(new URL(decodeHtml(match[1]), LIJST_URL).toString());
-    } catch {
-      // Ongeldige link overslaan.
+  const patronen = [
+    /href=["']([^"']*\/les-alertes\/FR-ALERT\.[^"'#?\s<]+)["']/gi,
+    /href=["']([^"']*FR-ALERT\.[^"'#?\s<]+)["']/gi,
+  ];
+
+  for (const patroon of patronen) {
+    for (const match of html.matchAll(patroon)) {
+      try {
+        const kandidaat = decodeHtml(match[1]);
+        const url = new URL(kandidaat, basisUrl);
+        if (!url.pathname.includes("/les-alertes/FR-ALERT.")) continue;
+        links.add(url.toString());
+      } catch {
+        // Ongeldige link overslaan.
+      }
     }
   }
+
   return [...links];
 }
 
 function vindLocatie(tekst: string, titel: string): string {
-  const gemarkeerdeRegel = tekst
+  const regels = tekst
     .split("\n")
     .map((regel) => regel.trim())
-    .find((regel) => /\([PC]\d+\)\s*$/.test(regel) && regel.length < 180);
+    .filter(Boolean);
+
+  const gemarkeerdeRegel = regels.find(
+    (regel) => /\([PC]\d+\)\s*$/.test(regel) && regel.length < 220
+  );
 
   if (gemarkeerdeRegel) return gemarkeerdeRegel.replace(/\s*\([PC]\d+\)\s*$/, "");
+
+  const gemeenteRegel = regels.find(
+    (regel) => /^(?:Commune|Communes|Secteur|Presqu['’]île|Forêt|Massif|Département)\b/i.test(regel) && regel.length < 220
+  );
+  if (gemeenteRegel) return gemeenteRegel;
 
   const titelZonderPrefix = titel
     .replace(/^(?:alerte\s*[-–:]?\s*)?/i, "")
@@ -141,39 +179,204 @@ function vindLocatie(tekst: string, titel: string): string {
   return titelZonderPrefix || titel;
 }
 
+function vindCoordinatenInHtml(
+  html: string
+): { latitude: number; longitude: number } | null {
+  const dataMatch = html.match(
+    /data-(?:lat|latitude)=["'](-?\d+(?:\.\d+)?)["'][\s\S]{0,300}?data-(?:lon|lng|longitude)=["'](-?\d+(?:\.\d+)?)["']/i
+  );
+  if (dataMatch) {
+    const latitude = Number(dataMatch[1]);
+    const longitude = Number(dataMatch[2]);
+    if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
+  }
+
+  const jsonMatch = html.match(
+    /["']latitude["']\s*:\s*(-?\d+(?:\.\d+)?)[\s\S]{0,250}?["']longitude["']\s*:\s*(-?\d+(?:\.\d+)?)/i
+  );
+  if (jsonMatch) {
+    const latitude = Number(jsonMatch[1]);
+    const longitude = Number(jsonMatch[2]);
+    if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
+  }
+
+  const geoJsonMatch = html.match(
+    /["']coordinates["']\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i
+  );
+  if (geoJsonMatch) {
+    const longitude = Number(geoJsonMatch[1]);
+    const latitude = Number(geoJsonMatch[2]);
+    if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
+  }
+
+  return null;
+}
+
 async function geocodeer(
   locatie: string,
   titel: string
 ): Promise<{ latitude: number; longitude: number } | null> {
-  const pogingen = [...new Set([locatie, titel, `${locatie}, France`])].filter(Boolean);
+  const pogingen = maakZoekPogingen(locatie, titel);
 
   for (const zoektekst of pogingen) {
-    const url = new URL("https://data.geopf.fr/geocodage/search");
-    url.searchParams.set("q", zoektekst);
-    url.searchParams.set("index", "address,poi");
-    url.searchParams.set("limit", "1");
+    const geopf = await geocodeerMetGeopf(zoektekst);
+    if (geopf) return geopf;
+  }
 
-    try {
-      const res = await fetch(url, {
-        headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
-        next: { revalidate: 86400 },
-      });
-      if (!res.ok) continue;
-      const json = (await res.json()) as {
-        features?: Array<{ geometry?: { coordinates?: [number, number] } }>;
-      };
-      const coordinaten = json.features?.[0]?.geometry?.coordinates;
-      if (!coordinaten) continue;
-      const [longitude, latitude] = coordinaten;
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
-      if (latitude < 41 || latitude > 52 || longitude < -6 || longitude > 10.5) continue;
-      return { latitude, longitude };
-    } catch {
-      // Volgende zoekvariant proberen.
-    }
+  for (const zoektekst of pogingen) {
+    const gemeente = await geocodeerGemeente(zoektekst);
+    if (gemeente) return gemeente;
   }
 
   return null;
+}
+
+function maakZoekPogingen(locatie: string, titel: string): string[] {
+  const opgeschoond = locatie
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\b(?:Commune|Communes|Secteur|Département|Massif|Forêt|Presqu['’]île)\s+(?:de|du|des|d['’])?\s*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const delen = opgeschoond
+    .split(/\s+(?:et|ou)\s+|[,/;]|\s+-\s+/i)
+    .map((deel) => deel.trim())
+    .filter((deel) => deel.length >= 3 && deel.length <= 100);
+
+  return [...new Set([locatie, opgeschoond, ...delen, titel, `${opgeschoond}, France`])].filter(
+    Boolean
+  );
+}
+
+async function geocodeerMetGeopf(
+  zoektekst: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  const url = new URL("https://data.geopf.fr/geocodage/search");
+  url.searchParams.set("q", zoektekst);
+  url.searchParams.set("limit", "5");
+
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      features?: Array<{ geometry?: { coordinates?: [number, number] } }>;
+    };
+
+    for (const feature of json.features ?? []) {
+      const coordinaten = feature.geometry?.coordinates;
+      if (!coordinaten) continue;
+      const [longitude, latitude] = coordinaten;
+      if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function geocodeerGemeente(
+  zoektekst: string
+): Promise<{ latitude: number; longitude: number } | null> {
+  const naam = zoektekst
+    .replace(/,?\s*France$/i, "")
+    .replace(/\b(?:commune|communes|secteur|département)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!naam || naam.length > 100) return null;
+
+  const url = new URL("https://geo.api.gouv.fr/communes");
+  url.searchParams.set("nom", naam);
+  url.searchParams.set("fields", "nom,centre");
+  url.searchParams.set("format", "json");
+  url.searchParams.set("geometry", "centre");
+
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      next: { revalidate: 86400 },
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as Array<{
+      centre?: { coordinates?: [number, number] };
+    }>;
+    const coordinaten = json[0]?.centre?.coordinates;
+    if (!coordinaten) return null;
+    const [longitude, latitude] = coordinaten;
+    return geldigeMetropoleCoordinaat(latitude, longitude) ? { latitude, longitude } : null;
+  } catch {
+    return null;
+  }
+}
+
+function geldigeMetropoleCoordinaat(latitude: number, longitude: number): boolean {
+  return (
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude) &&
+    latitude >= 41 &&
+    latitude <= 52 &&
+    longitude >= -6 &&
+    longitude <= 10.5
+  );
+}
+
+function vindDatumTijden(html: string, tekst: string): string[] {
+  const resultaat = new Set<string>();
+
+  for (const match of html.matchAll(/datetime=["']([^"']+)["']/gi)) {
+    const iso = normaliseerDatum(match[1]);
+    if (iso) resultaat.add(iso);
+  }
+
+  for (const match of tekst.matchAll(
+    /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})\s*,?\s*(\d{1,2})h(\d{2})/gi
+  )) {
+    const iso = normaliseerFranseDatum(match[1], match[2], match[3], match[4], match[5]);
+    if (iso) resultaat.add(iso);
+  }
+
+  return [...resultaat].sort((a, b) => Date.parse(a) - Date.parse(b));
+}
+
+function normaliseerFranseDatum(
+  dagTekst: string,
+  maandTekst: string,
+  jaarTekst: string,
+  uurTekst: string,
+  minuutTekst: string
+): string | null {
+  const maanden: Record<string, number> = {
+    janvier: 1,
+    février: 2,
+    fevrier: 2,
+    mars: 3,
+    avril: 4,
+    mai: 5,
+    juin: 6,
+    juillet: 7,
+    août: 8,
+    aout: 8,
+    septembre: 9,
+    octobre: 10,
+    novembre: 11,
+    décembre: 12,
+    decembre: 12,
+  };
+  const maand = maanden[maandTekst.toLowerCase()];
+  if (!maand) return null;
+  const jaar = Number(jaarTekst);
+  const offset = maand >= 4 && maand <= 10 ? "+02:00" : "+01:00";
+  const iso = `${jaar}-${String(maand).padStart(2, "0")}-${String(Number(dagTekst)).padStart(
+    2,
+    "0"
+  )}T${String(Number(uurTekst)).padStart(2, "0")}:${String(Number(minuutTekst)).padStart(
+    2,
+    "0"
+  )}:00${offset}`;
+  return normaliseerDatum(iso);
 }
 
 async function haalTekstOp(url: string, revalidate: number): Promise<string> {
@@ -243,7 +446,9 @@ function normaliseerDatum(waarde: string): string | null {
 
 function isRecent(melding: FrAlertMelding): boolean {
   if (!melding.begonnenOp) return true;
-  return Date.now() - Date.parse(melding.begonnenOp) <= MAX_OUDERDOM_DAGEN * 86_400_000;
+  const tijd = Date.parse(melding.begonnenOp);
+  if (!Number.isFinite(tijd)) return true;
+  return Date.now() - tijd <= MAX_OUDERDOM_DAGEN * 86_400_000;
 }
 
 function datumWaarde(waarde: string | null): number {
