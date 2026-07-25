@@ -4,6 +4,7 @@ import type { Betrouwbaarheid, Waarneming } from "@/lib/waarnemingen";
 const FIRMS_BBOX = "-5.6,41.1,9.9,51.3";
 const PERIODE_UREN = 24;
 const API_DAGEN = 2;
+const GRID_GRAAD = 0.06;
 
 const BRONNEN = [
   { code: "VIIRS_NOAA20_NRT", naam: "NOAA-20" },
@@ -72,7 +73,7 @@ export async function haalFirmsWaarnemingenOp(mapKey: string): Promise<FirmsResu
     }
   }
 
-  const waarnemingen = [...uniek.values()].sort(
+  const waarnemingen = classificeerWaarnemingen([...uniek.values()]).sort(
     (a, b) =>
       new Date(b.waargenomenOp).getTime() - new Date(a.waargenomenOp).getTime()
   );
@@ -127,7 +128,122 @@ function normaliseerRij(rij: RuweRij, bronNaam: string): Waarneming | null {
     frp,
     dagNacht,
     departementCode,
+    waarschijnlijkNatuurbrand: false,
+    waarschijnlijkheidsScore: 0,
+    waarschijnlijkheidsRedenen: [],
   };
+}
+
+function classificeerWaarnemingen(waarnemingen: Waarneming[]): Waarneming[] {
+  const grid = new Map<string, number[]>();
+  const tijden = waarnemingen.map((w) => Date.parse(w.waargenomenOp));
+
+  waarnemingen.forEach((w, index) => {
+    const sleutel = gridSleutel(w.latitude, w.longitude);
+    const lijst = grid.get(sleutel);
+    if (lijst) lijst.push(index);
+    else grid.set(sleutel, [index]);
+  });
+
+  return waarnemingen.map((waarneming, index) => {
+    const kandidaten = omliggendeIndices(grid, waarneming.latitude, waarneming.longitude);
+    let dichtbij = 0;
+    let bredeCluster = 0;
+    const passages = new Set<string>();
+
+    for (const anderIndex of kandidaten) {
+      if (anderIndex === index) continue;
+      const ander = waarnemingen[anderIndex];
+      const tijdsverschilUren = Math.abs(tijden[index] - tijden[anderIndex]) / 3_600_000;
+      if (tijdsverschilUren > 12) continue;
+
+      const afstandKm = haversineKm(
+        waarneming.latitude,
+        waarneming.longitude,
+        ander.latitude,
+        ander.longitude
+      );
+
+      if (afstandKm <= 6) {
+        bredeCluster += 1;
+        passages.add(`${ander.satelliet}-${Math.round(tijden[anderIndex] / 1_800_000)}`);
+      }
+      if (afstandKm <= 3 && tijdsverschilUren <= 8) dichtbij += 1;
+    }
+
+    let score = 0;
+    const redenen: string[] = [];
+
+    if (waarneming.betrouwbaarheid === "hoog") {
+      score += 1;
+      redenen.push("hoge VIIRS-betrouwbaarheid");
+    }
+    if ((waarneming.frp ?? 0) >= 15) {
+      score += 2;
+      redenen.push("sterk uitgestraald warmtevermogen");
+    } else if ((waarneming.frp ?? 0) >= 5) {
+      score += 1;
+      redenen.push("verhoogd uitgestraald warmtevermogen");
+    }
+    if (dichtbij >= 2) {
+      score += 2;
+      redenen.push("meerdere nabijgelegen metingen binnen acht uur");
+    } else if (dichtbij >= 1) {
+      score += 1;
+      redenen.push("nabijgelegen tweede meting");
+    }
+    if (bredeCluster >= 5) {
+      score += 2;
+      redenen.push("duidelijk ruimtelijk cluster");
+    }
+    if (passages.size >= 2) {
+      score += 1;
+      redenen.push("waargenomen tijdens meerdere satellietpassages");
+    }
+
+    const waarschijnlijkNatuurbrand =
+      score >= 4 || (score >= 3 && (dichtbij >= 1 || (waarneming.frp ?? 0) >= 15));
+
+    return {
+      ...waarneming,
+      waarschijnlijkNatuurbrand,
+      waarschijnlijkheidsScore: score,
+      waarschijnlijkheidsRedenen: redenen,
+    };
+  });
+}
+
+function gridSleutel(latitude: number, longitude: number): string {
+  return `${Math.floor(latitude / GRID_GRAAD)}:${Math.floor(longitude / GRID_GRAAD)}`;
+}
+
+function omliggendeIndices(
+  grid: Map<string, number[]>,
+  latitude: number,
+  longitude: number
+): number[] {
+  const basisLat = Math.floor(latitude / GRID_GRAAD);
+  const basisLon = Math.floor(longitude / GRID_GRAAD);
+  const resultaat: number[] = [];
+
+  for (let dLat = -2; dLat <= 2; dLat += 1) {
+    for (let dLon = -2; dLon <= 2; dLon += 1) {
+      const lijst = grid.get(`${basisLat + dLat}:${basisLon + dLon}`);
+      if (lijst) resultaat.push(...lijst);
+    }
+  }
+
+  return resultaat;
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad;
+  const dLon = (lon2 - lon1) * rad;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function vertaalBetrouwbaarheid(waarde?: string): Betrouwbaarheid | null {
