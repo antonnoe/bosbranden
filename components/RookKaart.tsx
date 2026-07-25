@@ -9,8 +9,12 @@ type Tijdstap = (typeof TIJDEN)[number];
 
 interface RookMetadata {
   beschikbaar: boolean;
+  verouderd: boolean;
   gevraagdUur: number;
   geldigVoor: string | null;
+  eersteBeschikbaar: string | null;
+  laatsteBeschikbaar: string | null;
+  afwijkingUren: number | null;
   laag: string;
   eenheid: string;
   laagsteKlasse: string;
@@ -20,35 +24,75 @@ interface RookMetadata {
 export default function RookKaart() {
   const [tijdstap, setTijdstap] = useState<Tijdstap>(0);
   const [dekking, setDekking] = useState(62);
-  const [laden, setLaden] = useState(true);
-  const [fout, setFout] = useState(false);
   const [metadata, setMetadata] = useState<RookMetadata | null>(null);
-  const afbeeldingUrl = useMemo(() => `/api/rook?uur=${tijdstap}`, [tijdstap]);
+  const [metadataLaden, setMetadataLaden] = useState(true);
+  const [beeldLaden, setBeeldLaden] = useState(false);
+  const [beeldGeladen, setBeeldGeladen] = useState(false);
+  const [fout, setFout] = useState<string | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     let actief = true;
+    const timeout = window.setTimeout(() => controller.abort(), 15_000);
+
+    setMetadata(null);
+    setMetadataLaden(true);
+    setBeeldLaden(false);
+    setBeeldGeladen(false);
+    setFout(null);
 
     (async () => {
       try {
-        const res = await fetch(`/api/rook?meta=1&uur=${tijdstap}`, { cache: "no-store" });
+        const res = await fetch(`/api/rook?meta=1&uur=${tijdstap}`, {
+          cache: "no-store",
+          signal: controller.signal,
+        });
         const json = (await res.json()) as RookMetadata;
-        if (actief) setMetadata(json);
-      } catch {
-        if (actief) setMetadata(null);
+        if (!actief) return;
+
+        setMetadata(json);
+        if (!res.ok || !json.beschikbaar || !json.geldigVoor) {
+          setFout(json.toelichting || "Actuele CAMS-rookgegevens zijn tijdelijk niet beschikbaar.");
+          return;
+        }
+
+        setBeeldLaden(true);
+      } catch (error) {
+        if (!actief) return;
+        setFout(
+          error instanceof DOMException && error.name === "AbortError"
+            ? "CAMS reageerde niet binnen 15 seconden. De rooklaag wordt daarom niet als geladen weergegeven."
+            : "De actuele CAMS-modeltijd kon niet worden opgehaald."
+        );
+      } finally {
+        window.clearTimeout(timeout);
+        if (actief) setMetadataLaden(false);
       }
     })();
 
     return () => {
       actief = false;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, [tijdstap]);
 
-  function kiesTijd(volgende: Tijdstap) {
-    setTijdstap(volgende);
-    setLaden(true);
-    setFout(false);
-    setMetadata(null);
-  }
+  const afbeeldingUrl = useMemo(() => {
+    if (!metadata?.beschikbaar || !metadata.geldigVoor) return null;
+    return `/api/rook?uur=${tijdstap}&modeltijd=${encodeURIComponent(metadata.geldigVoor)}`;
+  }, [metadata, tijdstap]);
+
+  useEffect(() => {
+    if (!afbeeldingUrl || !beeldLaden) return;
+
+    const timeout = window.setTimeout(() => {
+      setBeeldLaden(false);
+      setBeeldGeladen(false);
+      setFout("De CAMS-kaartafbeelding reageerde niet binnen 20 seconden.");
+    }, 20_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [afbeeldingUrl, beeldLaden]);
 
   const kaartLabel = `CAMS-verwachting van rook uit natuurbranden voor ${
     tijdstap === 0 ? "nu" : `over ${tijdstap} uur`
@@ -75,7 +119,7 @@ export default function RookKaart() {
                 key={uren}
                 type="button"
                 aria-pressed={tijdstap === uren}
-                onClick={() => kiesTijd(uren)}
+                onClick={() => setTijdstap(uren)}
               >
                 {uren === 0 ? "Nu" : `+${uren} uur`}
               </button>
@@ -96,35 +140,56 @@ export default function RookKaart() {
           </label>
         </div>
 
-        {!laden && !fout && (
+        {metadataLaden && (
           <p className={styles.geladenStatus} aria-live="polite">
-            <strong>CAMS-laag geladen.</strong>{" "}
-            {metadata?.geldigVoor ? (
-              <>Modeltijd: {formatteerModeltijd(metadata.geldigVoor)}. </>
+            Actuele CAMS-modeltijd controleren…
+          </p>
+        )}
+
+        {!metadataLaden && fout && (
+          <p className={`${styles.geladenStatus} ${styles.statusFout}`} role="alert">
+            <strong>Geen actuele rookkaart.</strong> {fout}
+            {metadata?.laatsteBeschikbaar ? (
+              <> Laatste aangetroffen modeltijd: {formatteerModeltijd(metadata.laatsteBeschikbaar)}.</>
             ) : null}
-            Lichtblauw is de laagste klasse ({metadata?.laagsteKlasse ?? "0–2 µg/m³"}). Een vrijwel
-            volledig lichtblauwe kaart betekent dus geen of zeer weinig voorspelde natuurbrandrook op
-            leefniveau — niet dat de kaart nog moet laden.
+          </p>
+        )}
+
+        {!metadataLaden && !fout && beeldLaden && metadata?.geldigVoor && (
+          <p className={styles.geladenStatus} aria-live="polite">
+            CAMS-rookkaart voor {formatteerModeltijd(metadata.geldigVoor)} laden…
+          </p>
+        )}
+
+        {!metadataLaden && !fout && beeldGeladen && metadata?.geldigVoor && (
+          <p className={styles.geladenStatus} aria-live="polite">
+            <strong>Actuele CAMS-laag geladen.</strong> Modeltijd: {formatteerModeltijd(metadata.geldigVoor)}.
+            Lichtblauw is de laagste klasse ({metadata.laagsteKlasse}). Een vrijwel volledig lichtblauwe
+            kaart betekent geen of zeer weinig voorspelde natuurbrandrook op leefniveau.
           </p>
         )}
 
         <div className={styles.kaartKader} role="img" aria-label={kaartLabel}>
-          <img
-            key={afbeeldingUrl}
-            className={styles.rookBeeld}
-            src={afbeeldingUrl}
-            alt=""
-            aria-hidden="true"
-            style={{ opacity: dekking / 100 }}
-            onLoad={() => {
-              setLaden(false);
-              setFout(false);
-            }}
-            onError={() => {
-              setLaden(false);
-              setFout(true);
-            }}
-          />
+          {afbeeldingUrl && !fout && (
+            <img
+              key={afbeeldingUrl}
+              className={styles.rookBeeld}
+              src={afbeeldingUrl}
+              alt=""
+              aria-hidden="true"
+              style={{ opacity: dekking / 100 }}
+              onLoad={() => {
+                setBeeldLaden(false);
+                setBeeldGeladen(true);
+                setFout(null);
+              }}
+              onError={() => {
+                setBeeldLaden(false);
+                setBeeldGeladen(false);
+                setFout("De CAMS-kaartafbeelding kon niet worden geladen.");
+              }}
+            />
+          )}
 
           <svg className={styles.grenzen} viewBox={KAART_VIEWBOX} aria-hidden="true">
             {KAART_PADEN.map((pad) => (
@@ -134,12 +199,11 @@ export default function RookKaart() {
             ))}
           </svg>
 
-          {laden && !fout && <p className={styles.laden}>CAMS-rookverwachting laden…</p>}
-          {fout && (
-            <p className={styles.fout} role="alert">
-              De CAMS-rooklaag is tijdelijk niet beschikbaar. Probeer een ander tijdstip of later
-              opnieuw.
-            </p>
+          {(metadataLaden || beeldLaden) && !fout && (
+            <p className={styles.laden}>CAMS-gegevens laden…</p>
+          )}
+          {!metadataLaden && fout && (
+            <p className={styles.fout}>Geen actuele CAMS-rasterlaag getoond.</p>
           )}
         </div>
 
