@@ -37,7 +37,7 @@ export async function haalFirmsWaarnemingenOp(mapKey: string): Promise<FirmsResu
         `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(mapKey)}/` +
         `${bron.code}/${FIRMS_BBOX}/${API_DAGEN}`;
 
-      const res = await fetch(url, { next: { revalidate: 900 } });
+      const res = await fetch(url, { next: { revalidate: 300 } });
       const body = await res.text();
 
       if (!res.ok) {
@@ -95,10 +95,10 @@ function normaliseerRij(rij: RuweRij, bronNaam: string): Waarneming | null {
     return null;
   }
 
-  if (!betrouwbaarheid) return null; // lage betrouwbaarheid niet tonen
+  if (!betrouwbaarheid) return null;
 
   const departementCode = vindDepartementCode(latitude, longitude);
-  if (!departementCode) return null; // punten in buurlanden uit de rechthoek verwijderen
+  if (!departementCode) return null;
 
   const frpGetal = Number(rij.frp);
   const frp = Number.isFinite(frpGetal) ? frpGetal : null;
@@ -164,45 +164,55 @@ function classificeerWaarnemingen(waarnemingen: Waarneming[]): Waarneming[] {
         ander.longitude
       );
 
-      if (afstandKm <= 6) {
+      if (afstandKm <= 8) {
         bredeCluster += 1;
         passages.add(`${ander.satelliet}-${Math.round(tijden[anderIndex] / 1_800_000)}`);
       }
-      if (afstandKm <= 3 && tijdsverschilUren <= 8) dichtbij += 1;
+      if (afstandKm <= 4 && tijdsverschilUren <= 10) dichtbij += 1;
     }
 
     let score = 0;
     const redenen: string[] = [];
 
     if (waarneming.betrouwbaarheid === "hoog") {
-      score += 1;
+      score += 2;
       redenen.push("hoge VIIRS-betrouwbaarheid");
     }
-    if ((waarneming.frp ?? 0) >= 15) {
+
+    if ((waarneming.frp ?? 0) >= 10) {
       score += 2;
       redenen.push("sterk uitgestraald warmtevermogen");
-    } else if ((waarneming.frp ?? 0) >= 5) {
+    } else if ((waarneming.frp ?? 0) >= 3) {
       score += 1;
       redenen.push("verhoogd uitgestraald warmtevermogen");
     }
-    if (dichtbij >= 2) {
-      score += 2;
-      redenen.push("meerdere nabijgelegen metingen binnen acht uur");
+
+    if (dichtbij >= 3) {
+      score += 3;
+      redenen.push("meerdere nabijgelegen metingen binnen tien uur");
     } else if (dichtbij >= 1) {
-      score += 1;
-      redenen.push("nabijgelegen tweede meting");
-    }
-    if (bredeCluster >= 5) {
       score += 2;
-      redenen.push("duidelijk ruimtelijk cluster");
+      redenen.push("nabijgelegen aanvullende meting");
     }
+
+    if (bredeCluster >= 4) {
+      score += 1;
+      redenen.push("ruimtelijk cluster van hittemetingen");
+    }
+
     if (passages.size >= 2) {
       score += 1;
       redenen.push("waargenomen tijdens meerdere satellietpassages");
     }
 
+    const heeftSamenhang = dichtbij >= 1 || bredeCluster >= 4 || passages.size >= 2;
+    const heeftSterkSignaal =
+      waarneming.betrouwbaarheid === "hoog" || (waarneming.frp ?? 0) >= 3;
+
     const waarschijnlijkNatuurbrand =
-      score >= 4 || (score >= 3 && (dichtbij >= 1 || (waarneming.frp ?? 0) >= 15));
+      (score >= 3 && heeftSamenhang) ||
+      (score >= 4 && heeftSterkSignaal) ||
+      (waarneming.betrouwbaarheid === "hoog" && (waarneming.frp ?? 0) >= 10);
 
     return {
       ...waarneming,
@@ -226,8 +236,8 @@ function omliggendeIndices(
   const basisLon = Math.floor(longitude / GRID_GRAAD);
   const resultaat: number[] = [];
 
-  for (let dLat = -2; dLat <= 2; dLat += 1) {
-    for (let dLon = -2; dLon <= 2; dLon += 1) {
+  for (let dLat = -3; dLat <= 3; dLat += 1) {
+    for (let dLon = -3; dLon <= 3; dLon += 1) {
       const lijst = grid.get(`${basisLat + dLat}:${basisLon + dLon}`);
       if (lijst) resultaat.push(...lijst);
     }
