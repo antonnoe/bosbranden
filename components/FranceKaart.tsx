@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { DEP_BY_CODE } from "@/lib/departements";
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
@@ -12,6 +12,7 @@ import clusterStyles from "@/components/KaartClusters.module.css";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 24;
+const SLEEPDREMPEL = 6;
 
 interface Camera {
   x: number;
@@ -105,35 +106,7 @@ export default function FranceKaart({
     laatsteAfstand: number | null;
   }>({ laatsteMidden: null, laatsteAfstand: null });
   const wasDraggingRef = useRef(false);
-
-  useEffect(() => {
-    if (!nieuwsOpen || nieuws || nieuwsLaden) return;
-    let actief = true;
-    setNieuwsLaden(true);
-
-    (async () => {
-      try {
-        const res = await fetch("/api/nieuws");
-        const json: NieuwsAntwoord = await res.json();
-        if (actief) setNieuws(json);
-      } catch {
-        if (actief) {
-          setNieuws({
-            beschikbaar: false,
-            items: [],
-            bijgewerkt: null,
-            opmerking: "Actueel nieuws is tijdelijk niet beschikbaar.",
-          });
-        }
-      } finally {
-        if (actief) setNieuwsLaden(false);
-      }
-    })();
-
-    return () => {
-      actief = false;
-    };
-  }, [nieuwsOpen, nieuws, nieuwsLaden]);
+  const startPuntRef = useRef<SchermPunt | null>(null);
 
   const zichtbareBreedte = kaartBreedte / camera.zoom;
   const zichtbareHoogte = kaartHoogte / camera.zoom;
@@ -330,6 +303,32 @@ export default function FranceKaart({
     }
   }
 
+  async function wisselNieuws() {
+    if (nieuwsOpen) {
+      setNieuwsOpen(false);
+      return;
+    }
+
+    setNieuwsOpen(true);
+    if (nieuws || nieuwsLaden) return;
+
+    setNieuwsLaden(true);
+    try {
+      const res = await fetch("/api/nieuws", { cache: "no-store" });
+      const json: NieuwsAntwoord = await res.json();
+      setNieuws(json);
+    } catch {
+      setNieuws({
+        beschikbaar: false,
+        items: [],
+        bijgewerkt: null,
+        opmerking: "Actueel nieuws is tijdelijk niet beschikbaar.",
+      });
+    } finally {
+      setNieuwsLaden(false);
+    }
+  }
+
   return (
     <div className={styles.kaartEnNieuws}>
       <div className={styles.kaartContainer}>
@@ -382,8 +381,9 @@ export default function FranceKaart({
             }}
             onPointerDown={(e) => {
               if (e.button !== 0 && e.pointerType === "mouse") return;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+              const punt = { x: e.clientX, y: e.clientY };
+              pointersRef.current.set(e.pointerId, punt);
+              startPuntRef.current = punt;
               wasDraggingRef.current = false;
               registreerPointers();
             }}
@@ -446,31 +446,44 @@ export default function FranceKaart({
               if (vorige && gestureRef.current.laatsteMidden) {
                 const dx = huidigPunt.x - vorige.x;
                 const dy = huidigPunt.y - vorige.y;
-                if (Math.abs(dx) + Math.abs(dy) > 2) {
+                const start = startPuntRef.current;
+                if (
+                  start &&
+                  Math.hypot(huidigPunt.x - start.x, huidigPunt.y - start.y) > SLEEPDREMPEL
+                ) {
                   wasDraggingRef.current = true;
                   setClusterSelectie(null);
                 }
 
-                setCamera((huidigeCamera) =>
-                  begrensCamera({
-                    ...huidigeCamera,
-                    x:
-                      huidigeCamera.x -
-                      (dx / rect.width) * (kaartBreedte / huidigeCamera.zoom),
-                    y:
-                      huidigeCamera.y -
-                      (dy / rect.height) * (kaartHoogte / huidigeCamera.zoom),
-                  })
-                );
+                if (wasDraggingRef.current) {
+                  setCamera((huidigeCamera) =>
+                    begrensCamera({
+                      ...huidigeCamera,
+                      x:
+                        huidigeCamera.x -
+                        (dx / rect.width) * (kaartBreedte / huidigeCamera.zoom),
+                      y:
+                        huidigeCamera.y -
+                        (dy / rect.height) * (kaartHoogte / huidigeCamera.zoom),
+                    })
+                  );
+                }
                 gestureRef.current.laatsteMidden = huidigPunt;
               }
             }}
             onPointerUp={(e) => {
               pointersRef.current.delete(e.pointerId);
+              startPuntRef.current = null;
+              registreerPointers();
+            }}
+            onPointerLeave={(e) => {
+              pointersRef.current.delete(e.pointerId);
+              startPuntRef.current = null;
               registreerPointers();
             }}
             onPointerCancel={(e) => {
               pointersRef.current.delete(e.pointerId);
+              startPuntRef.current = null;
               registreerPointers();
             }}
           >
@@ -509,12 +522,16 @@ export default function FranceKaart({
             {markers.map((marker) => {
               if (marker.type === "cluster") {
                 const schaal = (1 / camera.zoom).toFixed(4);
-                const label = `${formatteerAantal(marker.punten.length)} satellietmetingen in dit gebied. Klik om automatisch in te zoomen.`;
+                const label = `${formatteerAantal(
+                  marker.punten.length
+                )} satellietmetingen in dit gebied. Klik om automatisch in te zoomen.`;
                 return (
                   <g
                     key={marker.id}
                     className={clusterStyles.cluster}
-                    transform={`translate(${marker.x.toFixed(1)} ${marker.y.toFixed(1)}) scale(${schaal})`}
+                    transform={`translate(${marker.x.toFixed(1)} ${marker.y.toFixed(
+                      1
+                    )}) scale(${schaal})`}
                     role="button"
                     tabIndex={0}
                     aria-label={label}
@@ -532,7 +549,11 @@ export default function FranceKaart({
                     <title>{label}</title>
                     <circle className={clusterStyles.clusterHalo} r="25" />
                     <circle className={clusterStyles.clusterCore} r="20" />
-                    <text className={clusterStyles.clusterText} textAnchor="middle" dominantBaseline="central">
+                    <text
+                      className={clusterStyles.clusterText}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                    >
                       {verkortAantal(marker.punten.length)}
                     </text>
                   </g>
@@ -541,16 +562,20 @@ export default function FranceKaart({
 
               const waarneming = marker.punt.waarneming;
               const geselecteerd = gekozenWaarneming === waarneming.id;
-              const label = `Satellietwaarneming in departement ${waarneming.departementCode}, betrouwbaarheid ${waarneming.betrouwbaarheid}, ${formatteerKorteDatum(waarneming.waargenomenOp)}`;
+              const label = `Satellietwaarneming in departement ${
+                waarneming.departementCode
+              }, betrouwbaarheid ${waarneming.betrouwbaarheid}, ${formatteerKorteDatum(
+                waarneming.waargenomenOp
+              )}`;
               return (
                 <g
                   key={marker.id}
                   className={`${styles.mapPin}${
                     geselecteerd ? ` ${styles.mapPinSelected}` : ""
                   }`}
-                  transform={`translate(${marker.x.toFixed(1)} ${marker.y.toFixed(1)}) scale(${(
-                    1 / camera.zoom
-                  ).toFixed(4)})`}
+                  transform={`translate(${marker.x.toFixed(1)} ${marker.y.toFixed(
+                    1
+                  )}) scale(${(1 / camera.zoom).toFixed(4)})`}
                   role="button"
                   tabIndex={0}
                   aria-label={label}
@@ -719,10 +744,12 @@ export default function FranceKaart({
             Wat betekenen {formatteerAantal(waarnemingen.length)} VIIRS-detecties?
           </summary>
           <p>
-            <strong>Dit zijn niet {formatteerAantal(waarnemingen.length)} afzonderlijke
-            natuurbranden.</strong> VIIRS is een infraroodsensor op weersatellieten. Eén detectie
-            markeert het middelpunt van een beeldpixel van ongeveer 375 × 375 meter waarin een
-            hittebron of andere thermische afwijking is gemeten.
+            <strong>
+              Dit zijn niet {formatteerAantal(waarnemingen.length)} afzonderlijke natuurbranden.
+            </strong>{" "}
+            VIIRS is een infraroodsensor op weersatellieten. Eén detectie markeert het middelpunt
+            van een beeldpixel van ongeveer 375 × 375 meter waarin een hittebron of andere
+            thermische afwijking is gemeten.
           </p>
           <p>
             Dezelfde brand kan tijdens verschillende satellietpassages meermaals worden gemeten.
@@ -743,7 +770,10 @@ export default function FranceKaart({
         </details>
       </div>
 
-      <section className={`${styles.nieuwsBlok} ${clusterStyles.nieuwsCompact}`} aria-labelledby="actueel-nieuws-titel">
+      <section
+        className={`${styles.nieuwsBlok} ${clusterStyles.nieuwsCompact}`}
+        aria-labelledby="actueel-nieuws-titel"
+      >
         <div className={clusterStyles.nieuwsSamenvatting}>
           <div>
             <h3 id="actueel-nieuws-titel">Actueel nieuws over natuurbranden</h3>
@@ -753,7 +783,7 @@ export default function FranceKaart({
             type="button"
             className={clusterStyles.nieuwsToggle}
             aria-expanded={nieuwsOpen}
-            onClick={() => setNieuwsOpen((open) => !open)}
+            onClick={wisselNieuws}
           >
             {nieuwsOpen ? "Nieuws sluiten" : "Laatste nieuws tonen"}
           </button>
@@ -817,7 +847,9 @@ function midden(a: SchermPunt, b: SchermPunt): SchermPunt {
 
 function verkortAantal(aantal: number): string {
   if (aantal < 1000) return String(aantal);
-  return `${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(aantal / 1000)}k`;
+  return `${new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(
+    aantal / 1000
+  )}k`;
 }
 
 function formatteerAantal(aantal: number): string {
