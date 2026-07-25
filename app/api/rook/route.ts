@@ -9,6 +9,7 @@ const TOEGESTANE_UREN = new Set([0, 6, 12, 24]);
 
 export async function GET(request: NextRequest) {
   const legenda = request.nextUrl.searchParams.get("legenda") === "1";
+  const metadata = request.nextUrl.searchParams.get("meta") === "1";
 
   try {
     if (legenda) return await haalLegendaOp();
@@ -16,6 +17,28 @@ export async function GET(request: NextRequest) {
     const gevraagd = Number(request.nextUrl.searchParams.get("uur") ?? "0");
     const uren = TOEGESTANE_UREN.has(gevraagd) ? gevraagd : 0;
     const tijd = await kiesGeldigeTijd(uren);
+
+    if (metadata) {
+      return new Response(
+        JSON.stringify({
+          beschikbaar: true,
+          gevraagdUur: uren,
+          geldigVoor: tijd,
+          laag: LAAG,
+          eenheid: "µg/m³",
+          laagsteKlasse: "0–2 µg/m³",
+          toelichting:
+            "Een vrijwel volledig lichtblauwe kaart betekent dat CAMS voor deze modeltijd geen of zeer weinig natuurbrand-PM10 op leefniveau verwacht.",
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "Cache-Control": "public, s-maxage=600, stale-while-revalidate=1800",
+          },
+        }
+      );
+    }
 
     let afbeelding = await haalKaartOp(tijd);
     if (!afbeelding.ok) afbeelding = await haalKaartOp(null);
@@ -40,6 +63,25 @@ export async function GET(request: NextRequest) {
     });
   } catch (fout) {
     console.error("CAMS rooklaag ophalen mislukt", fout);
+
+    if (metadata) {
+      return new Response(
+        JSON.stringify({
+          beschikbaar: false,
+          gevraagdUur: 0,
+          geldigVoor: null,
+          laag: LAAG,
+          eenheid: "µg/m³",
+          laagsteKlasse: "0–2 µg/m³",
+          toelichting: "De CAMS-modeltijd kon tijdelijk niet worden opgehaald.",
+        }),
+        {
+          status: 502,
+          headers: { "Content-Type": "application/json; charset=utf-8" },
+        }
+      );
+    }
+
     return new Response("Rookverwachting tijdelijk niet beschikbaar.", { status: 502 });
   }
 }
