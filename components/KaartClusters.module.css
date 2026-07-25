@@ -1,0 +1,176 @@
+.cluster {
+  cursor: pointer;
+  outline: none;
+}
+
+.clusterHalo {
+  fill: rgba(255, 255, 255, 0.9);
+  stroke: rgba(128, 0, 0, 0.18);
+  stroke-width: 2;
+  filter: drop-shadow(0 2px 3px rgba(45, 25, 25, 0.24));
+}
+
+.clusterCore {
+  fill: #800000;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.clusterText {
+  fill: #fff;
+  font-family: "Poppins", "Mulish", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.cluster:hover .clusterCore,
+.cluster:focus-visible .clusterCore {
+  fill: #5f0000;
+  stroke-width: 3.5;
+}
+
+.cluster:focus-visible .clusterHalo {
+  stroke: #800000;
+  stroke-width: 3;
+}
+
+.clusterPopup {
+  max-height: 430px;
+}
+
+.clusterPopupIntro {
+  margin: 4px 0 8px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.clusterMeetingen {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clusterMeetingen li + li {
+  border-top: 1px solid rgba(128, 0, 0, 0.1);
+}
+
+.clusterMeetingen button {
+  width: 100%;
+  padding: 7px 2px;
+  border: 0;
+  background: transparent;
+  color: #332727;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.clusterMeetingen button:hover,
+.clusterMeetingen button:focus-visible {
+  color: #800000;
+  outline: none;
+}
+
+.clusterMeetingen strong,
+.clusterMeetingen span {
+  display: block;
+}
+
+.clusterMeetingen strong {
+  font-size: 0.82rem;
+}
+
+.clusterMeetingen span {
+  margin-top: 1px;
+  font-size: 0.75rem;
+  color: rgba(51, 39, 39, 0.72);
+}
+
+.clusterMeer {
+  margin: 7px 0 0;
+  font-size: 0.74rem;
+  color: rgba(51, 39, 39, 0.7);
+}
+
+.viirsUitleg {
+  margin-top: 9px;
+  border: 1px solid rgba(128, 0, 0, 0.14);
+  border-radius: 8px;
+  background: rgba(128, 0, 0, 0.025);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.viirsUitleg summary {
+  padding: 8px 10px;
+  color: #800000;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.viirsUitleg[open] summary {
+  border-bottom: 1px solid rgba(128, 0, 0, 0.1);
+}
+
+.viirsUitleg p {
+  margin: 8px 10px;
+}
+
+.nieuwsCompact {
+  padding: 10px 12px;
+}
+
+.nieuwsSamenvatting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nieuwsSamenvatting h3 {
+  margin: 0;
+  color: #800000;
+}
+
+.nieuwsSamenvatting p {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: rgba(51, 39, 39, 0.7);
+}
+
+.nieuwsToggle {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid rgba(128, 0, 0, 0.24);
+  border-radius: 7px;
+  background: #fff;
+  color: #800000;
+  font: inherit;
+  font-size: 0.77rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nieuwsToggle:hover,
+.nieuwsToggle:focus-visible {
+  background: rgba(128, 0, 0, 0.07);
+  outline: none;
+}
+
+.nieuwsInhoud {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(128, 0, 0, 0.1);
+}
+
+@media (max-width: 560px) {
+  .nieuwsSamenvatting {
+    align-items: flex-start;
+  }
+
+  .nieuwsToggle {
+    white-space: nowrap;
+  }
+}
