@@ -123,7 +123,7 @@ export default function FranceKaart({
   const startPuntRef = useRef<SchermPunt | null>(null);
 
   useEffect(() => {
-    if (weergave !== "officieel" || frAlert || frAlertLaden) return;
+    if (weergave !== "officieel" || frAlert) return;
     let actief = true;
     setFrAlertLaden(true);
 
@@ -150,7 +150,7 @@ export default function FranceKaart({
     return () => {
       actief = false;
     };
-  }, [weergave, frAlert, frAlertLaden]);
+  }, [weergave, frAlert]);
 
   const zichtbareBreedte = kaartBreedte / camera.zoom;
   const zichtbareHoogte = kaartHoogte / camera.zoom;
