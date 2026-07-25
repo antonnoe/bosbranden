@@ -52,6 +52,11 @@
   line-height: 1.5;
 }
 
+.statusFout {
+  border-left-width: 4px;
+  background: rgba(128, 0, 0, 0.075);
+}
+
 .tijdKnoppen {
   display: grid;
   grid-template-columns: repeat(4, minmax(70px, 1fr));
