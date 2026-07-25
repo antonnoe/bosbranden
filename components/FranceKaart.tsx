@@ -1,18 +1,22 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DEP_BY_CODE } from "@/lib/departements";
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
 import { niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
+import type { FrAlertAntwoord, FrAlertMelding } from "@/lib/fr-alert";
 import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
 import styles from "@/components/Waarnemingen.module.css";
 import clusterStyles from "@/components/KaartClusters.module.css";
+import laagStyles from "@/components/BrandLagen.module.css";
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 24;
 const SLEEPDREMPEL = 6;
+
+type Weergave = "alle" | "waarschijnlijk" | "officieel";
 
 interface Camera {
   x: number;
@@ -41,6 +45,12 @@ interface NieuwsAntwoord {
 
 interface GeprojecteerdeWaarneming {
   waarneming: Waarneming;
+  x: number;
+  y: number;
+}
+
+interface GeprojecteerdeMelding {
+  melding: FrAlertMelding;
   x: number;
   y: number;
 }
@@ -95,6 +105,10 @@ export default function FranceKaart({
   const [kaartX, kaartY, kaartBreedte, kaartHoogte] = KAART_VIEWBOX.split(" ").map(Number);
   const [camera, setCamera] = useState<Camera>({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
   const [clusterSelectie, setClusterSelectie] = useState<ClusterSelectie | null>(null);
+  const [weergave, setWeergave] = useState<Weergave>("alle");
+  const [frAlert, setFrAlert] = useState<FrAlertAntwoord | null>(null);
+  const [frAlertLaden, setFrAlertLaden] = useState(false);
+  const [gekozenMeldingId, setGekozenMeldingId] = useState<string | null>(null);
   const [nieuwsOpen, setNieuwsOpen] = useState(false);
   const [nieuws, setNieuws] = useState<NieuwsAntwoord | null>(null);
   const [nieuwsLaden, setNieuwsLaden] = useState(false);
@@ -108,20 +122,70 @@ export default function FranceKaart({
   const wasDraggingRef = useRef(false);
   const startPuntRef = useRef<SchermPunt | null>(null);
 
+  useEffect(() => {
+    if (weergave !== "officieel" || frAlert || frAlertLaden) return;
+    let actief = true;
+    setFrAlertLaden(true);
+
+    (async () => {
+      try {
+        const res = await fetch("/api/fr-alert", { cache: "no-store" });
+        const json: FrAlertAntwoord = await res.json();
+        if (actief) setFrAlert(json);
+      } catch {
+        if (actief) {
+          setFrAlert({
+            beschikbaar: false,
+            meldingen: [],
+            bijgewerkt: null,
+            bron: "FR-Alert",
+            opmerking: "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
+          });
+        }
+      } finally {
+        if (actief) setFrAlertLaden(false);
+      }
+    })();
+
+    return () => {
+      actief = false;
+    };
+  }, [weergave, frAlert, frAlertLaden]);
+
   const zichtbareBreedte = kaartBreedte / camera.zoom;
   const zichtbareHoogte = kaartHoogte / camera.zoom;
+  const waarschijnlijkeAantal = useMemo(
+    () => waarnemingen.filter((waarneming) => waarneming.waarschijnlijkNatuurbrand).length,
+    [waarnemingen]
+  );
+  const gefilterdeWaarnemingen = useMemo(() => {
+    if (weergave === "officieel") return [];
+    if (weergave === "waarschijnlijk") {
+      return waarnemingen.filter((waarneming) => waarneming.waarschijnlijkNatuurbrand);
+    }
+    return waarnemingen;
+  }, [waarnemingen, weergave]);
 
   const geprojecteerdeWaarnemingen = useMemo<GeprojecteerdeWaarneming[]>(
     () =>
-      waarnemingen.map((waarneming) => {
+      gefilterdeWaarnemingen.map((waarneming) => {
         const { x, y } = projecteerCoordinaat(waarneming.longitude, waarneming.latitude);
         return { waarneming, x, y };
       }),
-    [waarnemingen]
+    [gefilterdeWaarnemingen]
+  );
+
+  const geprojecteerdeMeldingen = useMemo<GeprojecteerdeMelding[]>(
+    () =>
+      (frAlert?.meldingen ?? []).map((melding) => {
+        const { x, y } = projecteerCoordinaat(melding.longitude, melding.latitude);
+        return { melding, x, y };
+      }),
+    [frAlert]
   );
 
   const markers = useMemo<Marker[]>(() => {
-    if (!toonWaarnemingen) return [];
+    if (!toonWaarnemingen || weergave === "officieel") return [];
 
     const kolommen = camera.zoom < 2.5 ? 9 : camera.zoom < 7 ? 12 : camera.zoom < 15 ? 16 : 20;
     const rijen = Math.max(7, Math.round(kolommen * 0.82));
@@ -195,19 +259,25 @@ export default function FranceKaart({
     camera.zoom,
     geprojecteerdeWaarnemingen,
     toonWaarnemingen,
+    weergave,
     zichtbareBreedte,
     zichtbareHoogte,
   ]);
 
   const gekozenPunt =
-    toonWaarnemingen && gekozenWaarneming
+    weergave !== "officieel" && toonWaarnemingen && gekozenWaarneming
       ? geprojecteerdeWaarnemingen.find(
           (punt) => punt.waarneming.id === gekozenWaarneming
         ) ?? null
       : null;
+  const gekozenMelding =
+    weergave === "officieel" && gekozenMeldingId
+      ? geprojecteerdeMeldingen.find((punt) => punt.melding.id === gekozenMeldingId) ?? null
+      : null;
 
   const popupCoordinaat = gekozenPunt ? { x: gekozenPunt.x, y: gekozenPunt.y } : null;
-  const actievePopupCoordinaat = clusterSelectie ?? popupCoordinaat;
+  const meldingCoordinaat = gekozenMelding ? { x: gekozenMelding.x, y: gekozenMelding.y } : null;
+  const actievePopupCoordinaat = clusterSelectie ?? meldingCoordinaat ?? popupCoordinaat;
   const popupSchermX = actievePopupCoordinaat
     ? ((actievePopupCoordinaat.x - camera.x) / zichtbareBreedte) * 100
     : 0;
@@ -243,6 +313,7 @@ export default function FranceKaart({
 
   function zoomNaar(nieuweZoom: number, clientX?: number, clientY?: number) {
     setClusterSelectie(null);
+    setGekozenMeldingId(null);
     setCamera((huidig) => {
       const zoom = begrens(nieuweZoom, MIN_ZOOM, MAX_ZOOM);
       if (zoom === huidig.zoom) return huidig;
@@ -303,6 +374,15 @@ export default function FranceKaart({
     }
   }
 
+  function kiesWeergave(volgende: Weergave) {
+    if (weergave === volgende) return;
+    setWeergave(volgende);
+    setClusterSelectie(null);
+    setGekozenMeldingId(null);
+    if (gekozenWaarneming) onKiesWaarneming(gekozenWaarneming);
+    setCamera({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
+  }
+
   async function wisselNieuws() {
     if (nieuwsOpen) {
       setNieuwsOpen(false);
@@ -329,9 +409,60 @@ export default function FranceKaart({
     }
   }
 
+  const filterUitleg =
+    weergave === "alle"
+      ? `${formatteerAantal(waarnemingen.length)} thermische VIIRS-waarnemingen; dit zijn niet automatisch branden.`
+      : weergave === "waarschijnlijk"
+        ? `${formatteerAantal(waarschijnlijkeAantal)} van ${formatteerAantal(
+            waarnemingen.length
+          )} metingen voldoen aan conservatieve technische criteria. Niet officieel bevestigd.`
+        : "Recente officiële FR-Alert-meldingen. FR-Alert wordt alleen bij ernstige situaties ingezet en is geen volledige brandenlijst.";
+
   return (
     <div className={styles.kaartEnNieuws}>
       <div className={styles.kaartContainer}>
+        <div className={laagStyles.lagenFilter}>
+          <span className={laagStyles.lagenTitel}>Kaartlaag</span>
+          <div className={laagStyles.lagenKnoppen} role="group" aria-label="Kies de kaartlaag">
+            <button
+              type="button"
+              aria-pressed={weergave === "alle"}
+              onClick={() => kiesWeergave("alle")}
+            >
+              Alle hittebronnen
+            </button>
+            <button
+              type="button"
+              aria-pressed={weergave === "waarschijnlijk"}
+              onClick={() => kiesWeergave("waarschijnlijk")}
+            >
+              Waarschijnlijke natuurbranden
+            </button>
+            <button
+              type="button"
+              aria-pressed={weergave === "officieel"}
+              onClick={() => kiesWeergave("officieel")}
+            >
+              Officieel gemeld
+            </button>
+          </div>
+          <p className={laagStyles.lagenUitleg}>{filterUitleg}</p>
+        </div>
+
+        {weergave === "officieel" && (
+          <p className={laagStyles.officieelStatus} aria-live="polite">
+            {frAlertLaden
+              ? "Officiële FR-Alert-meldingen laden…"
+              : frAlert?.beschikbaar
+                ? frAlert.meldingen.length > 0
+                  ? `${formatteerAantal(frAlert.meldingen.length)} recente officiële natuurbrandmelding${
+                      frAlert.meldingen.length === 1 ? "" : "en"
+                    } geografisch geplaatst.`
+                  : frAlert.opmerking ?? "Geen recente officiële melding gevonden."
+                : frAlert?.opmerking ?? "Officiële meldingen zijn tijdelijk niet beschikbaar."}
+          </p>
+        )}
+
         <div className={styles.kaartViewport}>
           <div className={styles.zoomBediening} role="group" aria-label="Kaart in- en uitzoomen">
             <button
@@ -356,6 +487,7 @@ export default function FranceKaart({
               disabled={camera.zoom === MIN_ZOOM}
               onClick={() => {
                 setClusterSelectie(null);
+                setGekozenMeldingId(null);
                 setCamera({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
               }}
             >
@@ -368,9 +500,7 @@ export default function FranceKaart({
             className={`kaart-vlak ${styles.zoomKaart}`}
             viewBox={`${camera.x} ${camera.y} ${zichtbareBreedte} ${zichtbareHoogte}`}
             role="group"
-            aria-label={`Kaart van Frankrijk met bosbrandgevaar per departement (${
-              echeance === "j1" ? "morgen" : "overmorgen"
-            })${toonWaarnemingen ? " en gegroepeerde satellietwaarnemingen" : ""}`}
+            aria-label={`Kaart van Frankrijk met bosbrandgevaar per departement en kaartlaag ${weergave}`}
             onWheel={(e) => {
               e.preventDefault();
               zoomNaar(camera.zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX, e.clientY);
@@ -433,6 +563,7 @@ export default function FranceKaart({
                     });
                   });
                   setClusterSelectie(null);
+                  setGekozenMeldingId(null);
                   wasDraggingRef.current = true;
                 }
 
@@ -453,6 +584,7 @@ export default function FranceKaart({
                 ) {
                   wasDraggingRef.current = true;
                   setClusterSelectie(null);
+                  setGekozenMeldingId(null);
                 }
 
                 if (wasDraggingRef.current) {
@@ -600,6 +732,48 @@ export default function FranceKaart({
                 </g>
               );
             })}
+
+            {weergave === "officieel" &&
+              geprojecteerdeMeldingen.map(({ melding, x, y }) => {
+                const geselecteerd = gekozenMeldingId === melding.id;
+                const label = `Officiële natuurbrandmelding: ${melding.titel}, ${melding.locatie}, zekerheid ${melding.zekerheid}`;
+                return (
+                  <g
+                    key={melding.id}
+                    className={`${laagStyles.officieelMarker}${
+                      geselecteerd ? ` ${laagStyles.officieelMarkerActief}` : ""
+                    }`}
+                    transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(
+                      1 / camera.zoom
+                    ).toFixed(4)})`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={label}
+                    aria-pressed={geselecteerd}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!wasDraggingRef.current) {
+                        setClusterSelectie(null);
+                        setGekozenMeldingId((huidig) => (huidig === melding.id ? null : melding.id));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setGekozenMeldingId((huidig) => (huidig === melding.id ? null : melding.id));
+                      }
+                    }}
+                  >
+                    <title>{label}</title>
+                    <circle className={laagStyles.officieelHalo} r="25" />
+                    <circle className={laagStyles.officieelCore} r="19" />
+                    <path
+                      className={laagStyles.officieelVlam}
+                      d="M0 11C-7 8-10 3-8-3c1-4 4-6 5-10 4 3 7 7 6 12 2-2 3-4 3-6 5 5 6 13 1 17-2 1-4 2-7 1Z"
+                    />
+                  </g>
+                );
+              })}
           </svg>
 
           {clusterSelectie && (
@@ -715,6 +889,17 @@ export default function FranceKaart({
                   </>
                 )}
               </div>
+              <p className={laagStyles.technischeDuiding}>
+                <strong>Technische duiding:</strong>{" "}
+                {gekozenPunt.waarneming.waarschijnlijkNatuurbrand
+                  ? "het patroon past bij een mogelijke natuurbrand"
+                  : "de meting voldoet niet aan de conservatieve criteria voor een waarschijnlijke natuurbrand"}
+                {gekozenPunt.waarneming.waarschijnlijkheidsRedenen.length > 0
+                  ? `. Signalen: ${gekozenPunt.waarneming.waarschijnlijkheidsRedenen.join(
+                      ", "
+                    )}.`
+                  : "."}
+              </p>
               <p className={styles.popupBron}>
                 Bron:{" "}
                 <a
@@ -726,9 +911,68 @@ export default function FranceKaart({
                 </a>
               </p>
               <p className={styles.caveat}>
-                Gemeten hittebron; niet automatisch een door de Franse autoriteiten bevestigde
-                natuurbrand. FRP is het geschatte uitgestraalde vermogen, niet het verbrande
-                oppervlak.
+                Technische waarschijnlijkheid is geen bevestiging. FRP is het geschatte
+                uitgestraalde vermogen, niet het verbrande oppervlak.
+              </p>
+            </div>
+          )}
+
+          {!clusterSelectie && gekozenMelding && meldingCoordinaat && (
+            <div
+              className={`${styles.pinPopup} ${popupPositieKlasse} ${laagStyles.officieelPopup}`}
+              style={{
+                left: `${begrens(popupSchermX, 0, 100)}%`,
+                top: `${begrens(popupSchermY, 0, 100)}%`,
+              }}
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="officieel-popup-titel"
+            >
+              <button
+                type="button"
+                className={styles.popupSluit}
+                aria-label="Kaartje sluiten"
+                onClick={() => setGekozenMeldingId(null)}
+              >
+                ×
+              </button>
+              <h3 id="officieel-popup-titel">Officieel gemelde natuurbrand</h3>
+              <span className={laagStyles.officieelBadge}>
+                {gekozenMelding.melding.actief ? "melding actief" : "melding beëindigd"}
+              </span>
+              <div className={styles.detailGrid}>
+                <span className={styles.detailLabel}>Melding</span>
+                <span>{gekozenMelding.melding.titel}</span>
+                <span className={styles.detailLabel}>Locatie</span>
+                <span>{gekozenMelding.melding.locatie}</span>
+                <span className={styles.detailLabel}>Zekerheid</span>
+                <span>{gekozenMelding.melding.zekerheid}</span>
+                <span className={styles.detailLabel}>Bron</span>
+                <span>{gekozenMelding.melding.bron}</span>
+                {gekozenMelding.melding.begonnenOp && (
+                  <>
+                    <span className={styles.detailLabel}>Begonnen</span>
+                    <span>{formatteerDatum(gekozenMelding.melding.begonnenOp)}</span>
+                  </>
+                )}
+                {gekozenMelding.melding.eindigtOp && (
+                  <>
+                    <span className={styles.detailLabel}>Einde melding</span>
+                    <span>{formatteerDatum(gekozenMelding.melding.eindigtOp)}</span>
+                  </>
+                )}
+              </div>
+              <a
+                className={laagStyles.officieelLink}
+                href={gekozenMelding.melding.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Bekijk de officiële FR-Alert-melding
+              </a>
+              <p className={styles.caveat}>
+                FR-Alert wordt alleen bij ernstige situaties ingezet. Geen marker betekent dus niet
+                dat er in dat gebied geen natuurbrand is.
               </p>
             </div>
           )}
@@ -754,8 +998,9 @@ export default function FranceKaart({
           <p>
             Dezelfde brand kan tijdens verschillende satellietpassages meermaals worden gemeten.
             Ook landbouwvuren, industrie, hete rook of een andere warmtebron kunnen een detectie
-            veroorzaken. Daarom groepeert deze kaart nabijgelegen metingen en spreekt zij van
-            satellietwaarnemingen, niet van bevestigde brandhaarden.
+            veroorzaken. De stand “Waarschijnlijke natuurbranden” gebruikt daarom een conservatieve
+            combinatie van betrouwbaarheid, FRP en samenhangende metingen in tijd en ruimte. Dit
+            blijft een technische inschatting.
           </p>
           <p>
             Bron:{" "}
