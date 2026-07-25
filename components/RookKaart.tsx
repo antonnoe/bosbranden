@@ -20,6 +20,10 @@ export default function RookKaart() {
     setFout(false);
   }
 
+  const kaartLabel = `CAMS-verwachting van rook uit natuurbranden voor ${
+    tijdstap === 0 ? "nu" : `over ${tijdstap} uur`
+  }`;
+
   return (
     <div className={`omhulsel ${styles.rookOmhulsel}`}>
       <section className={`sectie ${styles.rookSectie}`} aria-labelledby="rook-titel">
@@ -62,35 +66,25 @@ export default function RookKaart() {
           </label>
         </div>
 
-        <div className={styles.kaartKader}>
-          <svg
-            className={styles.kaart}
-            viewBox={KAART_VIEWBOX}
-            role="img"
-            aria-label={`CAMS-verwachting van rook uit natuurbranden voor ${
-              tijdstap === 0 ? "nu" : `over ${tijdstap} uur`
-            }`}
-          >
-            <image
-              key={afbeeldingUrl}
-              className={styles.rookBeeld}
-              href={afbeeldingUrl}
-              x="0"
-              y="0"
-              width="1000"
-              height="959"
-              preserveAspectRatio="none"
-              opacity={dekking / 100}
-              onLoad={() => {
-                setLaden(false);
-                setFout(false);
-              }}
-              onError={() => {
-                setLaden(false);
-                setFout(true);
-              }}
-            />
+        <div className={styles.kaartKader} role="img" aria-label={kaartLabel}>
+          <img
+            key={afbeeldingUrl}
+            className={styles.rookBeeld}
+            src={afbeeldingUrl}
+            alt=""
+            aria-hidden="true"
+            style={{ opacity: dekking / 100 }}
+            onLoad={() => {
+              setLaden(false);
+              setFout(false);
+            }}
+            onError={() => {
+              setLaden(false);
+              setFout(true);
+            }}
+          />
 
+          <svg className={styles.grenzen} viewBox={KAART_VIEWBOX} aria-hidden="true">
             {KAART_PADEN.map((pad) => (
               <path key={pad.code} className={styles.departement} d={pad.d}>
                 <title>{pad.naam}</title>
