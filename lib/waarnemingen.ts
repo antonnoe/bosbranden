@@ -11,6 +11,9 @@ export interface Waarneming {
   frp: number | null;
   dagNacht: "dag" | "nacht" | null;
   departementCode: string;
+  waarschijnlijkNatuurbrand: boolean;
+  waarschijnlijkheidsScore: number;
+  waarschijnlijkheidsRedenen: string[];
 }
 
 export interface WaarnemingenAntwoord {
