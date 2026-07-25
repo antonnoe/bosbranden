@@ -1,0 +1,143 @@
+.lagenFilter {
+  margin: 0 0 10px;
+  padding: 9px 10px;
+  border: 1px solid rgba(128, 0, 0, 0.14);
+  border-radius: 9px;
+  background: rgba(128, 0, 0, 0.025);
+}
+
+.lagenTitel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5f0000;
+}
+
+.lagenKnoppen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.lagenKnoppen button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid rgba(128, 0, 0, 0.2);
+  border-radius: 7px;
+  background: #fff;
+  color: #800000;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.lagenKnoppen button:hover,
+.lagenKnoppen button:focus-visible {
+  background: rgba(128, 0, 0, 0.07);
+  outline: none;
+}
+
+.lagenKnoppen button[aria-pressed="true"] {
+  background: #800000;
+  color: #fff;
+  border-color: #800000;
+}
+
+.lagenUitleg {
+  margin: 7px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  color: rgba(51, 39, 39, 0.75);
+}
+
+.officieelStatus {
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  border-left: 3px solid #b00020;
+  background: rgba(176, 0, 32, 0.05);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.officieelMarker {
+  cursor: pointer;
+  outline: none;
+}
+
+.officieelHalo {
+  fill: rgba(255, 255, 255, 0.94);
+  stroke: rgba(176, 0, 32, 0.25);
+  stroke-width: 2;
+  filter: drop-shadow(0 2px 3px rgba(45, 25, 25, 0.28));
+}
+
+.officieelCore {
+  fill: #b00020;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.officieelVlam {
+  fill: #fff;
+  pointer-events: none;
+}
+
+.officieelMarker:hover .officieelCore,
+.officieelMarker:focus-visible .officieelCore {
+  fill: #7a0016;
+  stroke-width: 3.5;
+}
+
+.officieelMarkerActief .officieelHalo {
+  stroke: #b00020;
+  stroke-width: 4;
+}
+
+.officieelPopup h3 {
+  color: #800000;
+}
+
+.officieelBadge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(176, 0, 32, 0.08);
+  color: #8e001a;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.officieelLink {
+  display: inline-block;
+  margin-top: 9px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.technischeDuiding {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(128, 0, 0, 0.045);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.technischeDuiding strong {
+  color: #800000;
+}
+
+@media (max-width: 560px) {
+  .lagenKnoppen {
+    grid-template-columns: 1fr;
+  }
+
+  .lagenKnoppen button {
+    min-height: 36px;
+    text-align: left;
+  }
+}
