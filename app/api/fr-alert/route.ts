@@ -1,57 +1,81 @@
 import { NextResponse } from "next/server";
 import type { FrAlertAntwoord, FrAlertMelding, FrAlertZekerheid } from "@/lib/fr-alert";
+import {
+  FR_ALERT_FALLBACK,
+  FR_ALERT_FALLBACK_BIJGEWERKT,
+} from "@/data/fr-alert-fallback";
 
 export const runtime = "nodejs";
 
+const JAAR = new Date().getUTCFullYear();
 const LIJST_URLS = [
+  "https://fr-alert.gouv.fr/les-alertes",
+  "https://www.fr-alert.gouv.fr/les-alertes",
   "https://fr-alert.gouv.fr/les-alertes/33/type/Actual/all",
   "https://www.fr-alert.gouv.fr/les-alertes/33/type/Actual/all",
-  "https://fr-alert.gouv.fr/les-alertes",
-  "https://fr-alert.gouv.fr/tableau-alertes/2026",
+  `https://fr-alert.gouv.fr/tableau-alertes/${JAAR}`,
+  "https://fr-alert.gouv.fr/",
 ] as const;
+
 const MAX_DETAILPAGINAS = 60;
 const MAX_OUDERDOM_DAGEN = 21;
-const USER_AGENT =
-  "Infofrankrijk-Bosbrandenkaart/1.1 (+https://www.nederlanders.fr/bosbranden)";
+const MAX_FALLBACK_DAGEN = 45;
+const BROWSER_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
 export async function GET() {
-  try {
-    const links = await haalAlertLinksOp();
+  const nu = new Date().toISOString();
 
-    if (links.length === 0) {
+  try {
+    const ids = await haalAlertIdsOp();
+    const liveResultaten =
+      ids.length > 0
+        ? await verwerkInBatches(ids.slice(0, MAX_DETAILPAGINAS), 5, leesMelding)
+        : [];
+
+    const live = liveResultaten
+      .filter((melding): melding is FrAlertMelding => melding !== null)
+      .filter(isRecent);
+
+    const fallback = haalFallbackMeldingenOp();
+    const gecombineerd = combineerMeldingen(live, fallback).sort(
+      (a, b) => datumWaarde(b.begonnenOp) - datumWaarde(a.begonnenOp)
+    );
+
+    if (gecombineerd.length > 0) {
       return antwoord({
-        beschikbaar: false,
-        meldingen: [],
-        bijgewerkt: new Date().toISOString(),
+        beschikbaar: true,
+        meldingen: gecombineerd,
+        bijgewerkt: live.length > 0 ? nu : FR_ALERT_FALLBACK_BIJGEWERKT,
         bron: "FR-Alert",
-        opmerking: "FR-Alert leverde tijdelijk geen leesbare meldingen.",
+        opmerking:
+          live.length > 0
+            ? undefined
+            : "De live FR-Alert-pagina was tijdelijk niet uitleesbaar; de laatst bekende officiële export wordt getoond.",
       });
     }
 
-    const meldingen = await verwerkInBatches(links.slice(0, MAX_DETAILPAGINAS), 6, leesMelding);
-    const recenteMeldingen = meldingen
-      .filter((melding): melding is FrAlertMelding => melding !== null)
-      .filter(isRecent)
-      .sort((a, b) => datumWaarde(b.begonnenOp) - datumWaarde(a.begonnenOp));
-
-    return antwoord({
-      beschikbaar: true,
-      meldingen: recenteMeldingen,
-      bijgewerkt: new Date().toISOString(),
-      bron: "FR-Alert",
-      opmerking:
-        recenteMeldingen.length === 0
-          ? "FR-Alert bevat momenteel geen recente, geografisch plaatsbare natuurbrandmelding."
-          : undefined,
-    });
-  } catch (fout) {
-    console.error("FR-Alert ophalen mislukt", fout);
     return antwoord({
       beschikbaar: false,
       meldingen: [],
       bijgewerkt: null,
       bron: "FR-Alert",
-      opmerking: "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
+      opmerking: "FR-Alert leverde tijdelijk geen bruikbare natuurbrandmeldingen.",
+    });
+  } catch (fout) {
+    console.error("FR-Alert ophalen mislukt", fout);
+    const fallback = haalFallbackMeldingenOp();
+
+    return antwoord({
+      beschikbaar: fallback.length > 0,
+      meldingen: fallback,
+      bijgewerkt: fallback.length > 0 ? FR_ALERT_FALLBACK_BIJGEWERKT : null,
+      bron: "FR-Alert",
+      opmerking:
+        fallback.length > 0
+          ? "De live FR-Alert-pagina was tijdelijk niet uitleesbaar; de laatst bekende officiële export wordt getoond."
+          : "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
     });
   }
 }
@@ -60,98 +84,124 @@ function antwoord(body: FrAlertAntwoord, status = 200) {
   return NextResponse.json(body, {
     status,
     headers: {
-      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
+      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=900",
     },
   });
 }
 
-async function haalAlertLinksOp(): Promise<string[]> {
-  const links = new Set<string>();
+async function haalAlertIdsOp(): Promise<string[]> {
+  const ids = new Set<string>();
 
   for (const lijstUrl of LIJST_URLS) {
     try {
       const html = await haalTekstOp(lijstUrl, 120);
-      for (const link of vindAlertLinks(html, lijstUrl)) links.add(link);
-      if (links.size >= 20) break;
+      for (const id of vindAlertIds(html)) ids.add(id);
+      if (ids.size >= 20) break;
     } catch (fout) {
       console.warn("FR-Alert-lijst overgeslagen", lijstUrl, fout);
     }
   }
 
-  return [...links];
+  return [...ids].sort((a, b) => tijdUitIdentifiant(b) - tijdUitIdentifiant(a));
 }
 
-async function leesMelding(url: string): Promise<FrAlertMelding | null> {
-  try {
-    const html = await haalTekstOp(url, 120);
-    const tekst = htmlNaarTekst(html);
-
-    if (!/Incendie\s*[-–]\s*Feu de forêt/i.test(tekst)) return null;
-    if (/\b(?:EXERCICE|TEST D['’ ]?ALERTE|MESSAGE DE TEST)\b/i.test(tekst)) return null;
-
-    const koppen = [...html.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
-      .map((match) => htmlNaarTekst(match[1]))
-      .filter(Boolean);
-    const categorieIndex = koppen.findIndex((kop) =>
-      /Incendie\s*[-–]\s*Feu de forêt/i.test(kop)
-    );
-    const titel =
-      koppen[categorieIndex + 1] ??
-      koppen.find((kop) => /(?:feu de forêt|incendie)/i.test(kop)) ??
-      "Natuurbrandmelding";
-    const locatie = vindLocatie(tekst, titel);
-    const coordinaten = vindCoordinatenInHtml(html) ?? (await geocodeer(locatie, titel));
-    if (!coordinaten) return null;
-
-    const datumTijden = vindDatumTijden(html, tekst);
-    const begonnenOp = datumTijden[0] ?? null;
-    const eindigtOp = datumTijden.length > 1 ? datumTijden[datumTijden.length - 1] : null;
-    const zekerheid = vertaalZekerheid(tekst.match(/Certitude\s*:\s*([^\n]+)/i)?.[1]);
-    const bron =
-      tekst.match(/Source\s*:\s*([^\n]+)/i)?.[1]?.trim() ||
-      "Franse autoriteiten via FR-Alert";
-    const id = url.split("/").pop() || url;
-
-    return {
-      id,
-      titel: schoon(titel),
-      locatie: schoon(locatie),
-      latitude: coordinaten.latitude,
-      longitude: coordinaten.longitude,
-      zekerheid,
-      bron: schoon(bron),
-      begonnenOp,
-      eindigtOp,
-      actief: eindigtOp ? Date.parse(eindigtOp) > Date.now() : true,
-      url,
-    };
-  } catch (fout) {
-    console.warn("FR-Alert-detail overgeslagen", url, fout);
-    return null;
-  }
-}
-
-function vindAlertLinks(html: string, basisUrl: string): string[] {
-  const links = new Set<string>();
-  const patronen = [
-    /href=["']([^"']*\/les-alertes\/FR-ALERT\.[^"'#?\s<]+)["']/gi,
-    /href=["']([^"']*FR-ALERT\.[^"'#?\s<]+)["']/gi,
+function vindAlertIds(html: string): string[] {
+  const ids = new Set<string>();
+  const varianten = [
+    html,
+    decodeHtml(html),
+    html
+      .replace(/\\u002e/gi, ".")
+      .replace(/\\u002f/gi, "/")
+      .replace(/\\\//g, "/"),
   ];
 
-  for (const patroon of patronen) {
-    for (const match of html.matchAll(patroon)) {
-      try {
-        const kandidaat = decodeHtml(match[1]);
-        const url = new URL(kandidaat, basisUrl);
-        if (!url.pathname.includes("/les-alertes/FR-ALERT.")) continue;
-        links.add(url.toString());
-      } catch {
-        // Ongeldige link overslaan.
+  for (const variant of varianten) {
+    const gedecodeerd = veiligDecodeURIComponent(variant);
+    for (const bron of [variant, gedecodeerd]) {
+      for (const match of bron.matchAll(
+        /FR-ALERT(?:\.|%2e)(\d{6,})(?:\.|%2e)(\d+)(?:\.|%2e)(\d+)/gi
+      )) {
+        ids.add(`FR-ALERT.${match[1]}.${match[2]}.${match[3]}`);
       }
     }
   }
 
-  return [...links];
+  return [...ids];
+}
+
+async function leesMelding(id: string): Promise<FrAlertMelding | null> {
+  const urls = [
+    `https://fr-alert.gouv.fr/les-alertes/${id}`,
+    `https://www.fr-alert.gouv.fr/les-alertes/${id}`,
+  ];
+
+  for (const url of urls) {
+    try {
+      const html = await haalTekstOp(url, 120);
+      const melding = await parseMelding(id, url, html);
+      if (melding) return melding;
+    } catch (fout) {
+      console.warn("FR-Alert-detailvariant overgeslagen", url, fout);
+    }
+  }
+
+  return null;
+}
+
+async function parseMelding(
+  id: string,
+  url: string,
+  html: string
+): Promise<FrAlertMelding | null> {
+  const tekst = htmlNaarTekst(html);
+
+  if (!/\bIncendie\b/i.test(tekst) || !/Feu de forêt/i.test(tekst)) return null;
+  if (
+    /\b(?:EXERCICE|TEST D['’ ]?ALERTE|MESSAGE DE TEST|FR-ALERT EXERCICE)\b/i.test(
+      tekst
+    )
+  ) {
+    return null;
+  }
+
+  const koppen = [...html.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
+    .map((match) => htmlNaarTekst(match[1]))
+    .filter(Boolean);
+  const categorieIndex = koppen.findIndex(
+    (kop) => /\bIncendie\b/i.test(kop) && /Feu de forêt/i.test(kop)
+  );
+  const titel =
+    koppen[categorieIndex + 1] ??
+    koppen.find((kop) => /Feu de forêt/i.test(kop) && !/^Incendie\s*[-–]/i.test(kop)) ??
+    "Natuurbrandmelding";
+  const locatie = vindLocatie(tekst, titel);
+  const coordinaten = vindCoordinatenInHtml(html) ?? (await geocodeer(locatie, titel));
+  if (!coordinaten) return null;
+
+  const datumTijden = vindDatumTijden(html, tekst);
+  const begonnenOp = datumTijden[0] ?? datumUitIdentifiant(id);
+  const eindigtOp = datumTijden.length > 1 ? datumTijden[datumTijden.length - 1] : null;
+  const zekerheid = vertaalZekerheid(
+    tekst.match(/Certitude\s*:\s*([^\n]+)/i)?.[1]
+  );
+  const bron =
+    tekst.match(/Source\s*:\s*([^\n]+)/i)?.[1]?.trim() ||
+    "Franse autoriteiten via FR-Alert";
+
+  return {
+    id,
+    titel: schoon(titel),
+    locatie: schoon(locatie),
+    latitude: coordinaten.latitude,
+    longitude: coordinaten.longitude,
+    zekerheid,
+    bron: schoon(bron),
+    begonnenOp,
+    eindigtOp,
+    actief: eindigtOp ? Date.parse(eindigtOp) > Date.now() : true,
+    url,
+  };
 }
 
 function vindLocatie(tekst: string, titel: string): string {
@@ -161,55 +211,58 @@ function vindLocatie(tekst: string, titel: string): string {
     .filter(Boolean);
 
   const gemarkeerdeRegel = regels.find(
-    (regel) => /\([PC]\d+\)\s*$/.test(regel) && regel.length < 220
+    (regel) => /\([PC]\d+\)\s*$/.test(regel) && regel.length < 240
   );
-
-  if (gemarkeerdeRegel) return gemarkeerdeRegel.replace(/\s*\([PC]\d+\)\s*$/, "");
+  if (gemarkeerdeRegel) {
+    return gemarkeerdeRegel.replace(/\s*\([PC]\d+\)\s*$/, "");
+  }
 
   const gemeenteRegel = regels.find(
-    (regel) => /^(?:Commune|Communes|Secteur|Presqu['’]île|Forêt|Massif|Département)\b/i.test(regel) && regel.length < 220
+    (regel) =>
+      /^(?:Commune|Communes|Secteur|Presqu['’]île|Forêt|Massif|Département|Bassin)\b/i.test(
+        regel
+      ) && regel.length < 240
   );
   if (gemeenteRegel) return gemeenteRegel;
 
-  const titelZonderPrefix = titel
+  return titel
     .replace(/^(?:alerte\s*[-–:]?\s*)?/i, "")
     .replace(/^(?:incendie|feu de forêt)\s*[-–:]?\s*/i, "")
     .replace(/^\((.*)\)$/, "$1")
     .trim();
-  return titelZonderPrefix || titel;
 }
 
 function vindCoordinatenInHtml(
   html: string
 ): { latitude: number; longitude: number } | null {
-  const dataMatch = html.match(
-    /data-(?:lat|latitude)=["'](-?\d+(?:\.\d+)?)["'][\s\S]{0,300}?data-(?:lon|lng|longitude)=["'](-?\d+(?:\.\d+)?)["']/i
+  const genormaliseerd = decodeHtml(
+    html
+      .replace(/\\u002c/gi, ",")
+      .replace(/\\u002e/gi, ".")
+      .replace(/\\u002d/gi, "-")
+      .replace(/\\\//g, "/")
   );
-  if (dataMatch) {
-    const latitude = Number(dataMatch[1]);
-    const longitude = Number(dataMatch[2]);
-    if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
+
+  const punten: Array<{ latitude: number; longitude: number }> = [];
+  for (const match of genormaliseerd.matchAll(
+    /(-?\d{1,3}(?:\.\d{4,}))\s*,\s*(-?\d{1,3}(?:\.\d{4,}))/g
+  )) {
+    const eerste = Number(match[1]);
+    const tweede = Number(match[2]);
+
+    if (geldigeMetropoleCoordinaat(eerste, tweede)) {
+      punten.push({ latitude: eerste, longitude: tweede });
+    } else if (geldigeMetropoleCoordinaat(tweede, eerste)) {
+      punten.push({ latitude: tweede, longitude: eerste });
+    }
   }
 
-  const jsonMatch = html.match(
-    /["']latitude["']\s*:\s*(-?\d+(?:\.\d+)?)[\s\S]{0,250}?["']longitude["']\s*:\s*(-?\d+(?:\.\d+)?)/i
-  );
-  if (jsonMatch) {
-    const latitude = Number(jsonMatch[1]);
-    const longitude = Number(jsonMatch[2]);
-    if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
-  }
+  if (punten.length === 0) return null;
 
-  const geoJsonMatch = html.match(
-    /["']coordinates["']\s*:\s*\[\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*\]/i
-  );
-  if (geoJsonMatch) {
-    const longitude = Number(geoJsonMatch[1]);
-    const latitude = Number(geoJsonMatch[2]);
-    if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
-  }
-
-  return null;
+  return {
+    latitude: mediaan(punten.map((punt) => punt.latitude)),
+    longitude: mediaan(punten.map((punt) => punt.longitude)),
+  };
 }
 
 async function geocodeer(
@@ -234,7 +287,10 @@ async function geocodeer(
 function maakZoekPogingen(locatie: string, titel: string): string[] {
   const opgeschoond = locatie
     .replace(/\([^)]*\)/g, " ")
-    .replace(/\b(?:Commune|Communes|Secteur|Département|Massif|Forêt|Presqu['’]île)\s+(?:de|du|des|d['’])?\s*/gi, " ")
+    .replace(
+      /\b(?:Commune|Communes|Secteur|Département|Massif|Forêt|Presqu['’]île|Bassin)\s+(?:de|du|des|d['’])?\s*/gi,
+      " "
+    )
     .replace(/\s+/g, " ")
     .trim();
 
@@ -257,10 +313,15 @@ async function geocodeerMetGeopf(
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      headers: {
+        "User-Agent": BROWSER_USER_AGENT,
+        Accept: "application/json",
+      },
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
+
     const json = (await res.json()) as {
       features?: Array<{ geometry?: { coordinates?: [number, number] } }>;
     };
@@ -269,7 +330,9 @@ async function geocodeerMetGeopf(
       const coordinaten = feature.geometry?.coordinates;
       if (!coordinaten) continue;
       const [longitude, latitude] = coordinaten;
-      if (geldigeMetropoleCoordinaat(latitude, longitude)) return { latitude, longitude };
+      if (geldigeMetropoleCoordinaat(latitude, longitude)) {
+        return { latitude, longitude };
+      }
     }
   } catch {
     return null;
@@ -296,17 +359,24 @@ async function geocodeerGemeente(
 
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      headers: {
+        "User-Agent": BROWSER_USER_AGENT,
+        Accept: "application/json",
+      },
       next: { revalidate: 86400 },
+      signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
+
     const json = (await res.json()) as Array<{
       centre?: { coordinates?: [number, number] };
     }>;
     const coordinaten = json[0]?.centre?.coordinates;
     if (!coordinaten) return null;
     const [longitude, latitude] = coordinaten;
-    return geldigeMetropoleCoordinaat(latitude, longitude) ? { latitude, longitude } : null;
+    return geldigeMetropoleCoordinaat(latitude, longitude)
+      ? { latitude, longitude }
+      : null;
   } catch {
     return null;
   }
@@ -332,9 +402,15 @@ function vindDatumTijden(html: string, tekst: string): string[] {
   }
 
   for (const match of tekst.matchAll(
-    /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+(\d{4})\s*,?\s*(\d{1,2})h(\d{2})/gi
+    /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})\s*,?\s*(\d{1,2})h(\d{2})/gi
   )) {
-    const iso = normaliseerFranseDatum(match[1], match[2], match[3], match[4], match[5]);
+    const iso = normaliseerFranseDatum(
+      match[1],
+      match[2],
+      match[3],
+      match[4],
+      match[5]
+    );
     if (iso) resultaat.add(iso);
   }
 
@@ -367,29 +443,41 @@ function normaliseerFranseDatum(
   };
   const maand = maanden[maandTekst.toLowerCase()];
   if (!maand) return null;
-  const jaar = Number(jaarTekst);
+
   const offset = maand >= 4 && maand <= 10 ? "+02:00" : "+01:00";
-  const iso = `${jaar}-${String(maand).padStart(2, "0")}-${String(Number(dagTekst)).padStart(
-    2,
-    "0"
-  )}T${String(Number(uurTekst)).padStart(2, "0")}:${String(Number(minuutTekst)).padStart(
-    2,
-    "0"
-  )}:00${offset}`;
+  const iso = `${jaarTekst}-${String(maand).padStart(2, "0")}-${String(
+    Number(dagTekst)
+  ).padStart(2, "0")}T${String(Number(uurTekst)).padStart(2, "0")}:${String(
+    Number(minuutTekst)
+  ).padStart(2, "0")}:00${offset}`;
+
   return normaliseerDatum(iso);
 }
 
 async function haalTekstOp(url: string, revalidate: number): Promise<string> {
   const res = await fetch(url, {
     headers: {
-      "User-Agent": USER_AGENT,
-      Accept: "text/html,application/xhtml+xml",
-      "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7",
+      "User-Agent": BROWSER_USER_AGENT,
+      Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+      "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+      Referer: "https://fr-alert.gouv.fr/",
     },
+    redirect: "follow",
     next: { revalidate },
+    signal: AbortSignal.timeout(12_000),
   });
-  if (!res.ok) throw new Error(`${url} antwoordde met status ${res.status}`);
-  return res.text();
+
+  if (!res.ok) {
+    throw new Error(`${url} antwoordde met status ${res.status}`);
+  }
+
+  const tekst = await res.text();
+  if (tekst.length < 200) {
+    throw new Error(`${url} leverde een onvolledige respons`);
+  }
+  return tekst;
 }
 
 function htmlNaarTekst(html: string): string {
@@ -398,7 +486,7 @@ function htmlNaarTekst(html: string): string {
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
       .replace(/<br\s*\/?\s*>/gi, "\n")
-      .replace(/<\/p>|<\/li>|<\/h[1-6]>|<\/div>/gi, "\n")
+      .replace(/<\/p>|<\/li>|<\/h[1-6]>|<\/div>|<\/article>|<\/section>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
   )
     .replace(/[ \t]+/g, " ")
@@ -426,10 +514,22 @@ function decodeHtml(waarde: string): string {
   };
 
   return waarde.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (geheel, code: string) => {
-    if (code.startsWith("#x")) return String.fromCodePoint(parseInt(code.slice(2), 16));
-    if (code.startsWith("#")) return String.fromCodePoint(parseInt(code.slice(1), 10));
+    if (code.toLowerCase().startsWith("#x")) {
+      return String.fromCodePoint(parseInt(code.slice(2), 16));
+    }
+    if (code.startsWith("#")) {
+      return String.fromCodePoint(parseInt(code.slice(1), 10));
+    }
     return benoemd[code] ?? geheel;
   });
+}
+
+function veiligDecodeURIComponent(waarde: string): string {
+  try {
+    return decodeURIComponent(waarde);
+  } catch {
+    return waarde;
+  }
 }
 
 function vertaalZekerheid(waarde?: string): FrAlertZekerheid {
@@ -444,17 +544,63 @@ function normaliseerDatum(waarde: string): string | null {
   return Number.isNaN(datum.getTime()) ? null : datum.toISOString();
 }
 
+function datumUitIdentifiant(id: string): string | null {
+  const tijd = tijdUitIdentifiant(id);
+  return tijd > 0 ? new Date(tijd).toISOString() : null;
+}
+
+function tijdUitIdentifiant(id: string): number {
+  const seconden = Number(id.split(".")[1]);
+  return Number.isFinite(seconden) ? seconden * 1000 : 0;
+}
+
 function isRecent(melding: FrAlertMelding): boolean {
   if (!melding.begonnenOp) return true;
   const tijd = Date.parse(melding.begonnenOp);
-  if (!Number.isFinite(tijd)) return true;
-  return Date.now() - tijd <= MAX_OUDERDOM_DAGEN * 86_400_000;
+  return (
+    !Number.isFinite(tijd) ||
+    Date.now() - tijd <= MAX_OUDERDOM_DAGEN * 86_400_000
+  );
+}
+
+function haalFallbackMeldingenOp(): FrAlertMelding[] {
+  const grens = Date.now() - MAX_FALLBACK_DAGEN * 86_400_000;
+
+  return FR_ALERT_FALLBACK
+    .filter((melding) => {
+      if (!melding.begonnenOp) return true;
+      const tijd = Date.parse(melding.begonnenOp);
+      return !Number.isFinite(tijd) || tijd >= grens;
+    })
+    .map((melding) => ({
+      ...melding,
+      actief: melding.eindigtOp ? Date.parse(melding.eindigtOp) > Date.now() : true,
+    }))
+    .sort((a, b) => datumWaarde(b.begonnenOp) - datumWaarde(a.begonnenOp));
+}
+
+function combineerMeldingen(
+  live: FrAlertMelding[],
+  fallback: FrAlertMelding[]
+): FrAlertMelding[] {
+  const gecombineerd = new Map<string, FrAlertMelding>();
+  for (const melding of fallback) gecombineerd.set(melding.id, melding);
+  for (const melding of live) gecombineerd.set(melding.id, melding);
+  return [...gecombineerd.values()].filter(isRecent);
 }
 
 function datumWaarde(waarde: string | null): number {
   if (!waarde) return 0;
   const tijd = Date.parse(waarde);
   return Number.isFinite(tijd) ? tijd : 0;
+}
+
+function mediaan(waarden: number[]): number {
+  const gesorteerd = [...waarden].sort((a, b) => a - b);
+  const midden = Math.floor(gesorteerd.length / 2);
+  return gesorteerd.length % 2 === 0
+    ? (gesorteerd[midden - 1] + gesorteerd[midden]) / 2
+    : gesorteerd[midden];
 }
 
 function schoon(waarde: string): string {
@@ -467,9 +613,11 @@ async function verwerkInBatches<T, R>(
   verwerker: (item: T) => Promise<R>
 ): Promise<R[]> {
   const resultaat: R[] = [];
+
   for (let i = 0; i < invoer.length; i += batchGrootte) {
     const batch = invoer.slice(i, i + batchGrootte);
     resultaat.push(...(await Promise.all(batch.map(verwerker))));
   }
+
   return resultaat;
 }
