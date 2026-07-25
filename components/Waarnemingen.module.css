@@ -31,14 +31,95 @@
   color: rgba(51, 39, 39, 0.75);
 }
 
-.kaartContainer {
-  position: relative;
+.kaartEnNieuws {
   width: 100%;
 }
 
-:global(.embed) .kaartContainer {
+.kaartContainer {
+  width: 100%;
+}
+
+:global(.embed) .kaartContainer,
+:global(.embed) .nieuwsBlok {
   max-width: 540px;
-  margin: 0 auto;
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.kaartViewport {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.zoomKaart {
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.zoomKaart:active {
+  cursor: grabbing;
+}
+
+.zoomBediening {
+  position: absolute;
+  z-index: 15;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  overflow: hidden;
+  border: 1px solid rgba(128, 0, 0, 0.28);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 8px rgba(45, 25, 25, 0.16);
+}
+
+.zoomBediening button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-right: 1px solid rgba(128, 0, 0, 0.14);
+  background: #fff;
+  color: #800000;
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.zoomBediening button:last-child {
+  border-right: 0;
+}
+
+.zoomBediening button:hover:not(:disabled),
+.zoomBediening button:focus-visible {
+  background: rgba(128, 0, 0, 0.08);
+  outline: none;
+}
+
+.zoomBediening button:disabled {
+  color: rgba(128, 0, 0, 0.3);
+  cursor: default;
+}
+
+.zoomBediening .zoomReset {
+  width: auto;
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.zoomUitleg {
+  margin: 5px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(51, 39, 39, 0.72);
+  text-align: center;
 }
 
 .mapPin {
@@ -133,7 +214,6 @@
   font-size: 0.82rem;
 }
 
-/* Het oude detailpaneel onder de kaart wordt vervangen door de pin-popup. */
 .waarnemingPaneel {
   display: none;
 }
@@ -158,7 +238,127 @@
   line-height: 1.5;
 }
 
+.nieuwsBlok {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(128, 0, 0, 0.14);
+  border-radius: 10px;
+  background: rgba(128, 0, 0, 0.025);
+  text-align: left;
+}
+
+.nieuwsKop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 9px;
+}
+
+.nieuwsKop h3 {
+  margin: 0;
+  color: #800000;
+}
+
+.nieuwsKop p {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: rgba(51, 39, 39, 0.75);
+}
+
+.officieleLink {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border: 1px solid rgba(128, 0, 0, 0.22);
+  border-radius: 7px;
+  background: #fff;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  text-align: center;
+  text-decoration: none;
+}
+
+.officieleLink:hover,
+.officieleLink:focus-visible {
+  background: rgba(128, 0, 0, 0.07);
+  outline: none;
+}
+
+.nieuwsLijst {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nieuwsLijst li {
+  padding: 8px 0;
+  border-top: 1px solid rgba(128, 0, 0, 0.1);
+  line-height: 1.45;
+}
+
+.nieuwsLijst li:first-child {
+  border-top: 0;
+  padding-top: 2px;
+}
+
+.nieuwsLijst a {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nieuwsLijst a:hover,
+.nieuwsLijst a:focus-visible {
+  text-decoration: underline;
+}
+
+.nieuwsLijst span {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: rgba(51, 39, 39, 0.68);
+}
+
+.nieuwsStatus {
+  margin: 8px 0;
+  font-size: 0.84rem;
+}
+
+.nieuwsNoot {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(128, 0, 0, 0.1);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: rgba(51, 39, 39, 0.72);
+}
+
+:global(.embed) .nieuwsBlok {
+  margin-top: 10px;
+  padding: 11px 12px;
+}
+
+:global(.embed) .nieuwsLijst li:nth-child(n + 4) {
+  display: none;
+}
+
 @media (max-width: 560px) {
+  .zoomBediening {
+    top: 6px;
+    left: 6px;
+  }
+
+  .zoomBediening button {
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .zoomBediening .zoomReset {
+    font-size: 0.7rem;
+  }
+
   .pinPopup {
     position: static;
     width: 100%;
@@ -174,5 +374,14 @@
 
   .detailGrid > :nth-child(even) {
     margin-bottom: 6px;
+  }
+
+  .nieuwsKop {
+    display: block;
+  }
+
+  .officieleLink {
+    display: inline-block;
+    margin-top: 8px;
   }
 }
