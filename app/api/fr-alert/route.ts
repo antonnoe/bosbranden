@@ -31,6 +31,7 @@ export async function GET(request: Request) {
   //  ?debug=1      → rauwe fetch-uitkomst per bron-URL via de gefixte agent.
   const debug = new URL(request.url).searchParams.get("debug");
   if (debug === "chain") return await diagnoseKeten();
+  if (debug === "detail") return await diagnoseDetail();
   if (debug === "1") return await diagnoseFrAlert();
 
   const nu = new Date().toISOString();
@@ -115,6 +116,67 @@ async function diagnoseKeten() {
         "aiaCaIssuers is de URL waar het ontbrekende intermediate vandaan komt; " +
         "serverStuurtIntermediate:false bevestigt de onvolledige keten.",
       ketens,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+}
+
+// Toont per detailpagina wat de parser ziet (koppen, <title>, gekozen titel,
+// locatie) plus de nieuwste ids met tijd, zodat titel/locatie-parsing én de
+// actualiteit (staleness) vanaf productie te controleren zijn.
+async function diagnoseDetail() {
+  const alleIds = await haalAlertIdsOp();
+  const nieuwste = alleIds.slice(0, 30);
+  const headers = {
+    "User-Agent": BROWSER_USER_AGENT,
+    Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
+    Referer: "https://fr-alert.gouv.fr/",
+  };
+
+  const items: Array<Record<string, unknown>> = [];
+  let fireAantal = 0;
+  for (const id of nieuwste.slice(0, 14)) {
+    const url = `https://fr-alert.gouv.fr/les-alertes/${id}`;
+    try {
+      const agent = await frAlertAgent("fr-alert.gouv.fr");
+      const { status, body } = await httpsTekst(url, agent, headers);
+      const tekst = htmlNaarTekst(body);
+      const isFire = /\bIncendie\b/i.test(tekst) && /Feu de forêt/i.test(tekst);
+      if (isFire) fireAantal += 1;
+      const koppen = [...body.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
+        .map((m) => htmlNaarTekst(m[1]))
+        .filter(Boolean);
+      items.push({
+        id,
+        tijd: datumUitIdentifiant(id),
+        status,
+        bytes: body.length,
+        isFire,
+        aantalKoppen: koppen.length,
+        koppen: koppen.slice(0, 6),
+        titleTag: body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.slice(0, 140) ?? null,
+        feuMatch: decodeHtml(body).match(/"((?:Feu|Incendie)[^"\\]{0,90})"/i)?.[1] ?? null,
+        gekozenTitel: isFire ? vindTitel(body, tekst) : null,
+        locatie: isFire ? vindLocatie(tekst, vindTitel(body, tekst)) : null,
+        snippet: tekst.slice(0, 220).replace(/\s+/g, " ").trim(),
+      });
+    } catch (fout) {
+      items.push({ id, fout: (fout as Error).message });
+    }
+  }
+
+  return NextResponse.json(
+    {
+      tijd: new Date().toISOString(),
+      totaalIds: alleIds.length,
+      fireInEerste14: fireAantal,
+      uitleg:
+        "gekozenTitel/locatie tonen wat de parser nu produceert; koppen/titleTag/" +
+        "feuMatch tonen waar de titel vandaan komt. nieuwsteIds toont of er recentere " +
+        "meldingen bestaan dan geleverd (staleness).",
+      nieuwsteIds: nieuwste.map((id) => ({ id, tijd: datumUitIdentifiant(id) })),
+      items,
     },
     { headers: { "Cache-Control": "no-store" } }
   );
@@ -260,16 +322,7 @@ async function parseMelding(
     return null;
   }
 
-  const koppen = [...html.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
-    .map((match) => htmlNaarTekst(match[1]))
-    .filter(Boolean);
-  const categorieIndex = koppen.findIndex(
-    (kop) => /\bIncendie\b/i.test(kop) && /Feu de forêt/i.test(kop)
-  );
-  const titel =
-    koppen[categorieIndex + 1] ??
-    koppen.find((kop) => /Feu de forêt/i.test(kop) && !/^Incendie\s*[-–]/i.test(kop)) ??
-    "Natuurbrandmelding";
+  const titel = vindTitel(html, tekst);
   const locatie = vindLocatie(tekst, titel);
   const coordinaten = vindCoordinatenInHtml(html) ?? (await geocodeer(locatie, titel));
   if (!coordinaten) return null;
@@ -297,6 +350,67 @@ async function parseMelding(
     actief: eindigtOp ? Date.parse(eindigtOp) > Date.now() : true,
     url,
   };
+}
+
+// Robuuste titelbepaling. De detailpagina levert de titel niet altijd meer als
+// <h>-kop; een natuurbrandtitel begint echter betrouwbaar met "Feu de Forêt
+// <plaats>". We verzamelen kandidaten uit koppen, <title>, og:title, ingebedde
+// JSON-waarden en de zichtbare tekst, en kiezen de meest specifieke.
+function vindTitel(html: string, tekst: string): string {
+  const kandidaten: string[] = [];
+
+  // 1. Zichtbare koppen (oude methode blijft eerste keus).
+  const koppen = [...html.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
+    .map((match) => htmlNaarTekst(match[1]))
+    .filter(Boolean);
+  const categorieIndex = koppen.findIndex(
+    (kop) => /\bIncendie\b/i.test(kop) && /Feu de forêt/i.test(kop)
+  );
+  if (categorieIndex >= 0 && koppen[categorieIndex + 1]) {
+    kandidaten.push(koppen[categorieIndex + 1]);
+  }
+  kandidaten.push(...koppen);
+
+  // 2. <title> en og:title.
+  const titleTag = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1];
+  if (titleTag) kandidaten.push(htmlNaarTekst(titleTag));
+  const og =
+    html.match(/property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1] ??
+    html.match(/content=["']([^"']+)["'][^>]*property=["']og:title["']/i)?.[1];
+  if (og) kandidaten.push(htmlNaarTekst(og));
+
+  // 3. Ingebedde JSON-waarden "Feu de Forêt …".
+  for (const match of decodeHtml(html).matchAll(
+    /"((?:Feu|Incendie)[^"\\]{0,90})"/gi
+  )) {
+    kandidaten.push(match[1]);
+  }
+  // 4. Zichtbare tekst als laatste redmiddel.
+  for (const match of tekst.matchAll(/Feu de For[êe]ts?\b[^\n{}<>"]{2,90}/gi)) {
+    kandidaten.push(match[0]);
+  }
+
+  const opgeschoond = kandidaten
+    .map((k) =>
+      schoon(k)
+        .replace(/^\s*fr[- ]?alert\s*[-–|:]\s*/i, "")
+        .replace(/\s*[-–|]\s*fr[- ]?alert\s*$/i, "")
+        .trim()
+    )
+    .filter(Boolean);
+
+  // Voorkeur: specifieke "Feu de Forêt <plaats>", niet de kale categorie.
+  const specifiek = opgeschoond.find(
+    (k) =>
+      /feu de for[êe]t/i.test(k) &&
+      !/^incendie\b/i.test(k) &&
+      k.replace(/feu de for[êe]ts?/i, "").replace(/[()\s.,;:–-]/g, "").length >= 3 &&
+      k.length <= 140
+  );
+  if (specifiek) return specifiek;
+
+  const kop = opgeschoond.find((k) => k.length >= 4 && !/^incendie\b/i.test(k));
+  return kop ?? "Natuurbrandmelding";
 }
 
 function vindLocatie(tekst: string, titel: string): string {
