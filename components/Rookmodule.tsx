@@ -5,7 +5,7 @@
 // deze component tekent alleen de compacte, uitgerekende pluimen.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { KAART_PADEN } from "@/lib/kaart-paths";
+import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
 import Voortgang from "@/components/Voortgang";
 import EmbedHoogte from "@/components/EmbedHoogte";
@@ -15,6 +15,12 @@ import styles from "@/components/Rookmodule.module.css";
 // Frankrijk verlaten — bij mistral en tramontane gebeurt dat vaak — zichtbaar
 // blijven. Dat is relevante informatie, geen fout.
 const ROOK_VIEWBOX = { x: -300, y: -110, w: 1600, h: 1180 };
+
+// Het vlak waarin Frankrijk staat (de originele KAART_VIEWBOX "0 0 1000 959").
+// Het satellietbeeld wordt met exact deze afmetingen aangevraagd en getekend,
+// zodat het samenvalt met de departementsgrenzen.
+const [, , FR_W, FR_H] = KAART_VIEWBOX.split(" ").map(Number);
+const FRANKRIJK_VLAK = { x: 0, y: 0, w: FR_W, h: FR_H };
 
 // Straal (in SVG-eenheden) van het onzichtbare raakvlak rond een bron-dot.
 // Bij de gebruikelijke weergave (~820px breed voor 1600 eenheden) komt dit neer
@@ -111,6 +117,12 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [fijnstof, setFijnstof] = useState<{ grid: FijnstofGridpunt[]; uren: string[] } | null>(null);
   const [fijnstofLaden, setFijnstofLaden] = useState(false);
 
+  const [toonSatelliet, setToonSatelliet] = useState(false);
+  const [satelliet, setSatelliet] = useState<{ url: string; datum: string; laag: string } | null>(null);
+  const [satellietLaden, setSatellietLaden] = useState(false);
+  const [satellietFout, setSatellietFout] = useState(false);
+  const [satellietDekking, setSatellietDekking] = useState(70);
+
   const [postcode, setPostcode] = useState("");
   const [postcodeAntwoord, setPostcodeAntwoord] = useState<PostcodeAntwoord | null>(null);
   const [postcodeLaden, setPostcodeLaden] = useState(false);
@@ -166,6 +178,38 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       actief = false;
     };
   }, [toonFijnstof, fijnstof]);
+
+  // Satellietbeeld pas ophalen wanneer de gebruiker de laag inschakelt. We halen
+  // het beeld via fetch op (niet via <img src>) om de datum uit de header te
+  // kunnen lezen, en zetten het als object-URL. Het gekozen beeld kan van
+  // gisteren zijn (granule van vandaag nog niet klaar) — de datum staat er bij.
+  useEffect(() => {
+    if (!toonSatelliet || satelliet) return;
+    let actief = true;
+    let objectUrl: string | null = null;
+    setSatellietLaden(true);
+    setSatellietFout(false);
+    (async () => {
+      try {
+        const res = await fetch("/api/satellietbeeld");
+        if (!res.ok) throw new Error("geen bruikbaar beeld");
+        const datum = res.headers.get("X-Satelliet-Datum") ?? "";
+        const laag = res.headers.get("X-Satelliet-Laag") ?? "";
+        const blob = await res.blob();
+        if (!actief) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSatelliet({ url: objectUrl, datum, laag });
+      } catch {
+        if (actief) setSatellietFout(true);
+      } finally {
+        if (actief) setSatellietLaden(false);
+      }
+    })();
+    return () => {
+      actief = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [toonSatelliet, satelliet]);
 
   const pluimen = data?.pluimen ?? [];
   const gekozen = pluimen.find((p) => p.id === gekozenId) ?? null;
@@ -359,6 +403,32 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   Fijnstoflaag tonen (CAMS PM2.5)
                   {toonFijnstof && fijnstofLaden ? " — laden…" : ""}
                 </label>
+
+                <label className={styles.fijnstofSchakel}>
+                  <input
+                    type="checkbox"
+                    checked={toonSatelliet}
+                    onChange={(e) => setToonSatelliet(e.target.checked)}
+                  />
+                  Satellietbeeld tonen (NASA, waarneming)
+                  {toonSatelliet && satellietLaden ? " — laden…" : ""}
+                  {toonSatelliet && satellietFout ? " — nu niet beschikbaar" : ""}
+                </label>
+
+                {toonSatelliet && satelliet && !embed && (
+                  <label className={styles.tijdSchuif}>
+                    <span>Dekking satellietbeeld: {satellietDekking}%</span>
+                    <input
+                      type="range"
+                      min={20}
+                      max={100}
+                      step={5}
+                      value={satellietDekking}
+                      onChange={(e) => setSatellietDekking(Number(e.target.value))}
+                      aria-label="Dekking van het satellietbeeld"
+                    />
+                  </label>
+                )}
               </div>
             )}
 
@@ -383,6 +453,21 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     <stop offset="100%" stopColor="rgba(128, 0, 0, 0.06)" />
                   </linearGradient>
                 </defs>
+
+                {/* Satellietbeeld (waarneming) als onderste laag, vóór de
+                    grenzen en de pluimen. Exact de KAART_VIEWBOX-afmetingen,
+                    zodat het samenvalt met de departementsgrenzen. */}
+                {toonSatelliet && satelliet && (
+                  <image
+                    href={satelliet.url}
+                    x={FRANKRIJK_VLAK.x}
+                    y={FRANKRIJK_VLAK.y}
+                    width={FRANKRIJK_VLAK.w}
+                    height={FRANKRIJK_VLAK.h}
+                    opacity={satellietDekking / 100}
+                    preserveAspectRatio="none"
+                  />
+                )}
 
                 {/* Departementsgrenzen als rustige onderlaag */}
                 {KAART_PADEN.map((pad) => (
@@ -461,6 +546,21 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 })}
               </svg>
             </div>
+
+            {toonSatelliet && satelliet && (
+              <p className={styles.satellietBanner}>
+                <strong>Satellietbeeld (waarneming) van {satellietDatum(satelliet.datum)}.</strong>{" "}
+                {embed
+                  ? "Waar de rook wás; de pluimen zijn de verwachting. "
+                  : "Dit toont waar de rook wás; de pluimen zijn een berekende verwachting van waar de lucht náártoe waait. "}
+                Bron: NASA GIBS / EOSDIS{embed ? "" : ` · ${satelliet.laag}`}.
+              </p>
+            )}
+            {toonSatelliet && satellietFout && !satellietLaden && (
+              <p className={styles.satellietBanner}>
+                Er is de afgelopen dagen geen bruikbaar satellietbeeld beschikbaar.
+              </p>
+            )}
 
             <p className={styles.kaartHint}>
               Tip: klik of tik op een hittebron of een pluim voor de details (bron, aantal
@@ -760,6 +860,27 @@ function volledigeDatum(iso: string): string {
     timeStyle: "short",
     timeZone: "Europe/Paris",
   }).format(d);
+}
+
+// Datum van het satellietbeeld (YYYY-MM-DD) in gewone taal, met "vandaag"/
+// "gisteren" als dat van toepassing is.
+function satellietDatum(datum: string): string {
+  const d = new Date(`${datum}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return datum;
+  const vandaag = new Date();
+  const dagen = Math.round((Date.parse(`${isoDag(vandaag)}T00:00:00Z`) - Date.parse(`${datum}T00:00:00Z`)) / 86_400_000);
+  const woord = dagen === 0 ? "vandaag" : dagen === 1 ? "gisteren" : dagen === 2 ? "eergisteren" : null;
+  const volledig = new Intl.DateTimeFormat("nl-NL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(d);
+  return woord ? `${woord} (${volledig})` : volledig;
+}
+
+function isoDag(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 function formatteerGetal(waarde: number): string {

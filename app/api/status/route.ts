@@ -208,14 +208,21 @@ async function statusWaarschuwingen(origin: string): Promise<ModuleStatus> {
     );
   }
 
-  const actueel = json.meldingen.filter(isNuActueel).length;
+  // FR-Alert publiceert met vertraging; de ernst blijft 0 zolang er niets loopt.
+  // We melden de laatste stand in plaats van "geen actuele melding".
+  const lopend = json.meldingen.filter(isNuActueel).length;
   const laatstBekend = json.liveBron === false;
-  const ernst: Ernst = actueel > 5 ? 4 : actueel > 2 ? 3 : actueel > 0 ? 2 : 0;
+  const laatste = json.meldingen[0]?.begonnenOp ?? null;
+  const ernst: Ernst = lopend > 5 ? 4 : lopend > 2 ? 3 : lopend > 0 ? 2 : 0;
 
   const kern =
-    actueel > 0
-      ? `${actueel} nu actuele officiële ${actueel === 1 ? "melding" : "meldingen"}.`
-      : "Geen nu actuele officiële melding.";
+    lopend > 0
+      ? `${lopend} lopende officiële ${lopend === 1 ? "melding" : "meldingen"}.${
+          laatste ? ` Laatste melding: ${formatteerTijd(laatste)}.` : ""
+        }`
+      : laatste
+        ? `Geen lopende meldingen. Laatste officiële melding: ${formatteerTijd(laatste)}.`
+        : "Geen recente officiële melding gevonden.";
 
   return {
     id: "waarschuwingen",
@@ -223,6 +230,16 @@ async function statusWaarschuwingen(origin: string): Promise<ModuleStatus> {
     samenvatting: `${kern}${laatstBekend ? " Laatst bekende stand — geen live gegevens." : ""}`,
     beschikbaar: true,
   };
+}
+
+function formatteerTijd(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat("nl-NL", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(d);
 }
 
 function meestVoorkomend(waarden: string[]): string | null {

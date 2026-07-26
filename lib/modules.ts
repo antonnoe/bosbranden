@@ -37,9 +37,9 @@ export const MODULES: Module[] = [
   },
   {
     id: "waarschuwingen",
-    titel: "Officiële meldingen",
+    titel: "Laatste officiële meldingen",
     functie:
-      "Officiële FR-Alert-natuurbrandmeldingen van de Franse autoriteiten, geografisch geplaatst op de kaart.",
+      "De meest recente officiële FR-Alert-meldingen van de Franse autoriteiten (lopend én beëindigd). FR-Alert publiceert met vertraging en is geen actuele brandenlijst.",
     pad: "/?laag=officieel",
     actief: true,
   },

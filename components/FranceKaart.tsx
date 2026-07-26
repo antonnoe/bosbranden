@@ -109,7 +109,6 @@ export default function FranceKaart({
   const [frAlert, setFrAlert] = useState<FrAlertAntwoord | null>(null);
   const [frAlertLaden, setFrAlertLaden] = useState(false);
   const [gekozenMeldingId, setGekozenMeldingId] = useState<string | null>(null);
-  const [toonAfgelopen, setToonAfgelopen] = useState(false);
   const [nieuwsOpen, setNieuwsOpen] = useState(false);
   const [nieuws, setNieuws] = useState<NieuwsAntwoord | null>(null);
   const [nieuwsLaden, setNieuwsLaden] = useState(false);
@@ -179,19 +178,20 @@ export default function FranceKaart({
   );
 
   const alleMeldingen = frAlert?.meldingen ?? [];
-  const actueleMeldingen = useMemo(
-    () => alleMeldingen.filter(isNuActueel),
-    [alleMeldingen]
-  );
-  const afgelopenAantal = alleMeldingen.length - actueleMeldingen.length;
+  // FR-Alert publiceert op de website met vertraging; er is dus altijd een
+  // "laatste" stand. We tonen de meest recente meldingen (loopend én beëindigd),
+  // met de status bij elk item, in plaats van een misleidende "geen actuele
+  // melding". Meldingen komen nieuwste-eerst uit de route.
+  const laatsteMeldingen = alleMeldingen.slice(0, 8);
+  const laatstGepubliceerd = alleMeldingen[0]?.begonnenOp ?? null;
 
   const geprojecteerdeMeldingen = useMemo<GeprojecteerdeMelding[]>(() => {
-    const zichtbaar = toonAfgelopen ? alleMeldingen : actueleMeldingen;
-    return zichtbaar.map((melding) => {
+    return laatsteMeldingen.map((melding) => {
       const { x, y } = projecteerCoordinaat(melding.longitude, melding.latitude);
       return { melding, x, y };
     });
-  }, [alleMeldingen, actueleMeldingen, toonAfgelopen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alleMeldingen]);
 
   const markers = useMemo<Marker[]>(() => {
     if (!toonWaarnemingen || weergave === "officieel") return [];
@@ -452,7 +452,7 @@ export default function FranceKaart({
               aria-pressed={weergave === "officieel"}
               onClick={() => kiesWeergave("officieel")}
             >
-              Officieel gemeld
+              Laatste officiële meldingen
             </button>
           </div>
           <p className={laagStyles.lagenUitleg}>{filterUitleg}</p>
@@ -474,28 +474,11 @@ export default function FranceKaart({
               {frAlertLaden
                 ? "Officiële FR-Alert-meldingen laden…"
                 : frAlert?.beschikbaar
-                  ? actueleMeldingen.length > 0
-                    ? `${formatteerAantal(actueleMeldingen.length)} nu actuele officiële natuurbrandmelding${
-                        actueleMeldingen.length === 1 ? "" : "en"
-                      } geografisch geplaatst.`
-                    : afgelopenAantal > 0
-                      ? "Geen nu actuele officiële melding. Er zijn wel recent afgelopen meldingen."
-                      : frAlert.opmerking ?? "Geen recente officiële melding gevonden."
+                  ? laatstGepubliceerd
+                    ? `FR-Alert publiceert met vertraging en is geen actuele brandenlijst. Laatst gepubliceerde melding: ${formatteerDatum(laatstGepubliceerd)}.`
+                    : "FR-Alert publiceert met vertraging en is geen actuele brandenlijst."
                   : frAlert?.opmerking ?? "Officiële meldingen zijn tijdelijk niet beschikbaar."}
             </p>
-            {!frAlertLaden && frAlert?.beschikbaar && afgelopenAantal > 0 && (
-              <label className={laagStyles.afgelopenSchakel}>
-                <input
-                  type="checkbox"
-                  checked={toonAfgelopen}
-                  onChange={(e) => {
-                    setToonAfgelopen(e.target.checked);
-                    if (!e.target.checked) setGekozenMeldingId(null);
-                  }}
-                />
-                Ook afgelopen meldingen tonen ({formatteerAantal(afgelopenAantal)})
-              </label>
-            )}
           </>
         )}
 
@@ -979,10 +962,10 @@ export default function FranceKaart({
                 }`}
               >
                 {isNuActueel(gekozenMelding.melding)
-                  ? "nu actueel"
+                  ? "loopt"
                   : gekozenMelding.melding.eindigtOp
-                    ? `afgelopen · beëindigd ${formatteerDatum(gekozenMelding.melding.eindigtOp)}`
-                    : "afgelopen"}
+                    ? `beëindigd op ${formatteerDatum(gekozenMelding.melding.eindigtOp)}`
+                    : "beëindigd"}
               </span>
               <div className={styles.detailGrid}>
                 <span className={styles.detailLabel}>Melding</span>

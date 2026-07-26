@@ -4,7 +4,7 @@ import {
   FR_ALERT_FALLBACK,
   FR_ALERT_FALLBACK_BIJGEWERKT,
 } from "@/data/fr-alert-fallback";
-import { frAlertAgent, httpsTekst, leesKetenInfo } from "@/lib/fr-alert-tls";
+import { frAlertAgent, httpsTekst } from "@/lib/fr-alert-tls";
 
 export const runtime = "nodejs";
 
@@ -25,15 +25,7 @@ const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
-export async function GET(request: Request) {
-  // Diagnose-modus (tijdelijk):
-  //  ?debug=chain  → leest de certificaatketen uit (subject/issuer/AIA-URL).
-  //  ?debug=1      → rauwe fetch-uitkomst per bron-URL via de gefixte agent.
-  const debug = new URL(request.url).searchParams.get("debug");
-  if (debug === "chain") return await diagnoseKeten();
-  if (debug === "detail") return await diagnoseDetail();
-  if (debug === "1") return await diagnoseFrAlert();
-
+export async function GET() {
   const nu = new Date().toISOString();
 
   try {
@@ -93,148 +85,6 @@ export async function GET(request: Request) {
           : "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
     });
   }
-}
-
-// Leest de certificaatketen uit, zodat zwart-op-wit zichtbaar is welk
-// intermediate de server niet meestuurt (subject/issuer/geldigheid/AIA-URL).
-async function diagnoseKeten() {
-  const hosts = ["fr-alert.gouv.fr", "www.fr-alert.gouv.fr"];
-  const ketens: Array<Record<string, unknown>> = [];
-  for (const host of hosts) {
-    try {
-      ketens.push({ ...(await leesKetenInfo(host)) });
-    } catch (fout) {
-      ketens.push({ host, fout: (fout as Error).message });
-    }
-  }
-  return NextResponse.json(
-    {
-      tijd: new Date().toISOString(),
-      node: process.version,
-      regio: process.env.VERCEL_REGION ?? null,
-      uitleg:
-        "aiaCaIssuers is de URL waar het ontbrekende intermediate vandaan komt; " +
-        "serverStuurtIntermediate:false bevestigt de onvolledige keten.",
-      ketens,
-    },
-    { headers: { "Cache-Control": "no-store" } }
-  );
-}
-
-// Toont per detailpagina wat de parser ziet (koppen, <title>, gekozen titel,
-// locatie) plus de nieuwste ids met tijd, zodat titel/locatie-parsing én de
-// actualiteit (staleness) vanaf productie te controleren zijn.
-async function diagnoseDetail() {
-  const alleIds = await haalAlertIdsOp();
-  const nieuwste = alleIds.slice(0, 30);
-  const headers = {
-    "User-Agent": BROWSER_USER_AGENT,
-    Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
-    "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
-    Referer: "https://fr-alert.gouv.fr/",
-  };
-
-  const items: Array<Record<string, unknown>> = [];
-  let fireAantal = 0;
-  for (const id of nieuwste.slice(0, 14)) {
-    const url = `https://fr-alert.gouv.fr/les-alertes/${id}`;
-    try {
-      const agent = await frAlertAgent("fr-alert.gouv.fr");
-      const { status, body } = await httpsTekst(url, agent, headers);
-      const tekst = htmlNaarTekst(body);
-      const isFire = /\bIncendie\b/i.test(tekst) && /Feu de forêt/i.test(tekst);
-      if (isFire) fireAantal += 1;
-      const koppen = [...body.matchAll(/<h[1-4][^>]*>([\s\S]*?)<\/h[1-4]>/gi)]
-        .map((m) => htmlNaarTekst(m[1]))
-        .filter(Boolean);
-      items.push({
-        id,
-        tijd: datumUitIdentifiant(id),
-        status,
-        bytes: body.length,
-        isFire,
-        aantalKoppen: koppen.length,
-        koppen: koppen.slice(0, 6),
-        titleTag: body.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.slice(0, 140) ?? null,
-        feuMatch: decodeHtml(body).match(/"((?:Feu|Incendie)[^"\\]{0,90})"/i)?.[1] ?? null,
-        gekozenTitel: isFire ? vindTitel(body, tekst) : null,
-        locatie: isFire ? vindLocatie(tekst, vindTitel(body, tekst)) : null,
-        snippet: tekst.slice(0, 220).replace(/\s+/g, " ").trim(),
-      });
-    } catch (fout) {
-      items.push({ id, fout: (fout as Error).message });
-    }
-  }
-
-  return NextResponse.json(
-    {
-      tijd: new Date().toISOString(),
-      totaalIds: alleIds.length,
-      fireInEerste14: fireAantal,
-      uitleg:
-        "gekozenTitel/locatie tonen wat de parser nu produceert; koppen/titleTag/" +
-        "feuMatch tonen waar de titel vandaan komt. nieuwsteIds toont of er recentere " +
-        "meldingen bestaan dan geleverd (staleness).",
-      nieuwsteIds: nieuwste.map((id) => ({ id, tijd: datumUitIdentifiant(id) })),
-      items,
-    },
-    { headers: { "Cache-Control": "no-store" } }
-  );
-}
-
-// Probeert elke bron-URL via de gefixte custom-CA agent en rapporteert de rauwe
-// uitkomst. Alleen voor diagnose (?debug=1); raakt de normale respons niet.
-async function diagnoseFrAlert() {
-  const probes: Array<Record<string, unknown>> = [];
-  const headers = {
-    "User-Agent": BROWSER_USER_AGENT,
-    Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
-    "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
-    "Cache-Control": "no-cache",
-    Referer: "https://fr-alert.gouv.fr/",
-  };
-
-  for (const url of LIJST_URLS) {
-    const start = Date.now();
-    try {
-      const agent = await frAlertAgent(new URL(url).hostname);
-      const { status, body } = await httpsTekst(url, agent, headers);
-      probes.push({
-        url,
-        ok: status >= 200 && status < 300,
-        status,
-        ms: Date.now() - start,
-        bytes: body.length,
-        alertIdsGevonden: vindAlertIds(body).length,
-        snippet: body.slice(0, 300).replace(/\s+/g, " ").trim(),
-      });
-    } catch (fout) {
-      const err = fout as Error & { cause?: { code?: string; message?: string } };
-      probes.push({
-        url,
-        ok: false,
-        status: null,
-        ms: Date.now() - start,
-        fout: err.name,
-        bericht: err.message,
-        oorzaak: err.cause?.code ?? err.cause?.message ?? null,
-      });
-    }
-  }
-
-  return NextResponse.json(
-    {
-      tijd: new Date().toISOString(),
-      node: process.version,
-      regio: process.env.VERCEL_REGION ?? null,
-      uitleg:
-        "Per bron-URL de rauwe uitkomst via de custom-CA agent. Werkt de AIA-fix, " +
-        "dan status 200 met alertIdsGevonden > 0. Een resterende TLS-fout " +
-        "verschijnt als oorzaak (bijv. UNABLE_TO_VERIFY_LEAF_SIGNATURE).",
-      probes,
-    },
-    { headers: { "Cache-Control": "no-store" } }
-  );
 }
 
 function antwoord(body: FrAlertAntwoord, status = 200) {

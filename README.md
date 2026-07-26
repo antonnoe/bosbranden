@@ -45,16 +45,19 @@ consequent de termen `satellietwaarneming`, `hittebron` en `detectie`.
 (`departements-version-simplifiee.geojson`, afgeleid van IGN GEOFLA,
 **Etalab Licence Ouverte**). Regenereren kan met `npm run generate:map`.
 
-### FR-Alert — officiële meldingen (en de zwakke schakel)
+### FR-Alert — laatste officiële meldingen (en de zwakke schakel)
 
-De laag "Officieel gemeld" leest de publieke pagina `fr-alert.gouv.fr/les-alertes`
-uit (HTML-scrape) en valt bij storing terug op de laatst bekende export in
-`data/fr-alert-fallback.ts`. De standaardweergave toont **alleen nu actuele
-meldingen** (actief, of met een einddatum in de toekomst); afgelopen meldingen
-staan achter de schakelaar "ook afgelopen meldingen tonen", met einddatum. Als de
-live bron niet uitleesbaar is, meldt de route dat expliciet via `liveBron: false`
-en `momentopnameVan`, en toont de interface een zichtbare waarschuwing dat het om
-de laatst bekende stand gaat, niet om de actuele situatie.
+De laag "Laatste officiële meldingen" leest de publieke pagina
+`fr-alert.gouv.fr/les-alertes` uit (HTML-scrape) en valt bij storing terug op de
+laatst bekende export in `data/fr-alert-fallback.ts`. FR-Alert is een pushsysteem
+naar telefoons; de publicatie op de website loopt tijdens een crisis achter.
+Daarom toont de laag **altijd de meest recente meldingen** (lopend én beëindigd),
+met bij elk item de status (loopt / beëindigd op &lt;datum&gt;) en met één vaste
+regel erboven: dat FR-Alert met vertraging publiceert en geen actuele
+brandenlijst is, plus het tijdstip van de laatst gepubliceerde melding uit de
+data. Er is dus geen misleidende "geen actuele melding" meer. Als de live bron
+niet uitleesbaar is, meldt de route dat via `liveBron: false` en
+`momentopnameVan`, en toont de interface dat het om de laatst bekende stand gaat.
 
 > **Zwakste schakel.** Het uitlezen van één overheidspagina via een HTML-scrape
 > is de kwetsbaarste schakel: verandert de opmaak, of hapert die ene pagina, dan
@@ -62,6 +65,20 @@ de laatst bekende stand gaat, niet om de actuele situatie.
 > **Météo-France DPVigilance-API** (een echte API; de key staat al in Vercel) hoog
 > op de lijst als redundante tweede bron, zodat de laag niet afhankelijk is van
 > het scrapen van één pagina.
+
+**Certificaatketen (opgelost, ter documentatie).** De live fetch faalde op
+productie met `UNABLE_TO_VERIFY_LEAF_SIGNATURE`: `fr-alert.gouv.fr` stuurt het
+intermediate niet mee. Het ontbrekende intermediate is **Certigna Services CA**
+(O = DHIMYOTIS), uitgegeven door **Certigna Root CA**, die al in de Node-roots
+zit. `lib/fr-alert-tls.ts` haalt dat intermediate nu zelf op via de AIA-URL uit
+het leaf-certificaat (`.../servicesca_rootca.der` — ondanks "rootca" in de
+bestandsnaam is dat het **intermediate**, kale DER) en voegt het toe aan een
+`https.Agent` die alleen voor de FR-Alert-fetches wordt gebruikt. Het
+leaf-certificaat verloopt **19 augustus 2026**, dus AIA blijft primair (een
+hardgecodeerde PEM zou dan verlopen). De diagnose-endpoints die dit hebben
+uitgewezen zijn verwijderd; de oplossing in `lib/fr-alert-tls.ts` is
+productiecode. De staleness is beantwoord: er was niets nieuwer dan 24 juli — dat
+is geen limietprobleem, dus `MAX_DETAILPAGINAS` is bewust niet verhoogd.
 
 ## Architectuur
 

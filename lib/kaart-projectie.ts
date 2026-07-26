@@ -10,6 +10,15 @@ const MID_LAT = (MIN_LAT + MAX_LAT) / 2;
 const KX = Math.cos((MID_LAT * Math.PI) / 180);
 const SCHAAL = BREEDTE / ((MAX_LON - MIN_LON) * KX);
 
+// Geografische begrenzing van de kaart (EPSG:4326), voor o.a. het aanvragen van
+// een satellietbeeld met exact dezelfde bbox als de tool.
+export const GEO_BBOX = {
+  minLon: MIN_LON,
+  minLat: MIN_LAT,
+  maxLon: MAX_LON,
+  maxLat: MAX_LAT,
+} as const;
+
 export interface KaartPunt {
   x: number;
   y: number;
