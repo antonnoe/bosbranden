@@ -272,6 +272,7 @@ export default function Tool({ embed }: { embed: boolean }) {
           <label className={styles.checkbox}>
             <input
               type="checkbox"
+              aria-describedby="waarnemingen-toelichting"
               checked={
                 toonWaarnemingen &&
                 !!waarnemingenData?.beschikbaar &&
@@ -285,6 +286,10 @@ export default function Tool({ embed }: { embed: boolean }) {
             />
             Satellietwaarnemingen tonen
           </label>
+          <p id="waarnemingen-toelichting" className={styles.checkboxToelichting}>
+            Nodig voor ‘Alle hittebronnen’ en ‘Waarschijnlijke natuurbranden’. ‘Officieel
+            gemeld’ werkt zonder dit vinkje.
+          </p>
           <p className={styles.status} aria-live="polite">
             {waarnemingenLaden
               ? "Waarnemingen laden…"

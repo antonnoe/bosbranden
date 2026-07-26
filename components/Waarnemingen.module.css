@@ -25,6 +25,17 @@
   accent-color: #800000;
 }
 
+/* Toelichting die specifiek bij het satellietwaarnemingen-vinkje hoort
+   (voorheen een globale ::after-hack in layout.tsx). */
+.checkboxToelichting {
+  flex: 0 0 100%;
+  margin: 0;
+  max-width: 640px;
+  color: rgba(51, 39, 39, 0.72);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .status {
   margin: 0;
   font-size: 0.84rem;

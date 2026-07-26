@@ -56,12 +56,12 @@ live bron niet uitleesbaar is, meldt de route dat expliciet via `liveBron: false
 en `momentopnameVan`, en toont de interface een zichtbare waarschuwing dat het om
 de laatst bekende stand gaat, niet om de actuele situatie.
 
-> **Zwakste schakel.** Een HTML-scrape van één overheidspagina is juist op de dag
-> dat het telt kwetsbaar: tijdens de Gironde/Landes-ramp van juli 2026 antwoordde
-> `fr-alert.gouv.fr` ook van buitenaf met HTTP 503 (overbelasting). Daarom hoort
-> de **Météo-France DPVigilance-API** (een echte API; de key staat al in Vercel)
-> hoog op de lijst als redundante tweede bron, zodat de laag niet afhankelijk is
-> van het scrapen van één pagina.
+> **Zwakste schakel.** Het uitlezen van één overheidspagina via een HTML-scrape
+> is de kwetsbaarste schakel: verandert de opmaak, of hapert die ene pagina, dan
+> valt de hele laag terug op de laatste momentopname. Daarom hoort de
+> **Météo-France DPVigilance-API** (een echte API; de key staat al in Vercel) hoog
+> op de lijst als redundante tweede bron, zodat de laag niet afhankelijk is van
+> het scrapen van één pagina.
 
 ## Architectuur
 

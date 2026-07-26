@@ -171,7 +171,13 @@
   cursor: pointer;
 }
 
-.bron > circle:first-child {
+/* Onzichtbaar, maar wel klikbaar: transparante vulling vangt de pointer. */
+.bronRaakvlak {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.bronHalo {
   fill: rgba(128, 0, 0, 0.18);
   stroke: var(--primair);
   stroke-width: 1.2;
@@ -179,14 +185,24 @@
 
 .bronKern {
   fill: var(--primair);
+  pointer-events: none;
 }
 
-.bronGekozen > circle:first-child {
+.bronGekozen .bronHalo {
   fill: rgba(128, 0, 0, 0.34);
+  stroke-width: 2;
 }
 
-.bron:focus-visible > circle:first-child {
+.bron:focus-visible .bronHalo {
   stroke-width: 2.5;
+}
+
+/* Tip-regel onder de kaart */
+.kaartHint {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  color: var(--primair-80);
+  line-height: 1.5;
 }
 
 /* ---- Legenda ---- */

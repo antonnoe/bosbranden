@@ -8,10 +8,9 @@
   meteen bijstelt. Geen binnenscroll meer, geen vaste hoogte die telkens te
   kort of te lang is.
 
-  HET ENIGE DAT JE MOGELIJK MOET AANPASSEN is de URL in het src-attribuut
-  hieronder: zet daar het live Vercel-adres van de tool, gevolgd door ?embed=1.
-  (Bijvoorbeeld https://JOUW-VERCEL-DOMEIN.vercel.app/?embed=1 voor de
-  brandrisicokaart, of .../rook?embed=1 voor de rookmodule.)
+  De iframe-URL staat al op het live adres (https://bosbranden.vercel.app/?embed=1,
+  de brandrisicokaart). Wil je in plaats daarvan de rookmodule tonen, zet dan
+  .../rook?embed=1 in het src-attribuut hieronder.
 
   Deze kopie in de repo (ning/bosbranden.html) is byte-identiek aan wat je
   plakt; wijzig je de URL, doe dat dan op beide plekken gelijk.
@@ -19,7 +18,7 @@
 <div style="max-width:750px;margin:0 auto;">
   <iframe
     id="nlfr-bosbranden"
-    src="https://JOUW-VERCEL-DOMEIN.vercel.app/?embed=1"
+    src="https://bosbranden.vercel.app/?embed=1"
     title="Weer en waarschuwingen Frankrijk"
     scrolling="no"
     style="width:100%;max-width:750px;border:0;display:block;height:1250px;"

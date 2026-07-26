@@ -22,23 +22,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Mulish:ital,wght@0,400;0,600;0,700;1,400&display=swap"
           rel="stylesheet"
         />
-        <style>{`
-          body label:has(> input[type="checkbox"]) {
-            flex-wrap: wrap;
-          }
-
-          body label:has(> input[type="checkbox"])::after {
-            content: "Nodig voor ‘Alle hittebronnen’ en ‘Waarschijnlijke natuurbranden’. ‘Officieel gemeld’ werkt zonder dit vinkje.";
-            display: block;
-            flex: 0 0 100%;
-            margin-left: 25px;
-            max-width: 640px;
-            color: rgba(51, 39, 39, 0.72);
-            font-size: 0.75rem;
-            font-weight: 400;
-            line-height: 1.4;
-          }
-        `}</style>
       </head>
       <body>{children}</body>
     </html>

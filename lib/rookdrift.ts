@@ -486,12 +486,17 @@ function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
   };
 }
 
-// Stap 3: cap per departement, daarna een ronde-verdeling tot het landelijke
-// maximum — zo blijven kleinere departementen naast een grote ramp zichtbaar.
+// Stap 3: weeg op omvang. We rangschikken alle clusters landelijk op aantal
+// detecties en FRP en nemen de zwaarste tot het landelijke maximum. De
+// per-departement-limiet dient alleen om te voorkomen dat één departement álle
+// plekken opslokt — niet om elk departement evenveel ruimte te geven. Zo levert
+// een groot brandcomplex meerdere fronten terwijl een los detectiepuntje geen
+// echt front verdringt.
 function begrensPluimen(clusters: Cluster[]): Cluster[] {
   const sorteer = (a: Cluster, b: Cluster) =>
     b.detecties - a.detecties || (b.frp ?? 0) - (a.frp ?? 0);
 
+  // Per departement afkappen op MAX_PLUIMEN_PER_DEP (anti-monopolie).
   const perDep = new Map<string, Cluster[]>();
   for (const cluster of clusters) {
     const sleutel = cluster.departementCode ?? "onbekend";
@@ -500,28 +505,15 @@ function begrensPluimen(clusters: Cluster[]): Cluster[] {
     else perDep.set(sleutel, [cluster]);
   }
 
-  const gecapt: Cluster[][] = [];
+  const kandidaten: Cluster[] = [];
   for (const lijst of perDep.values()) {
     lijst.sort(sorteer);
-    gecapt.push(lijst.slice(0, MAX_PLUIMEN_PER_DEP));
-  }
-  // Departementen met het zwaarste front eerst bedienen.
-  gecapt.sort((a, b) => sorteer(a[0], b[0]));
-
-  const gekozen: Cluster[] = [];
-  for (let rang = 0; gekozen.length < MAX_PLUIMEN; rang += 1) {
-    let iets = false;
-    for (const lijst of gecapt) {
-      if (rang < lijst.length) {
-        gekozen.push(lijst[rang]);
-        iets = true;
-        if (gekozen.length >= MAX_PLUIMEN) break;
-      }
-    }
-    if (!iets) break;
+    kandidaten.push(...lijst.slice(0, MAX_PLUIMEN_PER_DEP));
   }
 
-  return gekozen.sort(sorteer);
+  // Landelijk op omvang wegen en de zwaarste tot het maximum nemen.
+  kandidaten.sort(sorteer);
+  return kandidaten.slice(0, MAX_PLUIMEN);
 }
 
 // ---- Hoofdorkestratie ----

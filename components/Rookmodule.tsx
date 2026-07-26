@@ -16,6 +16,11 @@ import styles from "@/components/Rookmodule.module.css";
 // blijven. Dat is relevante informatie, geen fout.
 const ROOK_VIEWBOX = { x: -300, y: -110, w: 1600, h: 1180 };
 
+// Straal (in SVG-eenheden) van het onzichtbare raakvlak rond een bron-dot.
+// Bij de gebruikelijke weergave (~820px breed voor 1600 eenheden) komt dit neer
+// op ruim 44px doorsnede, zodat de bron goed aanklik- en aanraakbaar is.
+const BRON_RAAKVLAK = 46;
+
 // Kaarteenheden per kilometer, afgeleid uit de projectie (1° breedte ≈ SCHAAL
 // eenheden ≈ 111,32 km).
 const EEN_GRAAD = Math.abs(
@@ -374,9 +379,14 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     />
                   ))}
 
-                {/* Bronmarkeringen (ook zichtbaar als de wind uitvalt) */}
+                {/* Bronmarkeringen (ook zichtbaar als de wind uitvalt).
+                    Ruimere zichtbare punt + onzichtbaar raakvlak voor een grote
+                    klikbare/aanraakbare zone. */}
                 {pluimen.map((pluim) => {
                   const { x, y } = projecteerCoordinaat(pluim.lon, pluim.lat);
+                  const label = `Hittebron${
+                    pluim.bronDepartement ? ` in ${pluim.bronDepartement}` : ""
+                  }, ${pluim.detecties} detecties — klik voor details`;
                   return (
                     <g
                       key={`bron-${pluim.id}`}
@@ -384,7 +394,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                       transform={`translate(${x.toFixed(1)} ${y.toFixed(1)})`}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Hittebron${pluim.bronDepartement ? ` in ${pluim.bronDepartement}` : ""}, ${pluim.detecties} detecties`}
+                      aria-label={label}
                       onClick={(e) => {
                         e.stopPropagation();
                         setGekozenId((h) => (h === pluim.id ? null : pluim.id));
@@ -396,13 +406,21 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                         }
                       }}
                     >
-                      <circle r={9} />
-                      <circle r={3.4} className={styles.bronKern} />
+                      <title>{label}</title>
+                      {/* Onzichtbaar raakvlak (≥44px op de gebruikelijke weergave). */}
+                      <circle className={styles.bronRaakvlak} r={BRON_RAAKVLAK} />
+                      <circle className={styles.bronHalo} r={12} />
+                      <circle r={4.6} className={styles.bronKern} />
                     </g>
                   );
                 })}
               </svg>
             </div>
+
+            <p className={styles.kaartHint}>
+              Tip: klik of tik op een hittebron of een pluim voor de details (bron, aantal
+              detecties, driftrichting en afgelegde afstand).
+            </p>
 
             {/* ---------- Legenda ---------- */}
             <div className={styles.legenda}>
