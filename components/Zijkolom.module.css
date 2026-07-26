@@ -1,33 +1,122 @@
-/* Zijkolom /start — huisstijl: Poppins koppen, Mulish body, #800000-varianten,
-   witte kaarten met subtiele rand. */
+/* Zijkolom /start — twee inklapbare secties (harmonica) in de uitschuifbare
+   lade. Huisstijl: Poppins voor de sectiekoppen, Mulish voor de inhoud,
+   regelafstand 1.8, primair #800000 met rgba-varianten. */
 
 .zijkolom {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  font-family: "Mulish", sans-serif;
 }
 
-.blok {
-  background: #fff;
-  border: 1px solid var(--primair-08);
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 1px 4px var(--primair-04);
+.sectie {
+  display: flex;
+  flex-direction: column;
 }
 
-.blokTitel {
+/* Duidelijke scheidslijn tussen de twee secties. */
+.metScheiding {
+  border-top: 1px solid var(--primair-15);
+  margin-top: 6px;
+  padding-top: 2px;
+}
+
+/* ---- Sectiekop (echte knop) ---- */
+.kop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 2px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.kop:hover .kopTitel {
+  color: var(--primair-80);
+}
+
+.kop:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
+}
+
+.kopTitel {
   font-family: "Poppins", "Mulish", sans-serif;
   font-size: 1rem;
   font-weight: 600;
   color: var(--primair);
-  margin: 0;
+  line-height: 1.4;
+}
+
+.infoIcoon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primair);
+  color: #fff;
+  font-family: "Poppins", serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.chevron {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 1.2rem;
+  text-align: center;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--primair-80);
+  line-height: 1;
+}
+
+/* ---- Rustige hoogte-overgang (orde 0,25s, zelfde stijl als de lade) ----
+   grid 0fr → 1fr animeert de échte hoogte; de inhoud blijft gemount zodat de
+   overgang werkt. Bij het openen springt niets naar boven: er wordt alleen
+   uitgevouwen, geen focus verlegd of gescrold. */
+.wikkel {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.wikkel.open {
+  grid-template-rows: 1fr;
+}
+
+.inhoud {
+  overflow: hidden;
+  min-height: 0;
+  line-height: 1.8;
+}
+
+/* Ingeklapt: uit de tab-volgorde en onzichtbaar voor hulpsoftware — maar pas
+   nadat de inklap-overgang klaar is, zodat de inhoud tijdens het dichtklappen
+   zichtbaar blijft. */
+.wikkel:not(.open) .inhoud {
+  visibility: hidden;
+  transition: visibility 0s linear 0.25s;
+}
+
+.wikkel.open .inhoud {
+  visibility: visible;
+  transition: visibility 0s;
 }
 
 /* ---- Nieuws ---- */
 .nieuwsLijst {
   list-style: none;
-  margin: 10px 0 0;
-  padding: 0;
+  margin: 0;
+  padding: 4px 0 10px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -38,7 +127,7 @@
   grid-template-columns: max-content 1fr;
   gap: 4px 10px;
   font-size: 0.86rem;
-  line-height: 1.5;
+  line-height: 1.8;
   padding-left: 8px;
   border-left: 3px solid transparent;
 }
@@ -53,7 +142,8 @@
   font-weight: 600;
   color: var(--primair-80);
   white-space: nowrap;
-  padding-top: 1px;
+  padding-top: 2px;
+  line-height: 1.4;
 }
 
 .nieuwsTekst {
@@ -76,51 +166,21 @@
 }
 
 /* ---- Verantwoording ---- */
-.verantwoordingKnop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-align: left;
-}
-
-.infoIcoon {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--primair);
-  color: #fff;
-  font-family: "Poppins", serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-style: italic;
-}
-
-.chevron {
-  margin-left: auto;
-  font-size: 1.1rem;
-  color: var(--primair-80);
-  line-height: 1;
-}
-
 .verantwoordingInhoud {
-  margin-top: 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding: 4px 0 10px;
 }
 
 .verantwoordingModule {
   border-top: 1px solid var(--primair-08);
   padding-top: 10px;
+}
+
+.verantwoordingModule:first-child {
+  border-top: none;
+  padding-top: 2px;
 }
 
 .verantwoordingKop {
@@ -129,26 +189,27 @@
   font-weight: 600;
   color: var(--primair);
   margin: 0 0 4px;
+  line-height: 1.4;
 }
 
 .verantwoordingBron {
   margin: 0 0 5px;
   font-size: 0.8rem;
-  line-height: 1.5;
+  line-height: 1.8;
   color: var(--tekst);
 }
 
 .verantwoordingGrens {
   margin: 0 0 4px;
   font-size: 0.79rem;
-  line-height: 1.5;
+  line-height: 1.8;
   color: var(--primair-80);
 }
 
 .verantwoordingSlot {
   margin: 2px 0 0;
   font-size: 0.78rem;
-  line-height: 1.5;
+  line-height: 1.8;
   color: var(--primair-55);
   font-style: italic;
 }
