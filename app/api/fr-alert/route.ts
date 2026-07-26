@@ -24,7 +24,14 @@ const BROWSER_USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Diagnose-modus: ?debug=1 laat de werkelijke uitkomst van elke bron-fetch
+  // zien (status, fout, oorzaak, eerste bytes), zodat de echte foutreden vanaf
+  // productie zichtbaar is zonder toegang tot de runtime-logs.
+  if (new URL(request.url).searchParams.get("debug") === "1") {
+    return await diagnoseFrAlert();
+  }
+
   const nu = new Date().toISOString();
 
   try {
@@ -84,6 +91,68 @@ export async function GET() {
           : "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
     });
   }
+}
+
+// Probeert elke bron-URL en rapporteert de rauwe uitkomst. Alleen bedoeld voor
+// diagnose (?debug=1); raakt de normale respons niet.
+async function diagnoseFrAlert() {
+  const probes: Array<Record<string, unknown>> = [];
+
+  for (const url of LIJST_URLS) {
+    const start = Date.now();
+    try {
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": BROWSER_USER_AGENT,
+          Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+          "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
+          "Cache-Control": "no-cache",
+          Referer: "https://fr-alert.gouv.fr/",
+        },
+        redirect: "follow",
+        signal: AbortSignal.timeout(12_000),
+      });
+      const body = await res.text();
+      probes.push({
+        url,
+        ok: res.ok,
+        status: res.status,
+        ms: Date.now() - start,
+        contentType: res.headers.get("content-type"),
+        server: res.headers.get("server"),
+        cfRay: res.headers.get("cf-ray"),
+        bytes: body.length,
+        alertIdsGevonden: vindAlertIds(body).length,
+        snippet: body.slice(0, 300).replace(/\s+/g, " ").trim(),
+      });
+    } catch (fout) {
+      const err = fout as Error & { cause?: { code?: string; message?: string } };
+      probes.push({
+        url,
+        ok: false,
+        status: null,
+        ms: Date.now() - start,
+        fout: err.name,
+        bericht: err.message,
+        oorzaak: err.cause?.code ?? err.cause?.message ?? null,
+      });
+    }
+  }
+
+  return NextResponse.json(
+    {
+      tijd: new Date().toISOString(),
+      node: process.version,
+      regio: process.env.VERCEL_REGION ?? null,
+      uitleg:
+        "Per bron-URL de rauwe fetch-uitkomst. Een TLS/certificaatfout verschijnt " +
+        "als fout/oorzaak (bijv. UNABLE_TO_VERIFY_LEAF_SIGNATURE of " +
+        "SELF_SIGNED_CERT_IN_CHAIN). Een WAF/anti-bot blokkade verschijnt als een " +
+        "200/403 met HTML-snippet zonder alert-ids. Een timeout als TimeoutError.",
+      probes,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
 
 function antwoord(body: FrAlertAntwoord, status = 200) {
