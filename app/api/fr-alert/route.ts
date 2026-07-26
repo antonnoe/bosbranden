@@ -4,6 +4,7 @@ import {
   FR_ALERT_FALLBACK,
   FR_ALERT_FALLBACK_BIJGEWERKT,
 } from "@/data/fr-alert-fallback";
+import { frAlertAgent, httpsTekst, leesKetenInfo } from "@/lib/fr-alert-tls";
 
 export const runtime = "nodejs";
 
@@ -25,12 +26,12 @@ const BROWSER_USER_AGENT =
   "(KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36";
 
 export async function GET(request: Request) {
-  // Diagnose-modus: ?debug=1 laat de werkelijke uitkomst van elke bron-fetch
-  // zien (status, fout, oorzaak, eerste bytes), zodat de echte foutreden vanaf
-  // productie zichtbaar is zonder toegang tot de runtime-logs.
-  if (new URL(request.url).searchParams.get("debug") === "1") {
-    return await diagnoseFrAlert();
-  }
+  // Diagnose-modus (tijdelijk):
+  //  ?debug=chain  → leest de certificaatketen uit (subject/issuer/AIA-URL).
+  //  ?debug=1      → rauwe fetch-uitkomst per bron-URL via de gefixte agent.
+  const debug = new URL(request.url).searchParams.get("debug");
+  if (debug === "chain") return await diagnoseKeten();
+  if (debug === "1") return await diagnoseFrAlert();
 
   const nu = new Date().toISOString();
 
@@ -93,34 +94,54 @@ export async function GET(request: Request) {
   }
 }
 
-// Probeert elke bron-URL en rapporteert de rauwe uitkomst. Alleen bedoeld voor
-// diagnose (?debug=1); raakt de normale respons niet.
+// Leest de certificaatketen uit, zodat zwart-op-wit zichtbaar is welk
+// intermediate de server niet meestuurt (subject/issuer/geldigheid/AIA-URL).
+async function diagnoseKeten() {
+  const hosts = ["fr-alert.gouv.fr", "www.fr-alert.gouv.fr"];
+  const ketens: Array<Record<string, unknown>> = [];
+  for (const host of hosts) {
+    try {
+      ketens.push({ ...(await leesKetenInfo(host)) });
+    } catch (fout) {
+      ketens.push({ host, fout: (fout as Error).message });
+    }
+  }
+  return NextResponse.json(
+    {
+      tijd: new Date().toISOString(),
+      node: process.version,
+      regio: process.env.VERCEL_REGION ?? null,
+      uitleg:
+        "aiaCaIssuers is de URL waar het ontbrekende intermediate vandaan komt; " +
+        "serverStuurtIntermediate:false bevestigt de onvolledige keten.",
+      ketens,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
+}
+
+// Probeert elke bron-URL via de gefixte custom-CA agent en rapporteert de rauwe
+// uitkomst. Alleen voor diagnose (?debug=1); raakt de normale respons niet.
 async function diagnoseFrAlert() {
   const probes: Array<Record<string, unknown>> = [];
+  const headers = {
+    "User-Agent": BROWSER_USER_AGENT,
+    Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
+    "Cache-Control": "no-cache",
+    Referer: "https://fr-alert.gouv.fr/",
+  };
 
   for (const url of LIJST_URLS) {
     const start = Date.now();
     try {
-      const res = await fetch(url, {
-        headers: {
-          "User-Agent": BROWSER_USER_AGENT,
-          Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
-          "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
-          "Cache-Control": "no-cache",
-          Referer: "https://fr-alert.gouv.fr/",
-        },
-        redirect: "follow",
-        signal: AbortSignal.timeout(12_000),
-      });
-      const body = await res.text();
+      const agent = await frAlertAgent(new URL(url).hostname);
+      const { status, body } = await httpsTekst(url, agent, headers);
       probes.push({
         url,
-        ok: res.ok,
-        status: res.status,
+        ok: status >= 200 && status < 300,
+        status,
         ms: Date.now() - start,
-        contentType: res.headers.get("content-type"),
-        server: res.headers.get("server"),
-        cfRay: res.headers.get("cf-ray"),
         bytes: body.length,
         alertIdsGevonden: vindAlertIds(body).length,
         snippet: body.slice(0, 300).replace(/\s+/g, " ").trim(),
@@ -145,10 +166,9 @@ async function diagnoseFrAlert() {
       node: process.version,
       regio: process.env.VERCEL_REGION ?? null,
       uitleg:
-        "Per bron-URL de rauwe fetch-uitkomst. Een TLS/certificaatfout verschijnt " +
-        "als fout/oorzaak (bijv. UNABLE_TO_VERIFY_LEAF_SIGNATURE of " +
-        "SELF_SIGNED_CERT_IN_CHAIN). Een WAF/anti-bot blokkade verschijnt als een " +
-        "200/403 met HTML-snippet zonder alert-ids. Een timeout als TimeoutError.",
+        "Per bron-URL de rauwe uitkomst via de custom-CA agent. Werkt de AIA-fix, " +
+        "dan status 200 met alertIdsGevonden > 0. Een resterende TLS-fout " +
+        "verschijnt als oorzaak (bijv. UNABLE_TO_VERIFY_LEAF_SIGNATURE).",
       probes,
     },
     { headers: { "Cache-Control": "no-store" } }
@@ -529,30 +549,28 @@ function normaliseerFranseDatum(
   return normaliseerDatum(iso);
 }
 
-async function haalTekstOp(url: string, revalidate: number): Promise<string> {
-  const res = await fetch(url, {
-    headers: {
-      "User-Agent": BROWSER_USER_AGENT,
-      Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
-      "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
-      "Cache-Control": "no-cache",
-      Pragma: "no-cache",
-      Referer: "https://fr-alert.gouv.fr/",
-    },
-    redirect: "follow",
-    next: { revalidate },
-    signal: AbortSignal.timeout(12_000),
+// FR-Alert stuurt een onvolledige certificaatketen; we gebruiken daarom een
+// https.Agent die het ontbrekende intermediate aanvult (zie lib/fr-alert-tls).
+// De revalidate-parameter is behouden voor de aanroepers maar niet meer nodig:
+// de route cachet via de Cache-Control-header.
+async function haalTekstOp(url: string, _revalidate: number): Promise<string> {
+  const agent = await frAlertAgent(new URL(url).hostname);
+  const { status, body } = await httpsTekst(url, agent, {
+    "User-Agent": BROWSER_USER_AGENT,
+    Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+    "Accept-Language": "fr-FR,fr;q=0.9,nl;q=0.7,en;q=0.5",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
+    Referer: "https://fr-alert.gouv.fr/",
   });
 
-  if (!res.ok) {
-    throw new Error(`${url} antwoordde met status ${res.status}`);
+  if (status < 200 || status >= 300) {
+    throw new Error(`${url} antwoordde met status ${status}`);
   }
-
-  const tekst = await res.text();
-  if (tekst.length < 200) {
+  if (body.length < 200) {
     throw new Error(`${url} leverde een onvolledige respons`);
   }
-  return tekst;
+  return body;
 }
 
 function htmlNaarTekst(html: string): string {
