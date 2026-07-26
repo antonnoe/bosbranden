@@ -135,6 +135,23 @@ export default function Tool({ embed }: { embed: boolean }) {
     };
   }, []);
 
+  // Additief: leest ?laag= om de beginstand van de kaartlaag te kiezen. Zonder
+  // parameter verandert er niets. FranceKaart blijft ongewijzigd; we activeren
+  // hier alleen de bestaande laag-knop via de DOM.
+  useEffect(() => {
+    const laag = new URLSearchParams(window.location.search).get("laag");
+    const index =
+      laag === "alle" ? 0 : laag === "natuurbranden" ? 1 : laag === "officieel" ? 2 : -1;
+    if (index < 0) return;
+
+    const frame = requestAnimationFrame(() => {
+      const groep = document.querySelector('[aria-label="Kies de kaartlaag"]');
+      const knop = groep?.querySelectorAll("button")[index] as HTMLButtonElement | undefined;
+      if (knop && knop.getAttribute("aria-pressed") !== "true") knop.click();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   const zoekresultaat = useMemo(
     () => (gezocht === null ? null : departementVoorPostcode(gezocht)),
     [gezocht]
