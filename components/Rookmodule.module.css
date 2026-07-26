@@ -1,0 +1,313 @@
+/* Rookmodule — huisstijl: Poppins koppen, Mulish body, #800000-varianten,
+   witte kaarten met subtiele rand. Sluit aan op de globale variabelen. */
+
+.status {
+  margin: 0 0 12px;
+  color: var(--primair-80);
+  font-size: 0.92rem;
+}
+
+.postcodeAntwoord {
+  margin: 14px 0 0;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--primair-15);
+  background: var(--primair-04);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.postcodeTreft {
+  border-left: 4px solid var(--primair);
+  background: var(--primair-08);
+  font-weight: 600;
+}
+
+/* ---- Bediening ---- */
+.bediening {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid var(--primair-08);
+  border-radius: 10px;
+  background: var(--primair-04);
+}
+
+.laagKnoppen {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1.5px solid var(--primair-30);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.laagKnoppen button {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 7px 18px;
+  border: none;
+  background: #fff;
+  color: var(--primair);
+  cursor: pointer;
+}
+
+.laagKnoppen button[aria-pressed="true"] {
+  background: var(--primair);
+  color: #fff;
+}
+
+.laagKnoppen button:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: -2px;
+}
+
+.laagUitleg {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--primair-80);
+  line-height: 1.5;
+}
+
+.tijdSchuif {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+
+.tijdSchuif input[type="range"] {
+  width: 100%;
+  accent-color: var(--primair);
+}
+
+.fijnstofSchakel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.fijnstofSchakel input {
+  accent-color: var(--primair);
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- Kaart ---- */
+.kaartKader {
+  border: 1px solid var(--primair-08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fdfcfb;
+}
+
+.kaart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.departement {
+  fill: #f0ece9;
+  stroke: #fff;
+  stroke-width: 1.1;
+}
+
+/* Pluimen */
+.pluim {
+  cursor: pointer;
+}
+
+.kegel {
+  stroke: rgba(128, 0, 0, 0.28);
+  stroke-width: 1;
+  transition: opacity 0.15s ease;
+}
+
+.pluim:hover .kegel,
+.pluimGekozen .kegel {
+  opacity: 0.85;
+  stroke: rgba(128, 0, 0, 0.5);
+}
+
+.middenlijn {
+  fill: none;
+  stroke: var(--primair);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 5 5;
+  opacity: 0.75;
+}
+
+.pluimGekozen .middenlijn {
+  opacity: 1;
+  stroke-width: 2.6;
+}
+
+.pluimKop {
+  fill: var(--primair);
+}
+
+.stroomStip {
+  fill: rgba(128, 0, 0, 0.55);
+}
+
+.pluim:focus-visible {
+  outline: none;
+}
+
+.pluim:focus-visible .middenlijn {
+  stroke-dasharray: none;
+  opacity: 1;
+}
+
+/* Bronmarkeringen */
+.bron {
+  cursor: pointer;
+}
+
+.bron > circle:first-child {
+  fill: rgba(128, 0, 0, 0.18);
+  stroke: var(--primair);
+  stroke-width: 1.2;
+}
+
+.bronKern {
+  fill: var(--primair);
+}
+
+.bronGekozen > circle:first-child {
+  fill: rgba(128, 0, 0, 0.34);
+}
+
+.bron:focus-visible > circle:first-child {
+  stroke-width: 2.5;
+}
+
+/* ---- Legenda ---- */
+.legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--tekst);
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.legenda i {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legKegel {
+  background: linear-gradient(90deg, rgba(128, 0, 0, 0.42), rgba(128, 0, 0, 0.06));
+  border: 1px solid rgba(128, 0, 0, 0.28);
+}
+
+.legBron {
+  width: 14px !important;
+  border-radius: 50% !important;
+  background: var(--primair);
+}
+
+.legFijnstof {
+  background: rgba(90, 96, 112, 0.4);
+  border: 1px solid rgba(90, 96, 112, 0.35);
+}
+
+.copernicus {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  color: var(--primair-80);
+  line-height: 1.5;
+}
+
+/* ---- Detailpaneel ---- */
+.detailGrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 8px 0 10px;
+  font-size: 0.92rem;
+}
+
+.detailLabel {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primair-80);
+}
+
+.paneelNoot {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--primair-80);
+  line-height: 1.5;
+}
+
+/* ---- Verplichte tekstkaders ---- */
+.kaders {
+  margin: 0;
+  padding-left: 1.1em;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kaders li {
+  line-height: 1.6;
+  font-size: 0.94rem;
+}
+
+/* ---- Bronregel ---- */
+.bronregel {
+  font-size: 0.86rem;
+  color: var(--primair-80);
+  margin: 0 0 14px;
+  line-height: 1.6;
+}
+
+/* ---- Embed: compacter, past binnen ~1250px hoogte bij 750px breedte ---- */
+:global(.embed) .bediening {
+  padding: 10px;
+  gap: 9px;
+}
+
+:global(.embed) .kaders {
+  gap: 7px;
+}
+
+:global(.embed) .kaders li {
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* De kaart is de grootste hoogtevreter: in embed begrensd en gecentreerd. */
+:global(.embed) .kaartKader {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+:global(.embed) .status,
+:global(.embed) .laagUitleg {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+:global(.embed) .laagUitleg {
+  margin-top: -2px;
+}

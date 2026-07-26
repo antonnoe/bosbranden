@@ -21,3 +21,13 @@ export function projecteerCoordinaat(longitude: number, latitude: number): Kaart
     y: (MAX_LAT - latitude) * SCHAAL,
   };
 }
+
+// Inverse van projecteerCoordinaat: van kaartcoördinaat terug naar lengte- en
+// breedtegraad. Gebruikt door de rookmodule om departementsgeometrie (die alleen
+// in kaartruimte bestaat) terug te vertalen naar geografische afstanden in km.
+export function inverseProjectie({ x, y }: KaartPunt): { longitude: number; latitude: number } {
+  return {
+    longitude: x / (KX * SCHAAL) + MIN_LON,
+    latitude: MAX_LAT - y / SCHAAL,
+  };
+}

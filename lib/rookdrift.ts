@@ -1,0 +1,752 @@
+// Rookdrift — server-side berekening van de verwachte windbaan vanaf
+// gedetecteerde hittebronnen (FIRMS/VIIRS), gedreven door het windveld van
+// Open-Meteo. Al het zware rekenwerk gebeurt hier; de client krijgt alleen de
+// compacte, uitgerekende pluimen.
+//
+// Dit is nadrukkelijk GEEN rookmodel. Het is de berekende baan van de lucht
+// vanaf een hittebron. Werkelijke rook stijgt, mengt, slaat neer en wordt door
+// neerslag uitgewassen; dat zit hier niet in.
+
+import { haalFirmsWaarnemingenOp } from "@/lib/firms";
+import { vindDepartementCode } from "@/lib/departement-punt";
+import { DEP_BY_CODE, departementVoorPostcode } from "@/lib/departements";
+import { KAART_PADEN } from "@/lib/kaart-paths";
+import { inverseProjectie } from "@/lib/kaart-projectie";
+import type { Waarneming } from "@/lib/waarnemingen";
+
+// ---- Constanten ----
+
+const WIND_LAT_MIN = 41.5;
+const WIND_LAT_MAX = 50.5;
+const WIND_LON_MIN = -5.0;
+const WIND_LON_MAX = 9.25;
+const WIND_STAP = 0.75; // graden; 13 × 20 = 260 gridpunten
+
+const STAPPEN = 24; // uursstappen → 25 padpunten (incl. startpunt)
+const KOPPEL_KM = 15; // clusterafstand tussen detecties
+const MAX_PLUIMEN = 12;
+
+const KM_PER_GRAAD = 111.32;
+const W850_MAX = 0.7; // maximale weging van het 850hPa-transportveld
+const W850_TIJDSCHAAL = 8; // uren; w850 = min(0.70, t / 8)
+
+const DEG = Math.PI / 180;
+
+const WINDMODUS = ["leefniveau", "ophoogte"] as const;
+export type Windmodus = (typeof WINDMODUS)[number];
+
+// ---- Gridopbouw (vaste volgorde: lat buiten, lon binnen) ----
+
+function bouwReeks(min: number, max: number, stap: number): number[] {
+  const reeks: number[] = [];
+  for (let waarde = min; waarde <= max + 1e-9; waarde += stap) {
+    reeks.push(Number(waarde.toFixed(4)));
+  }
+  return reeks;
+}
+
+const WIND_LATS = bouwReeks(WIND_LAT_MIN, WIND_LAT_MAX, WIND_STAP);
+const WIND_LONS = bouwReeks(WIND_LON_MIN, WIND_LON_MAX, WIND_STAP);
+const N_LAT = WIND_LATS.length;
+const N_LON = WIND_LONS.length;
+
+// ---- Types ----
+
+export interface Pluim {
+  id: string;
+  lat: number;
+  lon: number;
+  detecties: number;
+  frp: number | null;
+  laatsteDetectie: string;
+  bronDepartement: string | null;
+  bronDepartementCode: string | null;
+  leefniveau: Array<[number, number]>; // [lon, lat] per uur
+  ophoogte: Array<[number, number]>;
+  kmLeefniveau: number;
+  kmOphoogte: number;
+  richting: string; // 16-punts kompas, bijv. "OZO"
+}
+
+export interface FijnstofGridpunt {
+  lat: number;
+  lon: number;
+  pm25: Array<number | null>;
+}
+
+export interface Fijnstof {
+  grid: FijnstofGridpunt[];
+  uren: string[];
+}
+
+export interface PostcodeAntwoord {
+  status: "ok" | "geen-pluimen" | "ongeldig" | "onbekend" | "buiten-metropole";
+  tekst: string;
+  vroegsteUur?: number;
+  bronId?: string;
+  modus?: Windmodus;
+}
+
+export interface PluimenResultaat {
+  beschikbaar: boolean; // is de FIRMS-pijplijn gelukt?
+  windBeschikbaar: boolean; // is het windveld beschikbaar (paden getekend)?
+  bijgewerkt: string | null;
+  startuur: string;
+  opmerking?: string;
+  pluimen: Pluim[];
+}
+
+// ---- Windveld ----
+
+interface Windveld {
+  tijden: string[];
+  u10: number[][]; // [puntIndex][uur], oostcomponent in km/u
+  v10: number[][]; // noordcomponent
+  u850: number[][];
+  v850: number[][];
+}
+
+interface WindMonster {
+  u10: number;
+  v10: number;
+  u850: number;
+  v850: number;
+}
+
+async function haalWindveldOp(): Promise<Windveld> {
+  const lats: number[] = [];
+  const lons: number[] = [];
+  for (const la of WIND_LATS) {
+    for (const lo of WIND_LONS) {
+      lats.push(la);
+      lons.push(lo);
+    }
+  }
+
+  const url = new URL("https://api.open-meteo.com/v1/forecast");
+  url.searchParams.set("latitude", lats.join(","));
+  url.searchParams.set("longitude", lons.join(","));
+  url.searchParams.set(
+    "hourly",
+    "wind_speed_10m,wind_direction_10m,wind_speed_850hPa,wind_direction_850hPa"
+  );
+  url.searchParams.set("forecast_days", "2");
+  url.searchParams.set("timezone", "UTC");
+  url.searchParams.set("cell_selection", "nearest");
+
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 1800 }, // 30 minuten
+  });
+
+  if (!res.ok) {
+    throw new Error(`Open-Meteo forecast antwoordde met status ${res.status}.`);
+  }
+
+  const json = await res.json();
+  const reeks: Array<Record<string, unknown>> = Array.isArray(json) ? json : [json];
+
+  if (reeks.length !== lats.length) {
+    throw new Error(
+      `Open-Meteo gaf ${reeks.length} punten terug, verwacht ${lats.length}.`
+    );
+  }
+
+  const eerste = reeks[0]?.hourly as { time?: string[] } | undefined;
+  const tijden = eerste?.time ?? [];
+  if (tijden.length === 0) throw new Error("Open-Meteo leverde geen tijdstappen.");
+
+  const u10: number[][] = [];
+  const v10: number[][] = [];
+  const u850: number[][] = [];
+  const v850: number[][] = [];
+
+  for (let p = 0; p < reeks.length; p += 1) {
+    const uur = reeks[p].hourly as {
+      wind_speed_10m?: Array<number | null>;
+      wind_direction_10m?: Array<number | null>;
+      wind_speed_850hPa?: Array<number | null>;
+      wind_direction_850hPa?: Array<number | null>;
+    };
+
+    const ws10 = uur.wind_speed_10m ?? [];
+    const wd10 = uur.wind_direction_10m ?? [];
+    const ws850 = uur.wind_speed_850hPa ?? [];
+    const wd850 = uur.wind_direction_850hPa ?? [];
+
+    const ru10: number[] = [];
+    const rv10: number[] = [];
+    const ru850: number[] = [];
+    const rv850: number[] = [];
+
+    for (let h = 0; h < tijden.length; h += 1) {
+      const [pu10, pv10] = naarComponenten(ws10[h], wd10[h]);
+      const [pu850, pv850] = naarComponenten(ws850[h], wd850[h]);
+      ru10.push(pu10);
+      rv10.push(pv10);
+      ru850.push(pu850);
+      rv850.push(pv850);
+    }
+
+    u10.push(ru10);
+    v10.push(rv10);
+    u850.push(ru850);
+    v850.push(rv850);
+  }
+
+  return { tijden, u10, v10, u850, v850 };
+}
+
+// wind_direction is meteorologisch (waar de wind vandaan komt); de
+// transportrichting is richting + 180. We interpoleren later u en v, nooit de
+// richting in graden zelf.
+function naarComponenten(
+  snelheid: number | null | undefined,
+  richting: number | null | undefined
+): [number, number] {
+  if (snelheid == null || richting == null) return [0, 0];
+  const a = (richting + 180) * DEG;
+  return [snelheid * Math.sin(a), snelheid * Math.cos(a)];
+}
+
+function zoekIndex(waarden: number[], x: number): { i: number; f: number } {
+  const n = waarden.length;
+  if (x <= waarden[0]) return { i: 0, f: 0 };
+  if (x >= waarden[n - 1]) return { i: n - 2, f: 1 };
+  let i = 0;
+  while (i < n - 1 && waarden[i + 1] < x) i += 1;
+  const f = (x - waarden[i]) / (waarden[i + 1] - waarden[i]);
+  return { i, f };
+}
+
+// Bilineaire interpolatie van de windcomponenten op (lat, lon) voor uur h.
+function monsterWind(veld: Windveld, lat: number, lon: number, h: number): WindMonster {
+  const uur = Math.min(Math.max(h, 0), veld.tijden.length - 1);
+  const { i: iLat, f: fLat } = zoekIndex(WIND_LATS, lat);
+  const { i: iLon, f: fLon } = zoekIndex(WIND_LONS, lon);
+
+  const p00 = iLat * N_LON + iLon;
+  const p01 = iLat * N_LON + (iLon + 1);
+  const p10 = (iLat + 1) * N_LON + iLon;
+  const p11 = (iLat + 1) * N_LON + (iLon + 1);
+
+  const bil = (comp: number[][]): number => {
+    const boven = comp[p00][uur] + (comp[p01][uur] - comp[p00][uur]) * fLon;
+    const onder = comp[p10][uur] + (comp[p11][uur] - comp[p10][uur]) * fLon;
+    return boven + (onder - boven) * fLat;
+  };
+
+  return {
+    u10: bil(veld.u10),
+    v10: bil(veld.v10),
+    u850: bil(veld.u850),
+    v850: bil(veld.v850),
+  };
+}
+
+// ---- Trajectintegratie (voorwaartse Euler, 1-uursstappen) ----
+
+function integreerTraject(
+  startLat: number,
+  startLon: number,
+  veld: Windveld,
+  startIndex: number,
+  opHoogte: boolean
+): Array<[number, number]> {
+  const pad: Array<[number, number]> = [[rond(startLon), rond(startLat)]];
+  let lat = startLat;
+  let lon = startLon;
+
+  for (let stap = 0; stap < STAPPEN; stap += 1) {
+    const t = stap; // uren sinds vrijkomen
+    const w = monsterWind(veld, lat, lon, startIndex + stap);
+
+    let u = w.u10;
+    let v = w.v10;
+    if (opHoogte) {
+      const w850 = Math.min(W850_MAX, t / W850_TIJDSCHAAL);
+      u = (1 - w850) * w.u10 + w850 * w.u850;
+      v = (1 - w850) * w.v10 + w850 * w.v850;
+    }
+
+    const dlat = v / KM_PER_GRAAD;
+    const dlon = u / (KM_PER_GRAAD * Math.cos(lat * DEG));
+    lat += dlat;
+    lon += dlon;
+    pad.push([rond(lon), rond(lat)]);
+  }
+
+  return pad;
+}
+
+function padLengteKm(pad: Array<[number, number]>): number {
+  let som = 0;
+  for (let i = 1; i < pad.length; i += 1) {
+    som += haversineKm(pad[i - 1][1], pad[i - 1][0], pad[i][1], pad[i][0]);
+  }
+  return Math.round(som);
+}
+
+function kompasRichting(pad: Array<[number, number]>): string {
+  if (pad.length < 2) return "";
+  const [lon1, lat1] = pad[0];
+  const [lon2, lat2] = pad[pad.length - 1];
+  const φ1 = lat1 * DEG;
+  const φ2 = lat2 * DEG;
+  const Δλ = (lon2 - lon1) * DEG;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  const graden = (Math.atan2(y, x) / DEG + 360) % 360;
+  const namen = [
+    "N", "NNO", "NO", "ONO", "O", "OZO", "ZO", "ZZO",
+    "Z", "ZZW", "ZW", "WZW", "W", "WNW", "NW", "NNW",
+  ];
+  return namen[Math.round(graden / 22.5) % 16];
+}
+
+// ---- Clustering van FIRMS-detecties (geografisch, ~15 km koppeling) ----
+
+interface Cluster {
+  lat: number;
+  lon: number;
+  detecties: number;
+  frp: number | null;
+  laatsteDetectie: string;
+}
+
+function clusterDetecties(ws: Waarneming[]): Cluster[] {
+  const n = ws.length;
+  const ouder = Array.from({ length: n }, (_, i) => i);
+
+  const vind = (i: number): number => {
+    let r = i;
+    while (ouder[r] !== r) r = ouder[r];
+    while (ouder[i] !== r) {
+      const volgende = ouder[i];
+      ouder[i] = r;
+      i = volgende;
+    }
+    return r;
+  };
+  const koppel = (a: number, b: number) => {
+    const ra = vind(a);
+    const rb = vind(b);
+    if (ra !== rb) ouder[ra] = rb;
+  };
+
+  // Ruimtelijke buckets van ~0,15° zodat we alleen buren hoeven te toetsen.
+  const bucketGraad = 0.15;
+  const buckets = new Map<string, number[]>();
+  const sleutel = (la: number, lo: number) =>
+    `${Math.floor(la / bucketGraad)}:${Math.floor(lo / bucketGraad)}`;
+
+  ws.forEach((w, i) => {
+    const s = sleutel(w.latitude, w.longitude);
+    const lijst = buckets.get(s);
+    if (lijst) lijst.push(i);
+    else buckets.set(s, [i]);
+  });
+
+  ws.forEach((w, i) => {
+    const bLat = Math.floor(w.latitude / bucketGraad);
+    const bLon = Math.floor(w.longitude / bucketGraad);
+    for (let dLat = -1; dLat <= 1; dLat += 1) {
+      for (let dLon = -1; dLon <= 1; dLon += 1) {
+        const buren = buckets.get(`${bLat + dLat}:${bLon + dLon}`);
+        if (!buren) continue;
+        for (const j of buren) {
+          if (j <= i) continue;
+          const ander = ws[j];
+          if (
+            haversineKm(w.latitude, w.longitude, ander.latitude, ander.longitude) <= KOPPEL_KM
+          ) {
+            koppel(i, j);
+          }
+        }
+      }
+    }
+  });
+
+  const groepen = new Map<number, number[]>();
+  for (let i = 0; i < n; i += 1) {
+    const r = vind(i);
+    const lijst = groepen.get(r);
+    if (lijst) lijst.push(i);
+    else groepen.set(r, [i]);
+  }
+
+  const clusters: Cluster[] = [];
+  for (const indices of groepen.values()) {
+    let somLat = 0;
+    let somLon = 0;
+    let somFrp = 0;
+    let heeftFrp = false;
+    let laatste = "";
+
+    for (const idx of indices) {
+      const w = ws[idx];
+      somLat += w.latitude;
+      somLon += w.longitude;
+      if (w.frp != null) {
+        somFrp += w.frp;
+        heeftFrp = true;
+      }
+      if (!laatste || Date.parse(w.waargenomenOp) > Date.parse(laatste)) {
+        laatste = w.waargenomenOp;
+      }
+    }
+
+    clusters.push({
+      lat: somLat / indices.length,
+      lon: somLon / indices.length,
+      detecties: indices.length,
+      frp: heeftFrp ? Math.round(somFrp * 10) / 10 : null,
+      laatsteDetectie: laatste,
+    });
+  }
+
+  // Sorteer op aantal detecties, dan op FRP-som, en beperk tot MAX_PLUIMEN.
+  clusters.sort((a, b) => b.detecties - a.detecties || (b.frp ?? 0) - (a.frp ?? 0));
+  return clusters.slice(0, MAX_PLUIMEN);
+}
+
+// ---- Hoofdorkestratie ----
+
+export async function berekenPluimen(): Promise<PluimenResultaat> {
+  const startuur = huidigUur();
+  const mapKey = process.env.FIRMS_MAP_KEY?.trim();
+
+  if (!mapKey) {
+    return {
+      beschikbaar: false,
+      windBeschikbaar: false,
+      bijgewerkt: null,
+      startuur,
+      opmerking:
+        "Satellietwaarnemingen zijn tijdelijk niet beschikbaar, daarom kunnen geen pluimen worden getekend.",
+      pluimen: [],
+    };
+  }
+
+  let detecties: Waarneming[];
+  try {
+    const firms = await haalFirmsWaarnemingenOp(mapKey);
+    detecties = firms.waarnemingen;
+  } catch {
+    return {
+      beschikbaar: false,
+      windBeschikbaar: false,
+      bijgewerkt: null,
+      startuur,
+      opmerking:
+        "Satellietwaarnemingen zijn tijdelijk niet beschikbaar, daarom kunnen geen pluimen worden getekend.",
+      pluimen: [],
+    };
+  }
+
+  const clusters = clusterDetecties(detecties);
+
+  if (clusters.length === 0) {
+    return {
+      beschikbaar: true,
+      windBeschikbaar: false,
+      bijgewerkt: new Date().toISOString(),
+      startuur,
+      opmerking:
+        "Er zijn de afgelopen 24 uur geen hittebronnen gedetecteerd in Frankrijk. Er zijn dus geen pluimen te tekenen.",
+      pluimen: [],
+    };
+  }
+
+  // Bronnen zonder windbaan: bij een windstoring toont de kaart deze wél.
+  const bronPluimen: Pluim[] = clusters.map((c) => maakBasisPluim(c));
+
+  let veld: Windveld;
+  try {
+    veld = await haalWindveldOp();
+  } catch {
+    return {
+      beschikbaar: true,
+      windBeschikbaar: false,
+      bijgewerkt: new Date().toISOString(),
+      startuur,
+      opmerking:
+        "Het windmodel is tijdelijk onbereikbaar. De gedetecteerde hittebronnen worden wel getoond, maar de windbanen kunnen nu niet worden berekend.",
+      pluimen: bronPluimen,
+    };
+  }
+
+  const startIndex = Math.max(0, veld.tijden.indexOf(startuur.slice(0, 16)));
+
+  const pluimen: Pluim[] = clusters.map((c, index) => {
+    const basis = bronPluimen[index];
+    const leef = integreerTraject(c.lat, c.lon, veld, startIndex, false);
+    const hoog = integreerTraject(c.lat, c.lon, veld, startIndex, true);
+    return {
+      ...basis,
+      leefniveau: leef,
+      ophoogte: hoog,
+      kmLeefniveau: padLengteKm(leef),
+      kmOphoogte: padLengteKm(hoog),
+      richting: kompasRichting(leef),
+    };
+  });
+
+  return {
+    beschikbaar: true,
+    windBeschikbaar: true,
+    bijgewerkt: new Date().toISOString(),
+    startuur,
+    pluimen,
+  };
+}
+
+function maakBasisPluim(c: Cluster): Pluim {
+  const code = vindDepartementCode(c.lat, c.lon);
+  return {
+    id: `pluim-${c.lat.toFixed(3)}-${c.lon.toFixed(3)}`,
+    lat: rond(c.lat),
+    lon: rond(c.lon),
+    detecties: c.detecties,
+    frp: c.frp,
+    laatsteDetectie: c.laatsteDetectie,
+    bronDepartementCode: code,
+    bronDepartement: code ? DEP_BY_CODE[code]?.naam ?? null : null,
+    leefniveau: [],
+    ophoogte: [],
+    kmLeefniveau: 0,
+    kmOphoogte: 0,
+    richting: "",
+  };
+}
+
+// ---- Postcode-antwoord (paragraaf 5) ----
+
+export function bepaalPostcodeAntwoord(
+  pluimen: Pluim[],
+  postcode: string,
+  startuur: string
+): PostcodeAntwoord {
+  const res = departementVoorPostcode(postcode);
+
+  if (res.type === "ongeldig") {
+    return {
+      status: "ongeldig",
+      tekst: "Dat is geen geldige Franse postcode. Vul precies 5 cijfers in, bijvoorbeeld 66000.",
+    };
+  }
+  if (res.type === "buiten-metropole") {
+    return {
+      status: "buiten-metropole",
+      tekst:
+        "Deze module dekt alleen Frankrijk métropole (incl. Corsica). Voor de overzeese gebieden zijn geen pluimen beschikbaar.",
+    };
+  }
+  if (res.type === "onbekend") {
+    return {
+      status: "onbekend",
+      tekst: "Deze postcode hoort niet bij een Frans departement. Controleer de invoer.",
+    };
+  }
+
+  const codes = new Set(res.departementen.map((d) => d.code));
+  const depNaam = res.departementen.map((d) => d.naam).join(" / ");
+
+  const metPad = pluimen.filter((p) => p.leefniveau.length > 0 || p.ophoogte.length > 0);
+
+  if (metPad.length === 0) {
+    return {
+      status: "geen-pluimen",
+      tekst: `Er zijn nu geen berekende pluimen, dus er komt niets richting ${depNaam}.`,
+    };
+  }
+
+  let beste: { uur: number; pluim: Pluim; modus: Windmodus } | null = null;
+
+  for (const pluim of metPad) {
+    for (const modus of WINDMODUS) {
+      const pad = pluim[modus];
+      for (let uur = 0; uur < pad.length; uur += 1) {
+        const [lon, lat] = pad[uur];
+        const code = vindDepartementCode(lat, lon);
+        if (code && codes.has(code)) {
+          if (!beste || uur < beste.uur) beste = { uur, pluim, modus };
+          break;
+        }
+      }
+    }
+  }
+
+  if (beste) {
+    const bron = beste.pluim.bronDepartement
+      ? `de brand in ${beste.pluim.bronDepartement}`
+      : "een gedetecteerde hittebron";
+    const laag = beste.modus === "leefniveau" ? "op leefniveau" : "op hoogte";
+    const klok =
+      beste.uur === 0
+        ? "nu al"
+        : `rond ${klokVoor(startuur, beste.uur)}`;
+    return {
+      status: "ok",
+      vroegsteUur: beste.uur,
+      bronId: beste.pluim.id,
+      modus: beste.modus,
+      tekst: `Pluim vanaf ${bron} komt ${klok} boven ${depNaam}, ${laag}.`,
+    };
+  }
+
+  const km = minAfstandTotDepartementKm(metPad, codes);
+  const telwoord = telwoordVoor(metPad.length);
+  const aanhef =
+    metPad.length === 1
+      ? "De enige gedetecteerde pluim komt"
+      : `Geen van de ${telwoord} pluimen komt`;
+  const afstand =
+    km != null
+      ? ` De dichtstbijzijnde pluim blijft op ongeveer ${km} km van uw departement.`
+      : "";
+
+  return {
+    status: "ok",
+    tekst: `${aanhef} in de komende 24 uur boven ${depNaam}.${afstand}`,
+  };
+}
+
+// ---- Departementsgeometrie in geografische coördinaten (voor afstanden) ----
+
+const DEP_GEO_PUNTEN: Record<string, Array<{ lat: number; lon: number }>> = (() => {
+  const kaart: Record<string, Array<{ lat: number; lon: number }>> = {};
+  for (const pad of KAART_PADEN) {
+    const punten: Array<{ lat: number; lon: number }> = [];
+    for (const match of pad.d.matchAll(/M([^Z]+)Z/g)) {
+      const getallen = match[1].match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? [];
+      for (let i = 0; i + 1 < getallen.length; i += 2) {
+        const { latitude, longitude } = inverseProjectie({ x: getallen[i], y: getallen[i + 1] });
+        punten.push({ lat: latitude, lon: longitude });
+      }
+    }
+    kaart[pad.code] = punten;
+  }
+  return kaart;
+})();
+
+function minAfstandTotDepartementKm(pluimen: Pluim[], codes: Set<string>): number | null {
+  const doelen: Array<{ lat: number; lon: number }> = [];
+  for (const code of codes) {
+    const punten = DEP_GEO_PUNTEN[code];
+    if (punten) doelen.push(...punten);
+  }
+  if (doelen.length === 0) return null;
+
+  let min = Infinity;
+  for (const pluim of pluimen) {
+    for (const modus of WINDMODUS) {
+      for (const [lon, lat] of pluim[modus]) {
+        for (const doel of doelen) {
+          const d = haversineKm(lat, lon, doel.lat, doel.lon);
+          if (d < min) min = d;
+        }
+      }
+    }
+  }
+  return Number.isFinite(min) ? Math.round(min) : null;
+}
+
+// ---- Fijnstof (CAMS PM2.5 via Open-Meteo air-quality) ----
+// Copernicus-attributie is verplicht bij de laag:
+// "Gegenereerd met Copernicus Atmosphere Monitoring Service-informatie 2026".
+
+const AQ_STAP = 1.5; // grovere grid: ~70 punten, compacte payload
+const AQ_LATS = bouwReeks(WIND_LAT_MIN, WIND_LAT_MAX, AQ_STAP);
+const AQ_LONS = bouwReeks(WIND_LON_MIN, WIND_LON_MAX, AQ_STAP);
+
+export async function haalFijnstofOp(startuur: string): Promise<Fijnstof> {
+  const lats: number[] = [];
+  const lons: number[] = [];
+  for (const la of AQ_LATS) {
+    for (const lo of AQ_LONS) {
+      lats.push(la);
+      lons.push(lo);
+    }
+  }
+
+  const url = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
+  url.searchParams.set("latitude", lats.join(","));
+  url.searchParams.set("longitude", lons.join(","));
+  url.searchParams.set("hourly", "pm2_5");
+  url.searchParams.set("domains", "cams_europe");
+  url.searchParams.set("forecast_days", "3");
+  url.searchParams.set("timezone", "UTC");
+  url.searchParams.set("cell_selection", "nearest");
+
+  const res = await fetch(url, {
+    headers: { Accept: "application/json" },
+    next: { revalidate: 3600 }, // 60 minuten
+  });
+  if (!res.ok) throw new Error(`Open-Meteo air-quality antwoordde met status ${res.status}.`);
+
+  const json = await res.json();
+  const reeks: Array<Record<string, unknown>> = Array.isArray(json) ? json : [json];
+  const eerste = reeks[0]?.hourly as { time?: string[] } | undefined;
+  const alleTijden = eerste?.time ?? [];
+  if (alleTijden.length === 0) throw new Error("Open-Meteo air-quality leverde geen tijdstappen.");
+
+  const startIndex = Math.max(0, alleTijden.indexOf(startuur.slice(0, 16)));
+  const eindIndex = Math.min(alleTijden.length, startIndex + STAPPEN + 1);
+
+  const grid: FijnstofGridpunt[] = reeks.map((punt, p) => {
+    const uur = punt.hourly as { pm2_5?: Array<number | null> };
+    const pm25 = (uur.pm2_5 ?? []).slice(startIndex, eindIndex);
+    return {
+      lat: lats[p],
+      lon: lons[p],
+      pm25: pm25.map((v) => (v == null ? null : Math.round(v * 10) / 10)),
+    };
+  });
+
+  return { grid, uren: alleTijden.slice(startIndex, eindIndex).map(normaliseerUur) };
+}
+
+// ---- Hulpfuncties ----
+
+function huidigUur(): string {
+  const d = new Date();
+  d.setUTCMinutes(0, 0, 0);
+  return d.toISOString().replace(".000Z", "Z");
+}
+
+function normaliseerUur(open_meteo: string): string {
+  // "2026-07-26T05:00" → "2026-07-26T05:00:00Z"
+  return open_meteo.length === 16 ? `${open_meteo}:00Z` : open_meteo;
+}
+
+function klokVoor(startuur: string, urenErbij: number): string {
+  const d = new Date(startuur);
+  d.setUTCHours(d.getUTCHours() + urenErbij);
+  return new Intl.DateTimeFormat("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  }).format(d);
+}
+
+const TELWOORDEN = [
+  "nul", "één", "twee", "drie", "vier", "vijf", "zes",
+  "zeven", "acht", "negen", "tien", "elf", "twaalf",
+];
+function telwoordVoor(n: number): string {
+  return TELWOORDEN[n] ?? String(n);
+}
+
+function rond(waarde: number): number {
+  return Math.round(waarde * 100000) / 100000;
+}
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const dLat = (lat2 - lat1) * DEG;
+  const dLon = (lon2 - lon1) * DEG;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * DEG) * Math.cos(lat2 * DEG) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}

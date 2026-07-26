@@ -5,9 +5,9 @@
 
 import { useEffect, useState } from "react";
 
-const FASEN = ["Gegevens ophalen bij Météo-France…", "Verwerken…", "Tonen…"];
+const STANDAARD_FASEN = ["Gegevens ophalen bij Météo-France…", "Verwerken…", "Tonen…"];
 
-export default function Voortgang() {
+export default function Voortgang({ fasen = STANDAARD_FASEN }: { fasen?: string[] }) {
   const [fase, setFase] = useState(0);
   const [wisselt, setWisselt] = useState(false);
 
@@ -15,19 +15,19 @@ export default function Voortgang() {
     const timer = setInterval(() => {
       setWisselt(true);
       setTimeout(() => {
-        setFase((f) => (f + 1) % FASEN.length);
+        setFase((f) => (f + 1) % fasen.length);
         setWisselt(false);
       }, 450);
     }, 2200);
     return () => clearInterval(timer);
-  }, []);
+  }, [fasen.length]);
 
   return (
     <div className="voortgang" role="status" aria-live="polite">
       <div className="voortgang-lijn">
         <div className="voortgang-accent" />
       </div>
-      <div className={`voortgang-fase${wisselt ? " wisselt" : ""}`}>{FASEN[fase]}</div>
+      <div className={`voortgang-fase${wisselt ? " wisselt" : ""}`}>{fasen[fase]}</div>
     </div>
   );
 }

@@ -371,6 +371,20 @@ export default function Tool({ embed }: { embed: boolean }) {
         <Disclaimer />
       </section>
 
+      {/* ---------- C. Verwijzing naar de rookmodule ---------- */}
+      <section className="sectie" aria-labelledby="rook-verwijzing-titel">
+        <h2 id="rook-verwijzing-titel" style={{ marginBottom: 6 }}>
+          Waar waait de rook naartoe?
+        </h2>
+        <p style={{ marginTop: 0 }}>
+          Bekijk de berekende windbaan vanaf gedetecteerde hittebronnen — op leefniveau en op
+          hoogte, met een postcode-check of die pluim naar u toe komt.
+        </p>
+        <a className="knop" href={embed ? "/rook?embed=1" : "/rook"} style={{ display: "inline-block", textDecoration: "none" }}>
+          Naar de rookmodule
+        </a>
+      </section>
+
       <footer className="site-voet">
         {!embed && (
           <p style={{ margin: 0 }}>

@@ -50,12 +50,55 @@ consequent de termen `satellietwaarneming`, `hittebron` en `detectie`.
 - `app/api/danger` — serverless route voor Météo-France; 6 uur cache.
 - `app/api/waarnemingen` — serverless route voor NASA FIRMS; 15 minuten cache.
   De FIRMS MAP_KEY blijft uitsluitend server-side.
+- `app/api/rookpluimen` — serverless route voor de rookmodule (zie hieronder);
+  pluimen 15 minuten, wind 30 minuten, fijnstof 60 minuten cache. Elke bron
+  faalt afzonderlijk; de route geeft nooit een 500.
 - `app/api/debug` — testroute voor de Météo-France-responsstructuur.
 - `lib/firms.ts` — ophalen, CSV-parsing, tijdsfilter en normalisatie van FIRMS.
+- `lib/rookdrift.ts` — alle server-side rekenwerk van de rookmodule: clusteren
+  van FIRMS-detecties, windveld-interpolatie, trajectintegratie en het
+  postcode-antwoord.
 - `lib/departement-punt.ts` — point-in-polygon-filter zodat alleen punten binnen
   de metropolitane Franse departementen worden getoond.
 - `lib/departements.ts` — tabel van alle 96 metropolitane departementen.
 - `lib/kaart-paths.ts` — gegenereerde SVG-paths per departement.
+- `lib/kaart-projectie.ts` — de equirectangulaire projectie en de inverse
+  (die de rookmodule gebruikt om departementsgeometrie terug te vertalen naar
+  km-afstanden).
+
+## Rookmodule (`/rook`)
+
+De rookmodule toont **de berekende windbaan vanaf gedetecteerde hittebronnen**
+— nadrukkelijk geen rookmodel. Per grote brand (geclusterd uit FIRMS/VIIRS,
+koppelafstand ~15 km, maximaal 12 pluimen) wordt met het windveld van
+[Open-Meteo](https://open-meteo.com/) (0,75°-grid, keyloos) een 24-uurstraject
+geïntegreerd, in twee modi:
+
+- **leefniveau** — uitsluitend het 10m-wind (stanklast dichtbij de bron);
+- **op hoogte** — met pluimstijging naar het 850hPa-transportveld
+  (`w850 = min(0,70, t / 8)`; transport over grotere afstand).
+
+De windrichting is meteorologisch (waar de wind vandaan komt); de
+transportrichting is `richting + 180`. De componenten `u`/`v` worden bilineair
+geïnterpoleerd, nooit de richting in graden. De client krijgt alleen de compacte
+uitgerekende pluimen (circa 14 kB), nooit het volledige windveld.
+
+Het postcode-antwoord toetst per uurstap of het midden van een traject binnen het
+departement van de bezoeker valt en meldt het vroegste uur, de bron en de modus —
+of anders de minimale afstand tot dat departement.
+
+De optionele fijnstoflaag gebruikt CAMS PM2.5 via de Open-Meteo air-quality API
+(domein `cams_europe`). Verplichte attributie bij de laag: *Gegenereerd met
+Copernicus Atmosphere Monitoring Service-informatie 2026*. `aerosol_optical_depth`
+levert op dit domein uitsluitend `null` en wordt niet gebruikt.
+
+### EFFIS als kandidaat voor een latere brandmodule
+
+Buiten scope hier, maar verkend en werkend bevonden: **EFFIS** (Copernicus CEMS),
+een WMS zonder key. WMS 1.3.0, bbox in `lat,lon`-volgorde, met een verplichte
+`time`-parameter. Bruikbare lagen: `mf010.fwi` (Fire Weather Index), `all.hs` en
+`viirs.hs` (hotspots) en `effis.nrt.ba` (perimeters van verbrand oppervlak).
+Kandidaat voor een aparte brandmodule; in deze module is er niets van gebouwd.
 
 Postcode-logica: eerste 2 cijfers = departementcode; `20xxx` toont
 Corse-du-Sud (2A) én Haute-Corse (2B); `97`/`98` geeft de melding dat de tool
@@ -90,8 +133,10 @@ demopinnen als live gegevens getoond.
 
 ## Embedden
 
-De tool ondersteunt `?embed=1`: geen sitekop/-voet, compacte marges,
-responsive vanaf 320px breed.
+Zowel de hoofdtool (`/`) als de rookmodule (`/rook`) ondersteunen `?embed=1`:
+geen sitekop/-voet, compacte marges, responsive vanaf 320px breed. De rookmodule
+past bij 750px breedte binnen circa 1250px hoogte (gemeten: ~1240px in
+volledige staat).
 
 **NING 2.0**:
 
