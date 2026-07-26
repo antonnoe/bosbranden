@@ -415,7 +415,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   {toonSatelliet && satellietFout ? " — nu niet beschikbaar" : ""}
                 </label>
 
-                {toonSatelliet && satelliet && !embed && (
+                {toonSatelliet && satelliet && (
                   <label className={styles.tijdSchuif}>
                     <span>Dekking satellietbeeld: {satellietDekking}%</span>
                     <input
@@ -550,10 +550,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             {toonSatelliet && satelliet && (
               <p className={styles.satellietBanner}>
                 <strong>Satellietbeeld (waarneming) van {satellietDatum(satelliet.datum)}.</strong>{" "}
-                {embed
-                  ? "Waar de rook wás; de pluimen zijn de verwachting. "
-                  : "Dit toont waar de rook wás; de pluimen zijn een berekende verwachting van waar de lucht náártoe waait. "}
-                Bron: NASA GIBS / EOSDIS{embed ? "" : ` · ${satelliet.laag}`}.
+                Dit toont waar de rook wás; de pluimen zijn een berekende verwachting van waar de
+                lucht náártoe waait. Bron: NASA GIBS / EOSDIS · {satelliet.laag}.
               </p>
             )}
             {toonSatelliet && satellietFout && !satellietLaden && (

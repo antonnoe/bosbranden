@@ -37,28 +37,27 @@
    binnen het kader over de tegels heen. Geen 1024px-grens, geen aparte
    "zijkolom eronder"-variant meer. */
 .hub {
+  --handgreep-breedte: 38px;
+  --handgreep-marge: 10px;
   position: relative;
   overflow: hidden;
   margin-bottom: 22px;
 }
 
+/* Nooit meer dan twee kolommen: twee vanaf 640px, één daaronder. Het aantal
+   kolommen staat volledig los van het aantal modules. De rechtermarge houdt
+   ruimte vrij voor de ingeklapte handgreep, zodat die geen tegel afsnijdt. */
 .tegels {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
   align-content: start;
+  margin-right: calc(var(--handgreep-breedte) + var(--handgreep-marge));
 }
 
-/* Onder 768px twee kolommen, onder 520px één. Nooit een rij van vier. */
-@media (max-width: 767px) {
+@media (min-width: 640px) {
   .tegels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 519px) {
-  .tegels {
-    grid-template-columns: 1fr;
   }
 }
 
@@ -67,7 +66,6 @@
    valt buiten het kader en wordt door .hub afgesneden. De container zelf laat
    klikken door (pointer-events: none); alleen handgreep en paneel vangen ze. */
 .overlay {
-  --handgreep-breedte: 38px;
   position: absolute;
   top: 0;
   right: 0;
@@ -164,11 +162,14 @@
   border-color: var(--primair);
 }
 
+/* Titel op de eerste regel, het ernst-label eronder op een eigen regel — zo
+   loopt "NU VERHOOGD" nooit over de titel of buiten de rand, ook niet bij de
+   langste titel ("Laatste officiële meldingen"). */
 .tegelKop {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 
 .tegelTitel {

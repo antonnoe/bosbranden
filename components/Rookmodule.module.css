@@ -362,55 +362,22 @@
   line-height: 1.6;
 }
 
-/* ---- Embed: compacter, past binnen 1250px hoogte bij 750px breedte, óók met
-   de satellietlaag aan. ---- */
+/* ---- Embed ----
+   Het iframe meet zich via EmbedHoogte zelf op de inhoud; er is geen vaste
+   hoogtegrens meer. De kaart volgt daarom gewoon de volledige kolombreedte en
+   is het grootste element op de pagina — niet de bediening of de tekstblokken.
+   Alleen de bediening en de tekstkaders krijgen een lichte verdichting, zodat
+   de kaart visueel blijft domineren. */
 :global(.embed) .bediening {
-  padding: 8px 10px;
-  gap: 7px;
+  padding: 10px 12px;
+  gap: 9px;
 }
 
 :global(.embed) .kaders {
-  gap: 5px;
+  gap: 7px;
 }
 
 :global(.embed) .kaders li {
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
-/* De kaart is de grootste hoogtevreter: in embed strak begrensd en gecentreerd. */
-:global(.embed) .kaartKader {
-  max-width: 325px;
-  margin: 0 auto;
-}
-
-:global(.embed) .status,
-:global(.embed) .laagUitleg {
-  font-size: 0.8rem;
-  line-height: 1.4;
-}
-
-:global(.embed) .laagUitleg {
-  margin-top: -2px;
-}
-
-:global(.embed) .fijnstofSchakel,
-:global(.embed) .tijdSchuif {
-  font-size: 0.82rem;
-}
-
-:global(.embed) .satellietBanner {
-  margin-top: 6px;
-  padding: 6px 10px;
-  font-size: 0.79rem;
-  line-height: 1.4;
-}
-
-:global(.embed) .kaartHint {
-  font-size: 0.8rem;
-  margin-top: 7px;
-}
-
-:global(.embed) .bronregel {
-  font-size: 0.78rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
 }
