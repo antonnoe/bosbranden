@@ -45,6 +45,24 @@ consequent de termen `satellietwaarneming`, `hittebron` en `detectie`.
 (`departements-version-simplifiee.geojson`, afgeleid van IGN GEOFLA,
 **Etalab Licence Ouverte**). Regenereren kan met `npm run generate:map`.
 
+### FR-Alert — officiële meldingen (en de zwakke schakel)
+
+De laag "Officieel gemeld" leest de publieke pagina `fr-alert.gouv.fr/les-alertes`
+uit (HTML-scrape) en valt bij storing terug op de laatst bekende export in
+`data/fr-alert-fallback.ts`. De standaardweergave toont **alleen nu actuele
+meldingen** (actief, of met een einddatum in de toekomst); afgelopen meldingen
+staan achter de schakelaar "ook afgelopen meldingen tonen", met einddatum. Als de
+live bron niet uitleesbaar is, meldt de route dat expliciet via `liveBron: false`
+en `momentopnameVan`, en toont de interface een zichtbare waarschuwing dat het om
+de laatst bekende stand gaat, niet om de actuele situatie.
+
+> **Zwakste schakel.** Een HTML-scrape van één overheidspagina is juist op de dag
+> dat het telt kwetsbaar: tijdens de Gironde/Landes-ramp van juli 2026 antwoordde
+> `fr-alert.gouv.fr` ook van buitenaf met HTTP 503 (overbelasting). Daarom hoort
+> de **Météo-France DPVigilance-API** (een echte API; de key staat al in Vercel)
+> hoog op de lijst als redundante tweede bron, zodat de laag niet afhankelijk is
+> van het scrapen van één pagina.
+
 ## Architectuur
 
 - `app/api/danger` — serverless route voor Météo-France; 6 uur cache.
@@ -69,8 +87,13 @@ consequent de termen `satellietwaarneming`, `hittebron` en `detectie`.
 ## Rookmodule (`/rook`)
 
 De rookmodule toont **de berekende windbaan vanaf gedetecteerde hittebronnen**
-— nadrukkelijk geen rookmodel. Per grote brand (geclusterd uit FIRMS/VIIRS,
-koppelafstand ~15 km, maximaal 12 pluimen) wordt met het windveld van
+— nadrukkelijk geen rookmodel. Detecties worden geclusterd uit FIRMS/VIIRS
+(korte koppelafstand van 5 km); een front breder dan ~25 km wordt in een raster
+gesplitst zodat een groot brandcomplex (zoals Gironde/Landes) **meerdere
+pluimoorsprongen langs de vuurlijn** krijgt in plaats van één punt. De cap is
+per departement (maximaal 8) met een ruim landelijk maximum (25), zodat één ramp
+de kaart niet volledig inneemt en andere departementen zichtbaar blijven. Per
+pluim wordt met het windveld van
 [Open-Meteo](https://open-meteo.com/) (0,75°-grid, keyloos) een 24-uurstraject
 geïntegreerd, in twee modi:
 
@@ -88,9 +111,13 @@ departement van de bezoeker valt en meldt het vroegste uur, de bron en de modus 
 of anders de minimale afstand tot dat departement.
 
 De optionele fijnstoflaag gebruikt CAMS PM2.5 via de Open-Meteo air-quality API
-(domein `cams_europe`). Verplichte attributie bij de laag: *Gegenereerd met
-Copernicus Atmosphere Monitoring Service-informatie 2026*. `aerosol_optical_depth`
-levert op dit domein uitsluitend `null` en wordt niet gebruikt.
+(domein `cams_europe`). De laag tekent **niets onder de WHO-daggrens van
+15 µg/m³** (schone lucht hoort onzichtbaar te zijn) en gebruikt daarboven
+klassegrenzen (15–35, 35–75, 75–150, ≥150) met oplopende kleurintensiteit, zodat
+een piek boven een brandhaard als onmiskenbare vlek verschijnt in plaats van een
+egale waas. Verplichte attributie bij de laag: *Gegenereerd met Copernicus
+Atmosphere Monitoring Service-informatie 2026*. `aerosol_optical_depth` levert op
+dit domein uitsluitend `null` en wordt niet gebruikt.
 
 ### EFFIS als kandidaat voor een latere brandmodule
 
@@ -138,7 +165,23 @@ geen sitekop/-voet, compacte marges, responsive vanaf 320px breed. De rookmodule
 past bij 750px breedte binnen circa 1250px hoogte (gemeten: ~1240px in
 volledige staat).
 
-**NING 2.0**:
+### Zelfregelende iframe-hoogte (NING)
+
+In embed-modus meet de tool haar eigen **inhoudshoogte** (de hoogte van het
+wrapper-element `.omhulsel`, nadrukkelijk niet `document.body.scrollHeight`) met
+een `ResizeObserver` en stuurt die **alleen bij een echte wijziging** via
+`postMessage` naar de ouderpagina, onder de berichtnaam `nlfrBosbrandenHeight`.
+De ouder stelt het iframe daarop bij. Omdat de gemelde hoogte de
+element-hoogte is (en niet meegroeit met de iframe-hoogte die de ouder instelt),
+ontstaat er geen oplopende hoogte-lus.
+
+Voor de NING-kant staat een compleet, kant-en-klaar insluitblok in
+[`ning/bosbranden.html`](ning/bosbranden.html): plak dat één keer en zet de
+iframe-URL naar het live Vercel-adres met `?embed=1`. De listener erin stelt de
+hoogte permanent zelf bij. De repo-kopie is de referentie; houd hem gelijk aan
+wat op NING staat.
+
+**NING 2.0** (statische hoogte; gebruik liever `ning/bosbranden.html` hierboven):
 
 ```html
 <iframe

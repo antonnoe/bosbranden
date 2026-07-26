@@ -44,15 +44,17 @@ export async function GET() {
     );
 
     if (gecombineerd.length > 0) {
+      const liveBron = live.length > 0;
       return antwoord({
         beschikbaar: true,
         meldingen: gecombineerd,
-        bijgewerkt: live.length > 0 ? nu : FR_ALERT_FALLBACK_BIJGEWERKT,
+        bijgewerkt: liveBron ? nu : FR_ALERT_FALLBACK_BIJGEWERKT,
         bron: "FR-Alert",
-        opmerking:
-          live.length > 0
-            ? undefined
-            : "De live FR-Alert-pagina was tijdelijk niet uitleesbaar; de laatst bekende officiële export wordt getoond.",
+        liveBron,
+        momentopnameVan: liveBron ? null : FR_ALERT_FALLBACK_BIJGEWERKT,
+        opmerking: liveBron
+          ? undefined
+          : "De live FR-Alert-pagina was tijdelijk niet uitleesbaar; hieronder staat de laatst bekende officiële stand, geen actuele situatie.",
       });
     }
 
@@ -61,6 +63,8 @@ export async function GET() {
       meldingen: [],
       bijgewerkt: null,
       bron: "FR-Alert",
+      liveBron: false,
+      momentopnameVan: null,
       opmerking: "FR-Alert leverde tijdelijk geen bruikbare natuurbrandmeldingen.",
     });
   } catch (fout) {
@@ -72,9 +76,11 @@ export async function GET() {
       meldingen: fallback,
       bijgewerkt: fallback.length > 0 ? FR_ALERT_FALLBACK_BIJGEWERKT : null,
       bron: "FR-Alert",
+      liveBron: false,
+      momentopnameVan: fallback.length > 0 ? FR_ALERT_FALLBACK_BIJGEWERKT : null,
       opmerking:
         fallback.length > 0
-          ? "De live FR-Alert-pagina was tijdelijk niet uitleesbaar; de laatst bekende officiële export wordt getoond."
+          ? "De live FR-Alert-pagina was tijdelijk niet uitleesbaar; hieronder staat de laatst bekende officiële stand, geen actuele situatie."
           : "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
     });
   }

@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { KAART_PADEN } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
 import Voortgang from "@/components/Voortgang";
+import EmbedHoogte from "@/components/EmbedHoogte";
 import styles from "@/components/Rookmodule.module.css";
 
 // Ruimere viewBox dan de departementsgrenzen (0 0 1000 959), zodat pluimen die
@@ -29,6 +30,26 @@ const LAAD_FASEN = [
   "Hittebronnen clusteren…",
   "Windbanen berekenen…",
 ];
+
+// PM2.5-klassen (µg/m³). Onder de WHO-daggrens van 15 wordt niets getekend:
+// schone lucht hoort onzichtbaar te zijn, niet lichtgrijs. Daarboven lopen de
+// klassen op in donkerte en dekking, zodat een echte piek (zoals boven de
+// brandhaard) als onmiskenbare vlek verschijnt in plaats van een egale waas.
+const WHO_DAGGRENS_PM25 = 15;
+const PM25_KLASSEN = [
+  { min: 15, kleur: "168, 130, 195", kernAlpha: 0.5, label: "15–35", duiding: "verhoogd" },
+  { min: 35, kleur: "142, 78, 168", kernAlpha: 0.62, label: "35–75", duiding: "hoog" },
+  { min: 75, kleur: "108, 34, 132", kernAlpha: 0.74, label: "75–150", duiding: "zeer hoog" },
+  { min: 150, kleur: "72, 12, 92", kernAlpha: 0.86, label: "≥150", duiding: "extreem" },
+] as const;
+
+function pm25KlasseIndex(waarde: number): number {
+  if (!Number.isFinite(waarde) || waarde < WHO_DAGGRENS_PM25) return -1;
+  for (let i = PM25_KLASSEN.length - 1; i >= 0; i -= 1) {
+    if (waarde >= PM25_KLASSEN[i].min) return i;
+  }
+  return -1;
+}
 
 type Windmodus = "leefniveau" | "ophoogte";
 
@@ -170,6 +191,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
   return (
     <div className="omhulsel">
+      <EmbedHoogte actief={embed} />
       {!embed && (
         <header className="site-kop">
           <h1>Verwachte rookverplaatsing</h1>
@@ -299,10 +321,13 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 aria-label="Kaart van Frankrijk met de berekende windbanen vanaf hittebronnen"
               >
                 <defs>
-                  <radialGradient id="fijnstof-verloop">
-                    <stop offset="0%" stopColor="rgba(90, 96, 112, 0.5)" />
-                    <stop offset="100%" stopColor="rgba(90, 96, 112, 0)" />
-                  </radialGradient>
+                  {PM25_KLASSEN.map((k, i) => (
+                    <radialGradient key={`fs-grad-${i}`} id={`fijnstof-${i}`}>
+                      <stop offset="0%" stopColor={`rgba(${k.kleur}, ${k.kernAlpha})`} />
+                      <stop offset="65%" stopColor={`rgba(${k.kleur}, ${k.kernAlpha * 0.5})`} />
+                      <stop offset="100%" stopColor={`rgba(${k.kleur}, 0)`} />
+                    </radialGradient>
+                  ))}
                   <linearGradient id="pluim-verloop" x1="0" y1="0" x2="1" y2="0">
                     <stop offset="0%" stopColor="rgba(128, 0, 0, 0.42)" />
                     <stop offset="100%" stopColor="rgba(128, 0, 0, 0.06)" />
@@ -314,22 +339,23 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   <path key={pad.code} className={styles.departement} d={pad.d} />
                 ))}
 
-                {/* Fijnstoflaag (zachte vlakvulling), onder de pluimen */}
+                {/* Fijnstoflaag (zachte vlakvulling), onder de pluimen.
+                    Onder de WHO-daggrens (15 µg/m³) tekenen we niets. */}
                 {toonFijnstof &&
                   fijnstof?.grid.map((punt, i) => {
                     const waarde = punt.pm25[Math.min(uur, punt.pm25.length - 1)];
-                    if (waarde == null || waarde <= 0) return null;
+                    if (waarde == null) return null;
+                    const klasse = pm25KlasseIndex(waarde);
+                    if (klasse < 0) return null;
                     const { x, y } = projecteerCoordinaat(punt.lon, punt.lat);
-                    const dekking = Math.min(0.6, waarde / 40);
-                    const straal = 1.5 * EEN_GRAAD * 0.85;
+                    const straal = 1.5 * EEN_GRAAD * 0.8;
                     return (
                       <circle
                         key={`fs-${i}`}
                         cx={x}
                         cy={y}
                         r={straal}
-                        fill="url(#fijnstof-verloop)"
-                        opacity={dekking}
+                        fill={`url(#fijnstof-${klasse})`}
                       />
                     );
                   })}
@@ -387,18 +413,28 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               <span>
                 <i className={styles.legBron} /> gedetecteerde hittebron
               </span>
-              {toonFijnstof && (
-                <span>
-                  <i className={styles.legFijnstof} /> CAMS PM2.5 (fijnstof)
-                </span>
-              )}
             </div>
 
             {toonFijnstof && (
-              <p className={styles.copernicus}>
-                Fijnstoflaag: gegenereerd met Copernicus Atmosphere Monitoring
-                Service-informatie 2026 (CAMS European air quality, via Open-Meteo).
-              </p>
+              <div className={styles.fijnstofLegenda}>
+                <span className={styles.fijnstofLegendaTitel}>Fijnstof PM2.5 (µg/m³):</span>
+                <div className={styles.fijnstofBanden}>
+                  {PM25_KLASSEN.map((k, i) => (
+                    <span key={`leg-${i}`} className={styles.fijnstofBand}>
+                      <i style={{ background: `rgb(${k.kleur})` }} /> {k.label}
+                      <em> ({k.duiding})</em>
+                    </span>
+                  ))}
+                </div>
+                <p className={styles.fijnstofRefwaarde}>
+                  Onder de <strong>WHO-daggrens van 15 µg/m³</strong> wordt niets getekend
+                  (schone lucht). De kleur wordt donkerder naarmate de concentratie stijgt.
+                </p>
+                <p className={styles.copernicus}>
+                  Fijnstoflaag: gegenereerd met Copernicus Atmosphere Monitoring
+                  Service-informatie 2026 (CAMS European air quality, via Open-Meteo).
+                </p>
+              </div>
             )}
 
             {gekozen && (
@@ -630,7 +666,7 @@ function statusTekst(data: Antwoord | null): string {
       "De hittebronnen worden getoond; de windbanen zijn tijdelijk niet beschikbaar."
     );
   const n = data.pluimen.length;
-  return `${n} ${n === 1 ? "pluim" : "pluimen"} berekend vanaf de grootste gedetecteerde hittebronnen (maximaal 12).`;
+  return `${n} ${n === 1 ? "pluim" : "pluimen"} berekend vanaf de grootste gedetecteerde hittebronnen. Een groot brandcomplex krijgt meerdere oorsprongen langs de vuurlijn.`;
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

@@ -1,0 +1,56 @@
+<!--
+  Weer en waarschuwingen Frankrijk — insluitblok voor nederlanders.fr/bosbranden
+  ===========================================================================
+
+  Plak dit HTML-blok één keer in de NING-pagina (Text/HTML-onderdeel).
+  Daarna regelt de hoogte zichzelf: de tool meet in embed-modus haar eigen
+  inhoudshoogte en stuurt die via postMessage naar deze pagina, die het iframe
+  meteen bijstelt. Geen binnenscroll meer, geen vaste hoogte die telkens te
+  kort of te lang is.
+
+  HET ENIGE DAT JE MOGELIJK MOET AANPASSEN is de URL in het src-attribuut
+  hieronder: zet daar het live Vercel-adres van de tool, gevolgd door ?embed=1.
+  (Bijvoorbeeld https://JOUW-VERCEL-DOMEIN.vercel.app/?embed=1 voor de
+  brandrisicokaart, of .../rook?embed=1 voor de rookmodule.)
+
+  Deze kopie in de repo (ning/bosbranden.html) is byte-identiek aan wat je
+  plakt; wijzig je de URL, doe dat dan op beide plekken gelijk.
+-->
+<div style="max-width:750px;margin:0 auto;">
+  <iframe
+    id="nlfr-bosbranden"
+    src="https://JOUW-VERCEL-DOMEIN.vercel.app/?embed=1"
+    title="Weer en waarschuwingen Frankrijk"
+    scrolling="no"
+    style="width:100%;max-width:750px;border:0;display:block;height:1250px;"
+  ></iframe>
+</div>
+
+<script>
+(function () {
+  var iframe = document.getElementById("nlfr-bosbranden");
+  if (!iframe) return;
+
+  // Alleen berichten van de eigen tool accepteren (afgeleid uit het src-adres).
+  var toegestaneOorsprong;
+  try {
+    toegestaneOorsprong = new URL(iframe.src).origin;
+  } catch (e) {
+    toegestaneOorsprong = null;
+  }
+
+  var laatsteHoogte = -1;
+
+  window.addEventListener("message", function (bericht) {
+    if (toegestaneOorsprong && bericht.origin !== toegestaneOorsprong) return;
+    var data = bericht.data;
+    if (!data || data.type !== "nlfrBosbrandenHeight") return;
+
+    var hoogte = Math.ceil(data.hoogte);
+    // Alleen bijstellen bij een echte wijziging: voorkomt een oplopende lus.
+    if (!(hoogte > 0) || Math.abs(hoogte - laatsteHoogte) < 2) return;
+    laatsteHoogte = hoogte;
+    iframe.style.height = hoogte + "px";
+  });
+})();
+</script>

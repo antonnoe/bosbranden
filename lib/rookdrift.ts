@@ -23,8 +23,10 @@ const WIND_LON_MAX = 9.25;
 const WIND_STAP = 0.75; // graden; 13 × 20 = 260 gridpunten
 
 const STAPPEN = 24; // uursstappen → 25 padpunten (incl. startpunt)
-const KOPPEL_KM = 15; // clusterafstand tussen detecties
-const MAX_PLUIMEN = 12;
+const KOPPEL_KM = 5; // koppelafstand tussen naburige detecties
+const MAX_CLUSTER_DIAMETER_KM = 25; // grotere fronten worden gesplitst in meerdere oorsprongen
+const MAX_PLUIMEN_PER_DEP = 8; // cap per departement, zodat één ramp de kaart niet vult
+const MAX_PLUIMEN = 25; // landelijk maximum, ruim genoeg voor een echte ramp
 
 const KM_PER_GRAAD = 111.32;
 const W850_MAX = 0.7; // maximale weging van het 850hPa-transportveld
@@ -304,17 +306,50 @@ function kompasRichting(pad: Array<[number, number]>): string {
   return namen[Math.round(graden / 22.5) % 16];
 }
 
-// ---- Clustering van FIRMS-detecties (geografisch, ~15 km koppeling) ----
+// ---- Clustering van FIRMS-detecties ----
+//
+// Eén brand levert veel detecties; we willen één pluim per brandhaard, niet per
+// pixel. Maar een brandcomplex van tientallen kilometers (zoals Gironde/Landes,
+// juli 2026) is géén punt: dan horen er meerdere oorsprongen langs de vuurlijn
+// te komen. Daarom:
+//   1. korte koppeling (5 km) voegt naburige detecties samen tot fronten;
+//   2. fronten breder dan MAX_CLUSTER_DIAMETER_KM worden in een raster gesplitst,
+//      zodat een groot complex meerdere pluimoorsprongen krijgt;
+//   3. de cap is per departement (plus een ruim landelijk maximum), zodat één
+//      ramp niet alle plekken opsoupeert en andere departementen zichtbaar blijven.
 
-interface Cluster {
+export interface Cluster {
   lat: number;
   lon: number;
   detecties: number;
   frp: number | null;
   laatsteDetectie: string;
+  departementCode: string | null;
+  diameterKm: number; // diameter van de brandhaard (kaderdiagonaal in km)
 }
 
-function clusterDetecties(ws: Waarneming[]): Cluster[] {
+// Geëxporteerd zodat de clustering met echte data controleerbaar is
+// (o.a. dat geen enkele getekende cluster een diameter boven de grens houdt).
+export function clusterDetecties(ws: Waarneming[]): Cluster[] {
+  const groepen = koppelDetecties(ws);
+
+  // Splits fronten waarvan de diameter (kaderdiagonaal) boven de grens uitkomt.
+  const deelgroepen: number[][] = [];
+  for (const indices of groepen) {
+    if (indices.length === 0) continue;
+    if (frontDiameterKm(ws, indices) <= MAX_CLUSTER_DIAMETER_KM) {
+      deelgroepen.push(indices);
+    } else {
+      deelgroepen.push(...splitsFront(ws, indices));
+    }
+  }
+
+  const clusters = deelgroepen.map((indices) => maakCluster(ws, indices));
+  return begrensPluimen(clusters);
+}
+
+// Stap 1: single-linkage union-find op korte afstand (KOPPEL_KM).
+function koppelDetecties(ws: Waarneming[]): number[][] {
   const n = ws.length;
   const ouder = Array.from({ length: n }, (_, i) => i);
 
@@ -334,8 +369,8 @@ function clusterDetecties(ws: Waarneming[]): Cluster[] {
     if (ra !== rb) ouder[ra] = rb;
   };
 
-  // Ruimtelijke buckets van ~0,15° zodat we alleen buren hoeven te toetsen.
-  const bucketGraad = 0.15;
+  // Bucket ~0,08° (≈9 km bij deze breedte); met ±1 buur ruim genoeg voor 5 km.
+  const bucketGraad = 0.08;
   const buckets = new Map<string, number[]>();
   const sleutel = (la: number, lo: number) =>
     `${Math.floor(la / bucketGraad)}:${Math.floor(lo / bucketGraad)}`;
@@ -374,40 +409,119 @@ function clusterDetecties(ws: Waarneming[]): Cluster[] {
     if (lijst) lijst.push(i);
     else groepen.set(r, [i]);
   }
+  return [...groepen.values()];
+}
 
-  const clusters: Cluster[] = [];
-  for (const indices of groepen.values()) {
-    let somLat = 0;
-    let somLon = 0;
-    let somFrp = 0;
-    let heeftFrp = false;
-    let laatste = "";
+// Diameter van het omhullende kader in km (diagonaal; bovengrens op de echte
+// maximale onderlinge afstand binnen de groep).
+function frontDiameterKm(ws: Waarneming[], indices: number[]): number {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  for (const idx of indices) {
+    const w = ws[idx];
+    minLat = Math.min(minLat, w.latitude);
+    maxLat = Math.max(maxLat, w.latitude);
+    minLon = Math.min(minLon, w.longitude);
+    maxLon = Math.max(maxLon, w.longitude);
+  }
+  const nsKm = (maxLat - minLat) * KM_PER_GRAAD;
+  const midLat = (minLat + maxLat) / 2;
+  const ewKm = (maxLon - minLon) * KM_PER_GRAAD * Math.cos(midLat * DEG);
+  return Math.hypot(nsKm, ewKm);
+}
 
-    for (const idx of indices) {
-      const w = ws[idx];
-      somLat += w.latitude;
-      somLon += w.longitude;
-      if (w.frp != null) {
-        somFrp += w.frp;
-        heeftFrp = true;
-      }
-      if (!laatste || Date.parse(w.waargenomenOp) > Date.parse(laatste)) {
-        laatste = w.waargenomenOp;
-      }
+// Stap 2: verdeel een breed front over rastercellen. De celzijde is de grens
+// gedeeld door √2, zodat de celdiagonaal — en daarmee de diameter van elke
+// subcluster — op of onder MAX_CLUSTER_DIAMETER_KM blijft.
+function splitsFront(ws: Waarneming[], indices: number[]): number[][] {
+  const midLat =
+    indices.reduce((som, idx) => som + ws[idx].latitude, 0) / indices.length;
+  const celKm = MAX_CLUSTER_DIAMETER_KM / Math.SQRT2;
+  const celLat = celKm / KM_PER_GRAAD;
+  const celLon = celKm / (KM_PER_GRAAD * Math.cos(midLat * DEG));
+
+  const cellen = new Map<string, number[]>();
+  for (const idx of indices) {
+    const w = ws[idx];
+    const sleutel = `${Math.floor(w.latitude / celLat)}:${Math.floor(w.longitude / celLon)}`;
+    const lijst = cellen.get(sleutel);
+    if (lijst) lijst.push(idx);
+    else cellen.set(sleutel, [idx]);
+  }
+  return [...cellen.values()];
+}
+
+function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
+  let somLat = 0;
+  let somLon = 0;
+  let somFrp = 0;
+  let heeftFrp = false;
+  let laatste = "";
+
+  for (const idx of indices) {
+    const w = ws[idx];
+    somLat += w.latitude;
+    somLon += w.longitude;
+    if (w.frp != null) {
+      somFrp += w.frp;
+      heeftFrp = true;
     }
-
-    clusters.push({
-      lat: somLat / indices.length,
-      lon: somLon / indices.length,
-      detecties: indices.length,
-      frp: heeftFrp ? Math.round(somFrp * 10) / 10 : null,
-      laatsteDetectie: laatste,
-    });
+    if (!laatste || Date.parse(w.waargenomenOp) > Date.parse(laatste)) {
+      laatste = w.waargenomenOp;
+    }
   }
 
-  // Sorteer op aantal detecties, dan op FRP-som, en beperk tot MAX_PLUIMEN.
-  clusters.sort((a, b) => b.detecties - a.detecties || (b.frp ?? 0) - (a.frp ?? 0));
-  return clusters.slice(0, MAX_PLUIMEN);
+  const lat = somLat / indices.length;
+  const lon = somLon / indices.length;
+  return {
+    lat,
+    lon,
+    detecties: indices.length,
+    frp: heeftFrp ? Math.round(somFrp * 10) / 10 : null,
+    laatsteDetectie: laatste,
+    departementCode: vindDepartementCode(lat, lon),
+    diameterKm: Math.round(frontDiameterKm(ws, indices) * 10) / 10,
+  };
+}
+
+// Stap 3: cap per departement, daarna een ronde-verdeling tot het landelijke
+// maximum — zo blijven kleinere departementen naast een grote ramp zichtbaar.
+function begrensPluimen(clusters: Cluster[]): Cluster[] {
+  const sorteer = (a: Cluster, b: Cluster) =>
+    b.detecties - a.detecties || (b.frp ?? 0) - (a.frp ?? 0);
+
+  const perDep = new Map<string, Cluster[]>();
+  for (const cluster of clusters) {
+    const sleutel = cluster.departementCode ?? "onbekend";
+    const lijst = perDep.get(sleutel);
+    if (lijst) lijst.push(cluster);
+    else perDep.set(sleutel, [cluster]);
+  }
+
+  const gecapt: Cluster[][] = [];
+  for (const lijst of perDep.values()) {
+    lijst.sort(sorteer);
+    gecapt.push(lijst.slice(0, MAX_PLUIMEN_PER_DEP));
+  }
+  // Departementen met het zwaarste front eerst bedienen.
+  gecapt.sort((a, b) => sorteer(a[0], b[0]));
+
+  const gekozen: Cluster[] = [];
+  for (let rang = 0; gekozen.length < MAX_PLUIMEN; rang += 1) {
+    let iets = false;
+    for (const lijst of gecapt) {
+      if (rang < lijst.length) {
+        gekozen.push(lijst[rang]);
+        iets = true;
+        if (gekozen.length >= MAX_PLUIMEN) break;
+      }
+    }
+    if (!iets) break;
+  }
+
+  return gekozen.sort(sorteer);
 }
 
 // ---- Hoofdorkestratie ----
@@ -502,7 +616,7 @@ export async function berekenPluimen(): Promise<PluimenResultaat> {
 }
 
 function maakBasisPluim(c: Cluster): Pluim {
-  const code = vindDepartementCode(c.lat, c.lon);
+  const code = c.departementCode;
   return {
     id: `pluim-${c.lat.toFixed(3)}-${c.lon.toFixed(3)}`,
     lat: rond(c.lat),

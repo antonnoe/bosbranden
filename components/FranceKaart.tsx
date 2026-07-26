@@ -5,7 +5,7 @@ import { DEP_BY_CODE } from "@/lib/departements";
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
 import { niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
-import type { FrAlertAntwoord, FrAlertMelding } from "@/lib/fr-alert";
+import { isNuActueel, type FrAlertAntwoord, type FrAlertMelding } from "@/lib/fr-alert";
 import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
 import styles from "@/components/Waarnemingen.module.css";
@@ -109,6 +109,7 @@ export default function FranceKaart({
   const [frAlert, setFrAlert] = useState<FrAlertAntwoord | null>(null);
   const [frAlertLaden, setFrAlertLaden] = useState(false);
   const [gekozenMeldingId, setGekozenMeldingId] = useState<string | null>(null);
+  const [toonAfgelopen, setToonAfgelopen] = useState(false);
   const [nieuwsOpen, setNieuwsOpen] = useState(false);
   const [nieuws, setNieuws] = useState<NieuwsAntwoord | null>(null);
   const [nieuwsLaden, setNieuwsLaden] = useState(false);
@@ -139,6 +140,8 @@ export default function FranceKaart({
             meldingen: [],
             bijgewerkt: null,
             bron: "FR-Alert",
+            liveBron: false,
+            momentopnameVan: null,
             opmerking: "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
           });
         }
@@ -175,14 +178,20 @@ export default function FranceKaart({
     [gefilterdeWaarnemingen]
   );
 
-  const geprojecteerdeMeldingen = useMemo<GeprojecteerdeMelding[]>(
-    () =>
-      (frAlert?.meldingen ?? []).map((melding) => {
-        const { x, y } = projecteerCoordinaat(melding.longitude, melding.latitude);
-        return { melding, x, y };
-      }),
-    [frAlert]
+  const alleMeldingen = frAlert?.meldingen ?? [];
+  const actueleMeldingen = useMemo(
+    () => alleMeldingen.filter(isNuActueel),
+    [alleMeldingen]
   );
+  const afgelopenAantal = alleMeldingen.length - actueleMeldingen.length;
+
+  const geprojecteerdeMeldingen = useMemo<GeprojecteerdeMelding[]>(() => {
+    const zichtbaar = toonAfgelopen ? alleMeldingen : actueleMeldingen;
+    return zichtbaar.map((melding) => {
+      const { x, y } = projecteerCoordinaat(melding.longitude, melding.latitude);
+      return { melding, x, y };
+    });
+  }, [alleMeldingen, actueleMeldingen, toonAfgelopen]);
 
   const markers = useMemo<Marker[]>(() => {
     if (!toonWaarnemingen || weergave === "officieel") return [];
@@ -450,17 +459,44 @@ export default function FranceKaart({
         </div>
 
         {weergave === "officieel" && (
-          <p className={laagStyles.officieelStatus} aria-live="polite">
-            {frAlertLaden
-              ? "Officiële FR-Alert-meldingen laden…"
-              : frAlert?.beschikbaar
-                ? frAlert.meldingen.length > 0
-                  ? `${formatteerAantal(frAlert.meldingen.length)} recente officiële natuurbrandmelding${
-                      frAlert.meldingen.length === 1 ? "" : "en"
-                    } geografisch geplaatst.`
-                  : frAlert.opmerking ?? "Geen recente officiële melding gevonden."
-                : frAlert?.opmerking ?? "Officiële meldingen zijn tijdelijk niet beschikbaar."}
-          </p>
+          <>
+            {!frAlertLaden && frAlert && !frAlert.liveBron && frAlert.meldingen.length > 0 && (
+              <p className={laagStyles.momentopnameBanner} role="status">
+                <strong>Let op — geen live gegevens.</strong> De live FR-Alert-pagina is
+                nu niet uitleesbaar. Hieronder staat de laatst bekende officiële stand
+                {frAlert.momentopnameVan
+                  ? ` van ${formatteerDatum(frAlert.momentopnameVan)}`
+                  : ""}
+                , dus niet de actuele situatie.
+              </p>
+            )}
+            <p className={laagStyles.officieelStatus} aria-live="polite">
+              {frAlertLaden
+                ? "Officiële FR-Alert-meldingen laden…"
+                : frAlert?.beschikbaar
+                  ? actueleMeldingen.length > 0
+                    ? `${formatteerAantal(actueleMeldingen.length)} nu actuele officiële natuurbrandmelding${
+                        actueleMeldingen.length === 1 ? "" : "en"
+                      } geografisch geplaatst.`
+                    : afgelopenAantal > 0
+                      ? "Geen nu actuele officiële melding. Er zijn wel recent afgelopen meldingen."
+                      : frAlert.opmerking ?? "Geen recente officiële melding gevonden."
+                  : frAlert?.opmerking ?? "Officiële meldingen zijn tijdelijk niet beschikbaar."}
+            </p>
+            {!frAlertLaden && frAlert?.beschikbaar && afgelopenAantal > 0 && (
+              <label className={laagStyles.afgelopenSchakel}>
+                <input
+                  type="checkbox"
+                  checked={toonAfgelopen}
+                  onChange={(e) => {
+                    setToonAfgelopen(e.target.checked);
+                    if (!e.target.checked) setGekozenMeldingId(null);
+                  }}
+                />
+                Ook afgelopen meldingen tonen ({formatteerAantal(afgelopenAantal)})
+              </label>
+            )}
+          </>
         )}
 
         <div className={styles.kaartViewport}>
@@ -742,7 +778,7 @@ export default function FranceKaart({
                     key={melding.id}
                     className={`${laagStyles.officieelMarker}${
                       geselecteerd ? ` ${laagStyles.officieelMarkerActief}` : ""
-                    }`}
+                    }${isNuActueel(melding) ? "" : ` ${laagStyles.officieelMarkerAfgelopen}`}`}
                     transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(
                       1 / camera.zoom
                     ).toFixed(4)})`}
@@ -937,8 +973,16 @@ export default function FranceKaart({
                 ×
               </button>
               <h3 id="officieel-popup-titel">Officieel gemelde natuurbrand</h3>
-              <span className={laagStyles.officieelBadge}>
-                {gekozenMelding.melding.actief ? "melding actief" : "melding beëindigd"}
+              <span
+                className={`${laagStyles.officieelBadge}${
+                  isNuActueel(gekozenMelding.melding) ? "" : ` ${laagStyles.officieelBadgeAfgelopen}`
+                }`}
+              >
+                {isNuActueel(gekozenMelding.melding)
+                  ? "nu actueel"
+                  : gekozenMelding.melding.eindigtOp
+                    ? `afgelopen · beëindigd ${formatteerDatum(gekozenMelding.melding.eindigtOp)}`
+                    : "afgelopen"}
               </span>
               <div className={styles.detailGrid}>
                 <span className={styles.detailLabel}>Melding</span>

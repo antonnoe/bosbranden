@@ -229,6 +229,58 @@
   border: 1px solid rgba(90, 96, 112, 0.35);
 }
 
+/* ---- Fijnstof-legenda met klassegrenzen ---- */
+.fijnstofLegenda {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--primair-08);
+  border-radius: 8px;
+  background: #fdfcfb;
+}
+
+.fijnstofLegendaTitel {
+  display: block;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--tekst);
+  margin-bottom: 6px;
+}
+
+.fijnstofBanden {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 0.82rem;
+}
+
+.fijnstofBand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fijnstofBand i {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 13px;
+  border-radius: 3px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.fijnstofBand em {
+  font-style: normal;
+  color: var(--primair-80);
+}
+
+.fijnstofRefwaarde {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--tekst);
+}
+
 .copernicus {
   margin: 8px 0 0;
   font-size: 0.78rem;

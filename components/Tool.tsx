@@ -10,6 +10,7 @@ import type { Waarneming, WaarnemingenAntwoord } from "@/lib/waarnemingen";
 import Voortgang from "@/components/Voortgang";
 import NiveauBlok from "@/components/NiveauBlok";
 import FranceKaart from "@/components/FranceKaart";
+import EmbedHoogte from "@/components/EmbedHoogte";
 import styles from "@/components/Waarnemingen.module.css";
 
 export type Niveaus = Record<string, { j1: number | null; j2: number | null }>;
@@ -146,6 +147,7 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   return (
     <div className="omhulsel">
+      <EmbedHoogte actief={embed} />
       {!embed && (
         <header className="site-kop">
           <h1>Brandrisico Frankrijk</h1>

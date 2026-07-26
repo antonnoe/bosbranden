@@ -62,6 +62,41 @@
   line-height: 1.45;
 }
 
+/* Waarschuwing dat de getoonde stand niet live is, maar een momentopname. */
+.momentopnameBanner {
+  margin: 0 0 8px;
+  padding: 9px 11px;
+  border: 1px solid #d9a400;
+  border-left: 4px solid #d9a400;
+  border-radius: 8px;
+  background: rgba(217, 164, 0, 0.1);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #5c4600;
+}
+
+.momentopnameBanner strong {
+  color: #7a1500;
+}
+
+/* Schakelaar "ook afgelopen meldingen tonen". */
+.afgelopenSchakel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 9px;
+  font-size: 0.8rem;
+  color: rgba(51, 39, 39, 0.85);
+  cursor: pointer;
+}
+
+.afgelopenSchakel input {
+  width: 16px;
+  height: 16px;
+  accent-color: #800000;
+  cursor: pointer;
+}
+
 .officieelMarker {
   cursor: pointer;
   outline: none;
@@ -94,6 +129,24 @@
 .officieelMarkerActief .officieelHalo {
   stroke: #b00020;
   stroke-width: 4;
+}
+
+/* Afgelopen meldingen: gedempt, zodat ze niet als actueel worden gelezen. */
+.officieelMarkerAfgelopen {
+  opacity: 0.55;
+}
+
+.officieelMarkerAfgelopen .officieelCore {
+  fill: #9a8f8f;
+}
+
+.officieelMarkerAfgelopen .officieelHalo {
+  stroke: rgba(90, 80, 80, 0.3);
+}
+
+.officieelBadgeAfgelopen {
+  background: rgba(90, 80, 80, 0.12);
+  color: #5a5050;
 }
 
 .officieelPopup h3 {
