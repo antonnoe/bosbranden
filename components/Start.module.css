@@ -30,12 +30,44 @@
   line-height: 1.6;
 }
 
-/* ---- Tegelraster ---- */
+/* ---- Hub-indeling: tegels + zijkolom ---- */
+/* Mobiel eerst (< 768px): één kolom, tegels boven, zijkolom eronder. */
+.hub {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
 .tegels {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
-  margin-bottom: 22px;
+  align-content: start;
+}
+
+.zijkolom {
+  min-width: 0;
+}
+
+/* 768–1024px: tegels 2 kolommen, zijkolom eronder in volle breedte. */
+@media (min-width: 768px) {
+  .tegels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Vanaf 1024px: tegels 3 kolommen links, zijkolom 260–320px rechts. */
+@media (min-width: 1024px) {
+  .hub {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
+    align-items: start;
+    gap: 20px;
+  }
+  .tegels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .tegel {
@@ -145,14 +177,17 @@
   color: #c40018;
 }
 
-@media (max-width: 620px) {
-  .tegels {
-    grid-template-columns: 1fr;
-  }
+/* ---- Embed (750px): geen zijkolom ernaast; tegels 2 kolommen, zijkolom
+   eronder. De embed-klasse wint van de 1024px-mediaquery (die op 750px niet
+   geldt) en forceert 2 kolommen ook onder 768px. ---- */
+:global(.embed) .hub {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
-/* ---- Embed: compacter ---- */
 :global(.embed) .tegels {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 

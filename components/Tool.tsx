@@ -152,10 +152,28 @@ export default function Tool({ embed }: { embed: boolean }) {
     return () => cancelAnimationFrame(frame);
   }, []);
 
+  // Additief: leest ?postcode= bij het opstarten, vult het veld voor en toont
+  // het resultaat alsof de bezoeker had gezocht. Zonder parameter: niets.
+  useEffect(() => {
+    const pc = new URLSearchParams(window.location.search).get("postcode");
+    if (pc && pc.trim()) {
+      setPostcode(pc.trim());
+      setGezocht(pc.trim());
+    }
+  }, []);
+
   const zoekresultaat = useMemo(
     () => (gezocht === null ? null : departementVoorPostcode(gezocht)),
     [gezocht]
   );
+
+  const startHref = (() => {
+    const params = new URLSearchParams();
+    if (embed) params.set("embed", "1");
+    if (postcode.trim()) params.set("postcode", postcode.trim());
+    const qs = params.toString();
+    return qs ? `/start?${qs}` : "/start";
+  })();
 
   const niveaus = data?.niveaus ?? {};
   const waarnemingen = waarnemingenData?.waarnemingen ?? [];
@@ -165,6 +183,9 @@ export default function Tool({ embed }: { embed: boolean }) {
   return (
     <div className="omhulsel">
       <EmbedHoogte actief={embed} />
+      <a className="terug-overzicht" href={startHref}>
+        ← Terug naar overzicht
+      </a>
       {!embed && (
         <header className="site-kop">
           <h1>Brandrisico Frankrijk</h1>

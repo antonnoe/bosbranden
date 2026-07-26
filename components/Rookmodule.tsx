@@ -192,11 +192,56 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     }
   }
 
+  // Additief: leest ?postcode= bij het opstarten, vult het veld voor en toont
+  // het antwoord alsof de bezoeker had gezocht. Zonder parameter: niets.
+  useEffect(() => {
+    const pc = new URLSearchParams(window.location.search).get("postcode")?.trim();
+    if (!pc) return;
+    setPostcode(pc);
+    let actief = true;
+    setPostcodeLaden(true);
+    setPostcodeAntwoord(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/rookpluimen?postcode=${encodeURIComponent(pc)}`);
+        const json: Antwoord & { postcode?: PostcodeAntwoord } = await res.json();
+        if (!actief) return;
+        setPostcodeAntwoord(json.postcode ?? null);
+        if (json.postcode?.bronId) {
+          setGekozenId(json.postcode.bronId);
+          if (json.postcode.modus) setModus(json.postcode.modus);
+        }
+      } catch {
+        if (actief)
+          setPostcodeAntwoord({
+            status: "fout",
+            tekst: "Het antwoord op uw postcode kon niet worden opgehaald. Probeer het opnieuw.",
+          });
+      } finally {
+        if (actief) setPostcodeLaden(false);
+      }
+    })();
+    return () => {
+      actief = false;
+    };
+  }, []);
+
+  const startHref = (() => {
+    const params = new URLSearchParams();
+    if (embed) params.set("embed", "1");
+    if (postcode.trim()) params.set("postcode", postcode.trim());
+    const qs = params.toString();
+    return qs ? `/start?${qs}` : "/start";
+  })();
+
   const viewBox = `${ROOK_VIEWBOX.x} ${ROOK_VIEWBOX.y} ${ROOK_VIEWBOX.w} ${ROOK_VIEWBOX.h}`;
 
   return (
     <div className="omhulsel">
       <EmbedHoogte actief={embed} />
+      <a className="terug-overzicht" href={startHref}>
+        ← Terug naar overzicht
+      </a>
       {!embed && (
         <header className="site-kop">
           <h1>Verwachte rookverplaatsing</h1>

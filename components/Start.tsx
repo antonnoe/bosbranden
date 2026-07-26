@@ -10,6 +10,7 @@ import { departementVoorPostcode } from "@/lib/departements";
 import type { ModuleStatus } from "@/app/api/status/route";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import Voortgang from "@/components/Voortgang";
+import Zijkolom from "@/components/Zijkolom";
 import styles from "@/components/Start.module.css";
 
 const LAAD_FASEN = [
@@ -23,6 +24,13 @@ export default function Start({ embed }: { embed: boolean }) {
   const [statusFout, setStatusFout] = useState(false);
   const [laden, setLaden] = useState(true);
   const [postcode, setPostcode] = useState("");
+
+  // Lees een postcode uit de eigen URL, zodat een gedeelde of bewaarde link met
+  // ?postcode= direct goed opent.
+  useEffect(() => {
+    const pc = new URLSearchParams(window.location.search).get("postcode");
+    if (pc) setPostcode(pc);
+  }, []);
 
   useEffect(() => {
     if (embed) document.documentElement.classList.add("embed");
@@ -132,38 +140,44 @@ export default function Start({ embed }: { embed: boolean }) {
         </p>
       )}
 
-      <div className={styles.tegels}>
-        {tegels.map(({ module, status }) => {
-          const ernst = status?.ernst ?? 0;
-          return (
-            <a
-              key={module.id}
-              className={`${styles.tegel} ${styles[`ernst${ernst}`]}`}
-              href={bouwLink(module.pad)}
-              aria-label={`${module.titel}. ${module.functie}${
-                status?.beschikbaar ? ` ${status.samenvatting}` : ""
-              }`}
-            >
-              <div className={styles.tegelKop}>
-                <h2 className={styles.tegelTitel}>{module.titel}</h2>
-                {ernst >= 3 && <span className={styles.ernstMerk}>nu verhoogd</span>}
-              </div>
-              <p className={styles.tegelFunctie}>{module.functie}</p>
-              <p className={styles.tegelStatus} aria-live="polite">
-                {!statussen && !statusFout
-                  ? "Status laden…"
-                  : status?.beschikbaar
-                    ? status.samenvatting
-                    : status
+      <div className={styles.hub}>
+        <div className={styles.tegels}>
+          {tegels.map(({ module, status }) => {
+            const ernst = status?.ernst ?? 0;
+            return (
+              <a
+                key={module.id}
+                className={`${styles.tegel} ${styles[`ernst${ernst}`]}`}
+                href={bouwLink(module.pad)}
+                aria-label={`${module.titel}. ${module.functie}${
+                  status?.beschikbaar ? ` ${status.samenvatting}` : ""
+                }`}
+              >
+                <div className={styles.tegelKop}>
+                  <h2 className={styles.tegelTitel}>{module.titel}</h2>
+                  {ernst >= 3 && <span className={styles.ernstMerk}>nu verhoogd</span>}
+                </div>
+                <p className={styles.tegelFunctie}>{module.functie}</p>
+                <p className={styles.tegelStatus} aria-live="polite">
+                  {!statussen && !statusFout
+                    ? "Status laden…"
+                    : status?.beschikbaar
                       ? status.samenvatting
-                      : "Statussamenvatting nu niet beschikbaar."}
-              </p>
-              <span className={styles.tegelGa} aria-hidden="true">
-                Openen →
-              </span>
-            </a>
-          );
-        })}
+                      : status
+                        ? status.samenvatting
+                        : "Statussamenvatting nu niet beschikbaar."}
+                </p>
+                <span className={styles.tegelGa} aria-hidden="true">
+                  Openen →
+                </span>
+              </a>
+            );
+          })}
+        </div>
+
+        <aside className={styles.zijkolom}>
+          <Zijkolom embed={embed} />
+        </aside>
       </div>
 
       <footer className="site-voet">

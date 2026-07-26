@@ -1,0 +1,154 @@
+/* Zijkolom /start — huisstijl: Poppins koppen, Mulish body, #800000-varianten,
+   witte kaarten met subtiele rand. */
+
+.zijkolom {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.blok {
+  background: #fff;
+  border: 1px solid var(--primair-08);
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 4px var(--primair-04);
+}
+
+.blokTitel {
+  font-family: "Poppins", "Mulish", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primair);
+  margin: 0;
+}
+
+/* ---- Nieuws ---- */
+.nieuwsLijst {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nieuwsItem {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 10px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  padding-left: 8px;
+  border-left: 3px solid transparent;
+}
+
+.nieuwsItem.zwaar {
+  border-left-color: var(--primair);
+}
+
+.nieuwsTijd {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--primair-80);
+  white-space: nowrap;
+  padding-top: 1px;
+}
+
+.nieuwsTekst {
+  color: var(--tekst);
+}
+
+.nieuwsTekst a {
+  color: var(--tekst);
+  text-decoration: none;
+}
+
+.nieuwsTekst a:hover {
+  color: var(--primair);
+  text-decoration: underline;
+}
+
+.nieuwsBron {
+  color: var(--primair-55);
+  font-size: 0.78rem;
+}
+
+/* ---- Verantwoording ---- */
+.verantwoordingKnop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.infoIcoon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--primair);
+  color: #fff;
+  font-family: "Poppins", serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.chevron {
+  margin-left: auto;
+  font-size: 1.1rem;
+  color: var(--primair-80);
+  line-height: 1;
+}
+
+.verantwoordingInhoud {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.verantwoordingModule {
+  border-top: 1px solid var(--primair-08);
+  padding-top: 10px;
+}
+
+.verantwoordingKop {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--primair);
+  margin: 0 0 4px;
+}
+
+.verantwoordingBron {
+  margin: 0 0 5px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--tekst);
+}
+
+.verantwoordingGrens {
+  margin: 0 0 4px;
+  font-size: 0.79rem;
+  line-height: 1.5;
+  color: var(--primair-80);
+}
+
+.verantwoordingSlot {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--primair-55);
+  font-style: italic;
+}
