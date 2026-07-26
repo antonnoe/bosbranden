@@ -4,7 +4,7 @@
 // tegels; elke tegel toont titel, functie, live status en een ernst-accent.
 // Raakt de bestaande pagina's niet aan; linkt er alleen naartoe.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ACTIEVE_MODULES } from "@/lib/modules";
 import { departementVoorPostcode } from "@/lib/departements";
 import type { ModuleStatus } from "@/app/api/status/route";
@@ -25,12 +25,45 @@ export default function Start({ embed }: { embed: boolean }) {
   const [laden, setLaden] = useState(true);
   const [postcode, setPostcode] = useState("");
 
+  // Uitschuifbare zijkolom: standaard ingeklapt. De keuze bewaren we per sessie
+  // (geen cookies), zodat hij bij het bladeren ingeklapt blijft zoals gekozen.
+  const [zijkolomOpen, setZijkolomOpen] = useState(false);
+  const [nieuwsAantal, setNieuwsAantal] = useState(0);
+  const paneelRef = useRef<HTMLDivElement>(null);
+
   // Lees een postcode uit de eigen URL, zodat een gedeelde of bewaarde link met
   // ?postcode= direct goed opent.
   useEffect(() => {
     const pc = new URLSearchParams(window.location.search).get("postcode");
     if (pc) setPostcode(pc);
   }, []);
+
+  // Bewaarde open/dicht-stand teruglezen (sessionStorage, geen cookies).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("bosbranden-zijkolom") === "open") setZijkolomOpen(true);
+    } catch {
+      /* sessionStorage kan geblokkeerd zijn; dan blijft de kolom ingeklapt */
+    }
+  }, []);
+
+  // Stand bewaren, Escape-sluiten en focus naar het paneel bij openen.
+  useEffect(() => {
+    try {
+      sessionStorage.setItem("bosbranden-zijkolom", zijkolomOpen ? "open" : "dicht");
+    } catch {
+      /* stil */
+    }
+    if (!zijkolomOpen) return;
+    paneelRef.current?.focus();
+    const opToets = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZijkolomOpen(false);
+    };
+    window.addEventListener("keydown", opToets);
+    return () => window.removeEventListener("keydown", opToets);
+  }, [zijkolomOpen]);
+
+  const handgreepLabel = nieuwsAantal > 0 ? `Nieuws (${nieuwsAantal})` : "Informatie";
 
   useEffect(() => {
     if (embed) document.documentElement.classList.add("embed");
@@ -175,9 +208,32 @@ export default function Start({ embed }: { embed: boolean }) {
           })}
         </div>
 
-        <aside className={styles.zijkolom}>
-          <Zijkolom embed={embed} />
-        </aside>
+        <div
+          className={`${styles.overlay} ${zijkolomOpen ? styles.overlayOpen : ""}`}
+        >
+          <button
+            type="button"
+            className={styles.handgreep}
+            aria-expanded={zijkolomOpen}
+            aria-controls="start-zijkolom"
+            onClick={() => setZijkolomOpen((v) => !v)}
+          >
+            <span className={styles.handgreepPijl} aria-hidden="true">
+              {zijkolomOpen ? "›" : "‹"}
+            </span>
+            {handgreepLabel}
+          </button>
+          <div
+            id="start-zijkolom"
+            className={styles.paneel}
+            ref={paneelRef}
+            tabIndex={-1}
+            role="region"
+            aria-label="Nieuws en technische verantwoording"
+          >
+            <Zijkolom embed={embed} onAantal={setNieuwsAantal} />
+          </div>
+        </div>
       </div>
 
       <footer className="site-voet">

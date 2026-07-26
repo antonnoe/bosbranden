@@ -76,10 +76,16 @@ const VERANTWOORDING: Verantwoording[] = [
   },
 ];
 
-export default function Zijkolom({ embed }: { embed: boolean }) {
+export default function Zijkolom({
+  embed,
+  onAantal,
+}: {
+  embed: boolean;
+  onAantal?: (aantal: number) => void;
+}) {
   const [nieuwsItems, setNieuwsItems] = useState<NieuwsApiItem[] | null>(null);
   const [laatsteMelding, setLaatsteMelding] = useState<string | null>(null);
-  const [uitgeklapt, setUitgeklapt] = useState(!embed);
+  const [uitgeklapt, setUitgeklapt] = useState(true);
 
   useEffect(() => {
     let actief = true;
@@ -128,6 +134,12 @@ export default function Zijkolom({ embed }: { embed: boolean }) {
     .slice(0, maxItems);
 
   const toonNieuws = items.length > 0;
+
+  // Meld het aantal nieuwsitems terug aan de ouder, zodat de handgreep van de
+  // uitschuifbare zijkolom een teller kan tonen ("Nieuws (3)").
+  useEffect(() => {
+    onAantal?.(items.length);
+  }, [items.length, onAantal]);
 
   return (
     <div className={styles.zijkolom}>

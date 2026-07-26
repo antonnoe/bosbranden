@@ -30,44 +30,112 @@
   line-height: 1.6;
 }
 
-/* ---- Hub-indeling: tegels + zijkolom ---- */
-/* Mobiel eerst (< 768px): één kolom, tegels boven, zijkolom eronder. */
+/* ---- Hub-indeling: vast tegelraster met uitschuifbare zijkolom ----
+   Eén gedrag op álle breedtes (ook 925px en embed): de tegels vullen de volle
+   breedte in een vast raster van drie kolommen. De zijkolom is standaard
+   ingeklapt tot een smalle handgreep aan de rechterkant en schuift als overlay
+   binnen het kader over de tegels heen. Geen 1024px-grens, geen aparte
+   "zijkolom eronder"-variant meer. */
 .hub {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
+  position: relative;
+  overflow: hidden;
   margin-bottom: 22px;
 }
 
 .tegels {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-content: start;
 }
 
-.zijkolom {
-  min-width: 0;
-}
-
-/* 768–1024px: tegels 2 kolommen, zijkolom eronder in volle breedte. */
-@media (min-width: 768px) {
+/* Onder 768px twee kolommen, onder 520px één. Nooit een rij van vier. */
+@media (max-width: 767px) {
   .tegels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Vanaf 1024px: tegels 3 kolommen links, zijkolom 260–320px rechts. */
-@media (min-width: 1024px) {
-  .hub {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-    align-items: start;
-    gap: 20px;
-  }
+@media (max-width: 519px) {
   .tegels {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
+}
+
+/* De overlay bevat de handgreep (links) en het paneel (rechts). Ingeklapt is
+   hij naar rechts geschoven zodat alleen de handgreep zichtbaar blijft; de rest
+   valt buiten het kader en wordt door .hub afgesneden. De container zelf laat
+   klikken door (pointer-events: none); alleen handgreep en paneel vangen ze. */
+.overlay {
+  --handgreep-breedte: 38px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: calc(300px + var(--handgreep-breedte));
+  max-width: 100%;
+  display: flex;
+  transform: translateX(calc(100% - var(--handgreep-breedte)));
+  transition: transform 0.28s ease;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.overlayOpen {
+  transform: translateX(0);
+}
+
+.handgreep {
+  flex: 0 0 var(--handgreep-breedte);
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--primair-15);
+  border-right: none;
+  border-radius: 10px 0 0 10px;
+  background: #fff;
+  box-shadow: -2px 0 8px rgba(128, 0, 0, 0.08);
+  color: var(--primair);
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  padding: 12px 0;
+}
+
+.handgreep:hover {
+  background: var(--primair-04);
+}
+
+.handgreep:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
+}
+
+.handgreepPijl {
+  writing-mode: horizontal-tb;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.paneel {
+  flex: 1 1 auto;
+  min-width: 0;
+  pointer-events: auto;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid var(--primair-08);
+  border-radius: 12px 0 0 12px;
+  box-shadow: -6px 0 18px rgba(128, 0, 0, 0.1);
+  padding: 16px;
+}
+
+.paneel:focus {
+  outline: none;
 }
 
 .tegel {
@@ -177,17 +245,9 @@
   color: #c40018;
 }
 
-/* ---- Embed (750px): geen zijkolom ernaast; tegels 2 kolommen, zijkolom
-   eronder. De embed-klasse wint van de 1024px-mediaquery (die op 750px niet
-   geldt) en forceert 2 kolommen ook onder 768px. ---- */
-:global(.embed) .hub {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
+/* ---- Embed (750px): zelfde uitschuifbare zijkolom, alleen compacter. Het
+   tegelraster volgt gewoon de mediaqueries (750px < 768px → twee kolommen). ---- */
 :global(.embed) .tegels {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 

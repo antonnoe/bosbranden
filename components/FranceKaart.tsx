@@ -13,7 +13,9 @@ import clusterStyles from "@/components/KaartClusters.module.css";
 import laagStyles from "@/components/BrandLagen.module.css";
 
 const MIN_ZOOM = 1;
-const MAX_ZOOM = 24;
+// Klik op een cluster opent nu direct de lijst; er wordt niet meer automatisch
+// diep ingezoomd. Drie handmatige zoomstappen (×1,7) volstaan: 1 → 1,7 → 2,9 → 5.
+const MAX_ZOOM = 5;
 const SLEEPDREMPEL = 6;
 
 type Weergave = "alle" | "waarschijnlijk" | "officieel";
@@ -314,12 +316,6 @@ export default function FranceKaart({
     };
   }
 
-  function cameraRondPunt(zoom: number, x: number, y: number): Camera {
-    const breedte = kaartBreedte / zoom;
-    const hoogte = kaartHoogte / zoom;
-    return begrensCamera({ zoom, x: x - breedte / 2, y: y - hoogte / 2 });
-  }
-
   function zoomNaar(nieuweZoom: number, clientX?: number, clientY?: number) {
     setClusterSelectie(null);
     setGekozenMeldingId(null);
@@ -347,28 +343,11 @@ export default function FranceKaart({
     });
   }
 
-  function zoomNaarCluster(cluster: ClusterMarker) {
-    setClusterSelectie(null);
+  function opClusterGeklikt(cluster: ClusterMarker) {
+    // Eén klik opent direct de lijst met metingen — geen automatische zoom, geen
+    // camerasprong. Zoomen blijft handmatig via de knoppen en slepen.
     if (gekozenWaarneming) onKiesWaarneming(gekozenWaarneming);
-
-    const spreidingX = Math.max(cluster.maxX - cluster.minX, kaartBreedte / MAX_ZOOM / 3);
-    const spreidingY = Math.max(cluster.maxY - cluster.minY, kaartHoogte / MAX_ZOOM / 3);
-    const passendZoom = Math.min(
-      kaartBreedte / (spreidingX * 2.8),
-      kaartHoogte / (spreidingY * 2.8)
-    );
-    const doelZoom = begrens(
-      Math.max(camera.zoom * 2.35, Math.min(passendZoom, camera.zoom * 4)),
-      MIN_ZOOM,
-      MAX_ZOOM
-    );
-
-    if (camera.zoom >= MAX_ZOOM * 0.92 || doelZoom <= camera.zoom * 1.08) {
-      setClusterSelectie({ x: cluster.x, y: cluster.y, punten: cluster.punten });
-      return;
-    }
-
-    setCamera(cameraRondPunt(doelZoom, cluster.x, cluster.y));
+    setClusterSelectie({ x: cluster.x, y: cluster.y, punten: cluster.punten });
   }
 
   function registreerPointers() {
@@ -675,7 +654,7 @@ export default function FranceKaart({
                 const schaal = (1 / camera.zoom).toFixed(4);
                 const label = `${formatteerAantal(
                   marker.punten.length
-                )} satellietmetingen in dit gebied. Klik om automatisch in te zoomen.`;
+                )} satellietmetingen in dit gebied. Klik voor de lijst met metingen.`;
                 return (
                   <g
                     key={marker.id}
@@ -688,12 +667,12 @@ export default function FranceKaart({
                     aria-label={label}
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (!wasDraggingRef.current) zoomNaarCluster(marker);
+                      if (!wasDraggingRef.current) opClusterGeklikt(marker);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        zoomNaarCluster(marker);
+                        opClusterGeklikt(marker);
                       }
                     }}
                   >
@@ -818,8 +797,8 @@ export default function FranceKaart({
                 {formatteerAantal(clusterSelectie.punten.length)} metingen in dit gebied
               </h3>
               <p className={clusterStyles.clusterPopupIntro}>
-                Deze metingen liggen ook op het maximale zoomniveau dicht bij elkaar. Kies een
-                tijdstip voor de afzonderlijke meetgegevens.
+                Kies een tijdstip voor de afzonderlijke meetgegevens (tijd, departement en
+                vermogen in MW).
               </p>
               <ol className={clusterStyles.clusterMeetingen}>
                 {[...clusterSelectie.punten]
@@ -1006,8 +985,8 @@ export default function FranceKaart({
         </div>
 
         <p className={styles.zoomUitleg}>
-          Klik op een genummerde cirkel om automatisch naar dat gebied te zoomen. De kaart blijft
-          binnen het kader. Handmatig zoomen en slepen blijft mogelijk.
+          Klik op een genummerde cirkel voor de lijst met metingen in dat gebied. Zoomen doet u
+          zelf met de plus- en minknop of door te slepen; de kaart blijft binnen het kader.
         </p>
 
         <details className={clusterStyles.viirsUitleg}>
