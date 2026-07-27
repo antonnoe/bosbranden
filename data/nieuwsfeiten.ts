@@ -62,7 +62,15 @@ export interface StandVanZaken {
   blokken: StandBlok[];
 }
 
-export const STAND_VAN_ZAKEN: StandVanZaken | null = {
+// Op null gezet op 27-07-2026 om 23:45: het blok van 11:00 was achterhaald door
+// de automatische nieuwsstroom eronder (in de Landes was het vuur inmiddels
+// gefixeerd en mochten bewoners terug). De automatische stroom is nu het nieuws.
+// Wil je weer een geverifieerd overzicht bovenaan: haal het object hieronder uit
+// commentaar en zet het achter het isgelijkteken in plaats van null.
+export const STAND_VAN_ZAKEN: StandVanZaken | null = null;
+
+/* Bewaard voor hergebruik — het blok van 27-07-2026 11:00:
+{
   titel: "Stand van zaken 27-07-2026, 11:00",
   inleiding: {
     tekst:
@@ -150,3 +158,4 @@ export const STAND_VAN_ZAKEN: StandVanZaken | null = {
     },
   ],
 };
+*/
