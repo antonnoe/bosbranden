@@ -68,22 +68,29 @@
   gap: 6px;
 }
 
-/* ---- Tabblad (gemeenschappelijk) ---- */
+/* ---- Tabblad (gemeenschappelijk) ----
+   Eén kleurensysteem met vier leesbare toestanden. Elke color én background
+   staat expliciet — niets leunt op overerving, color-mix of currentColor.
+   RUST (paneel dicht / navigatie naar andere route): wit op #800000.
+   Contrast wit↔#800000 = 10.95:1 (ruim boven 4.5:1). Elk tabblad is minstens
+   44px in de korte richting (rail = 46px breed; min-height dekt mobiel). */
 .tab {
   pointer-events: auto;
   writing-mode: vertical-rl;
   text-orientation: mixed;
+  box-sizing: border-box;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 7px;
   padding: 14px 5px;
-  border: none;
+  border: 2px solid #800000;
   border-radius: 10px 0 0 10px;
   background: #800000;
   color: #ffffff;
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -91,70 +98,84 @@
 }
 
 .tab:hover {
-  background: #911b1b;
+  background: #9a1f1f;
+  border-color: #9a1f1f;
 }
 
+/* Focus op bordeaux ondergrond: witte focusring. */
 .tab:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: -6px;
 }
 
-/* Groep 1 — PANELEN: een chevron laat zien dat er iets uitschuift. */
-.tabPaneel::before {
-  content: "‹";
+/* Chevron/pijl: minstens even groot als de labeltekst, met ruimte ernaast. */
+.tabPaneel::before,
+.tabNav::before {
   writing-mode: horizontal-tb;
-  font-size: 0.9rem;
+  font-size: 1rem;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.9);
+  color: #ffffff;
 }
 
+/* Groep 1 — PANELEN: één chevron die naar het paneel wijst (dicht) en bij het
+   openen 180° draait (open, van het paneel af). Zelfde glyph, CSS-transition. */
+.tabPaneel::before {
+  content: "‹";
+  transform: rotate(0deg);
+  transition: transform 0.28s ease;
+}
+
+/* ACTIEF PANEEL (open): #800000 op wit, met bordeaux rand. Chevron gedraaid. */
 .tabActief {
   background: #ffffff;
   color: #800000;
+  border-color: #800000;
 }
 
 .tabActief::before {
-  content: "›";
   color: #800000;
+  transform: rotate(180deg);
 }
 
 .tabActief:hover {
   background: #ffffff;
+  border-color: #800000;
 }
 
-/* Groep 2 — NAVIGATIE: een pijl laat zien dat je de pagina verlaat. */
-.tabNav {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.45);
+/* Focus op witte ondergrond: bordeaux focusring. */
+.tabActief:focus-visible {
+  outline: 3px solid #800000;
+  outline-offset: -6px;
 }
 
+/* Groep 2 — NAVIGATIE (andere route, aanklikbaar): RUST = wit op #800000, met
+   een pijl die aangeeft dat je de pagina verlaat. Geen doorschijnend vlak. */
 .tabNav::before {
   content: "→";
-  writing-mode: horizontal-tb;
-  font-size: 0.9rem;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.9);
 }
 
-.tabNav:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* Actieve route: gemarkeerd en niet aanklikbaar. */
+/* HUIDIGE ROUTE (aria-current, niet aanklikbaar): NADRUKKELIJK NIET gedimd of
+   grijs — wit op #800000, met een witte markeerstreep aan de rail-zijde. */
 .tabHier {
-  background: #ffffff;
-  color: #800000;
   cursor: default;
-  box-shadow: none;
+  box-shadow: inset -4px 0 0 0 #ffffff, -3px 0 12px rgba(0, 0, 0, 0.26);
 }
 
 .tabHier::before {
-  content: "•";
-  color: #800000;
+  content: "●";
+  color: #ffffff;
 }
 
 .tabHier:hover {
-  background: #ffffff;
+  background: #800000;
+  border-color: #800000;
+}
+
+/* Reduced motion: geen draai-animatie, maar wél de eindstand behouden. */
+@media (prefers-reduced-motion: reduce) {
+  .tabPaneel::before {
+    transition: none;
+  }
 }
 
 /* ---- Scheiding tussen panelen en navigatie: witte lijn + extra ruimte ---- */
@@ -190,16 +211,14 @@
   .tab {
     writing-mode: horizontal-tb;
     text-orientation: mixed;
-    padding: 5px 8px;
-    font-size: 0.72rem;
+    padding: 8px 10px;
+    font-size: 0.78rem;
     border-radius: 8px 0 0 8px;
   }
 
   .tabPaneel::before,
-  .tabNav::before,
-  .tabActief::before,
-  .tabHier::before {
-    font-size: 0.8rem;
+  .tabNav::before {
+    font-size: 0.92rem;
   }
 
   .scheiding {

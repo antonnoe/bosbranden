@@ -71,6 +71,7 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [postcode, setPostcode] = useState("");
   const [gezocht, setGezocht] = useState<string | null>(null);
+  const [invoerMelding, setInvoerMelding] = useState<string | null>(null);
 
   const [echeance, setEcheance] = useState<"j1" | "j2">("j1");
   const [gekozenDep, setGekozenDep] = useState<string | null>(null);
@@ -214,9 +215,18 @@ export default function Tool({ embed }: { embed: boolean }) {
         </p>
         <form
           className="postcode-vorm"
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            setGezocht(postcode);
+            // Valideer vóór het opzoeken: precies vijf cijfers, geen stille afwijzing.
+            const cijfers = postcode.replace(/\D/g, "");
+            if (cijfers.length !== 5) {
+              setInvoerMelding("Een Franse postcode heeft vijf cijfers.");
+              setGezocht(null);
+              return;
+            }
+            setInvoerMelding(null);
+            setGezocht(cijfers);
           }}
         >
           <label htmlFor="postcode" style={{ position: "absolute", left: "-9999px" }}>
@@ -226,6 +236,7 @@ export default function Tool({ embed }: { embed: boolean }) {
             id="postcode"
             name="postcode"
             inputMode="numeric"
+            pattern="[0-9]{5}"
             autoComplete="postal-code"
             placeholder="bijv. 66000"
             maxLength={5}
@@ -237,6 +248,11 @@ export default function Tool({ embed }: { embed: boolean }) {
           </button>
         </form>
 
+        {invoerMelding && (
+          <p className="fout-melding" role="alert">
+            {invoerMelding}
+          </p>
+        )}
         {zoekresultaat?.type === "ongeldig" && (
           <p className="fout-melding" role="alert">
             Dat is geen geldige Franse postcode. Vul precies 5 cijfers in, bijvoorbeeld
@@ -269,6 +285,8 @@ export default function Tool({ embed }: { embed: boolean }) {
                 dep={dep}
                 niveaus={niveaus}
                 heeftData={!!data}
+                laden={laden}
+                laadFout={laadFout}
               />
             ))}
             <Bronvermelding bijgewerkt={data?.bijgewerkt ?? null} />
@@ -325,7 +343,7 @@ export default function Tool({ embed }: { embed: boolean }) {
             Satellietwaarnemingen tonen
           </label>
           <p id="waarnemingen-toelichting" className={styles.checkboxToelichting}>
-            Nodig voor ‘Alle hittebronnen’ en ‘Waarschijnlijke natuurbranden’. ‘Officieel
+            Nodig voor ‘Alle hittebronnen’ en ‘Geclusterde hittebronnen’. ‘Officieel
             gemeld’ werkt zonder dit vinkje.
           </p>
           <p className={styles.status} aria-live="polite">
@@ -544,10 +562,14 @@ function PostcodeResultaatKaart({
   dep,
   niveaus,
   heeftData,
+  laden,
+  laadFout,
 }: {
   dep: Departement;
   niveaus: Niveaus;
   heeftData: boolean;
+  laden: boolean;
+  laadFout: string | null;
 }) {
   const j1 = niveaus[dep.code]?.j1 ?? null;
   const j2 = niveaus[dep.code]?.j2 ?? null;
@@ -557,7 +579,18 @@ function PostcodeResultaatKaart({
         <h3 style={{ margin: 0 }}>{dep.naam}</h3>
         <span className="dep-code">departement {dep.code}</span>
       </div>
-      {!heeftData && (
+      {/* Zichtbare terugkoppeling: laden, mislukt of geen gegevens — nooit stilte. */}
+      {laden && (
+        <p className="niveau-toelichting" aria-live="polite">
+          Het gevaarniveau wordt opgehaald…
+        </p>
+      )}
+      {!laden && laadFout && (
+        <p className="fout-melding" role="alert">
+          Het gevaarniveau kon niet worden opgehaald. Probeer het later opnieuw.
+        </p>
+      )}
+      {!laden && !laadFout && !heeftData && (
         <p className="fout-melding">
           Er zijn op dit moment geen niveaugegevens beschikbaar voor dit departement.
         </p>
