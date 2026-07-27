@@ -60,7 +60,12 @@
 .kaartViewport {
   position: relative;
   width: 100%;
-  overflow: hidden;
+  /* overflow: visible zodat een geopende popup die naar boven opent niet door
+     de kaartrand wordt afgesneden (de coördinatenregel bovenin de popup bleef
+     anders half onleesbaar). De kaart-SVG knipt zijn eigen inhoud al af op zijn
+     eigen kader, dus de kaart blijft netjes binnen het vlak; alleen de popup —
+     die als enige buiten het vlak mag reiken — ontsnapt nu. */
+  overflow: visible;
   border-radius: 8px;
   background: #fff;
 }
@@ -162,7 +167,12 @@
   position: absolute;
   z-index: 20;
   width: min(310px, calc(100% - 20px));
-  max-height: 390px;
+  /* Begrensd op de kaarthoogte min een marge, niet op een vaste 390px: de
+     standaardinhoud (coördinaten t/m bronregel) past zo in één keer bij een
+     kaarthoogte vanaf ~500px, zonder eigen binnenscrollbalk. Alleen als de
+     inhoud uitzonderlijk lang is (bijv. een groot cluster) wordt er nog
+     gescrold, en de popup wordt nooit hoger dan het kaartvlak zelf. */
+  max-height: calc(100% - 24px);
   overflow: auto;
   padding: 14px 16px 13px;
   border: 1px solid rgba(128, 0, 0, 0.22);
