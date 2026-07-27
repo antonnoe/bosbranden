@@ -96,10 +96,23 @@ is geen limietprobleem, dus `MAX_DETAILPAGINAS` is bewust niet verhoogd.
 - `lib/departement-punt.ts` — point-in-polygon-filter zodat alleen punten binnen
   de metropolitane Franse departementen worden getoond.
 - `lib/departements.ts` — tabel van alle 96 metropolitane departementen.
-- `lib/kaart-paths.ts` — gegenereerde SVG-paths per departement.
-- `lib/kaart-projectie.ts` — de equirectangulaire projectie en de inverse
-  (die de rookmodule gebruikt om departementsgeometrie terug te vertalen naar
-  km-afstanden).
+- `lib/kaart-paths.ts` — gegenereerde SVG-paths per departement. **Nog uitsluitend
+  in gebruik door de brandkaart (`/`, `FranceKaart`)**; de rookmodule is naar
+  Leaflet gemigreerd en gebruikt deze niet meer.
+- `lib/kaart-projectie.ts` — de equirectangulaire projectie en de inverse.
+  Idem: alleen nog voor de brandkaart. Niet verwijderen zolang `FranceKaart` de
+  handgemaakte SVG-kaart gebruikt.
+- `components/kaart/LeafletKaart.tsx` — generieke, hergebruikbare Leaflet-schil
+  (init, opruimen, resize, basiskaart, departementsgrenzen, begrenzing op
+  Frankrijk). Bevat geen rook-/brand-/FIRMS-logica; datalagen komen van de ouder
+  via de `onKaart`-callback. De brandkaart migreert later naar dezelfde schil.
+- `public/departementen.geojson` — departementsgrenzen voor de Leaflet-schil
+  (`L.geoJSON`), buiten de JS-bundle gehouden en per fetch geladen.
+- `app/api/satellietbeeld` — NASA GIBS. `?meta=1` geeft alleen de gekozen datum
+  als JSON (voor de Leaflet-tegellaag); zonder parameter nog het gestikte beeld.
+- `app/api/eumetsat-tijden` — leest het tijdvenster van een geostationaire
+  EUMETSAT-laag uit de WMS-GetCapabilities en geeft de laatste twaalf frames
+  (twee uur, stappen van tien minuten) terug voor de tijdlus.
 
 ## Rookmodule (`/rook`)
 
@@ -135,6 +148,65 @@ een piek boven een brandhaard als onmiskenbare vlek verschijnt in plaats van een
 egale waas. Verplichte attributie bij de laag: *Gegenereerd met Copernicus
 Atmosphere Monitoring Service-informatie 2026*. `aerosol_optical_depth` levert op
 dit domein uitsluitend `null` en wordt niet gebruikt.
+
+### Kaartschil (Leaflet) en satellietlagen
+
+De rookmodule tekent sinds taak D op een echte kaartbibliotheek in plaats van een
+handgemaakte SVG-kaart. Pannen, zoomen, tegellagen en een tijdlus zijn opgeloste
+problemen die we niet zelf willen onderhouden, en de geostationaire satellietlaag
+is zonder tegelkaart niet fatsoenlijk te bouwen. De brandkaart (`/`) migreert in
+een latere ronde naar dezelfde schil; tot dan blijft die op de SVG-kaart.
+
+**Leaflet is de eerste runtime-dependency buiten React en Next** (`leaflet` 1.9.4,
+`@types/leaflet`). Bewust géén `react-leaflet`: dat koppelt aan React-versies en
+levert hier niets op. Leaflet wordt rechtstreeks in een `useEffect` gebruikt, met
+een dynamische `import("leaflet")` (client-only) en opruimen in de teardown; de
+bundel (~145 kB, ~42 kB gzip) laadt lui, alleen wanneer de kaart mount. Houd dit
+een bewuste uitzondering — geen precedent voor losse dependencies.
+
+**Basiskaart:** CARTO *light_all*
+(`https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`), een lichte,
+gedempte ondergrond zodat de datalagen leesbaar blijven. Verplichte attributie
+staat in de kaart: *© OpenStreetMap-bijdragers, tegels © CARTO*.
+Gebruiksvoorwaarden: de kaartgegevens vallen onder de
+[ODbL van OpenStreetMap](https://www.openstreetmap.org/copyright); de tegels
+worden geleverd door [CARTO](https://carto.com/attributions) onder hun
+basemap-voorwaarden (attributie verplicht). We gebruiken bewust CARTO en **niet**
+de directe OSM-tegelserver (`tile.openstreetmap.org`), omdat de
+[OSM-tegelgebruiksvoorwaarden](https://operations.osmfoundation.org/policies/tiles/)
+zwaar productiegebruik ontmoedigen. Wisselen naar de OSM-server kan technisch
+(zelfde `{z}/{x}/{y}`-schema), maar alleen bij laag verkeer en met hun attributie.
+
+**Satellietlagen** (twee, apart schakelbaar, allebei onder de departementsgrenzen):
+
+- **NASA GIBS** — dagelijks, hoge resolutie, als WMTS-tegellaag
+  (`VIIRS_NOAA20_CorrectedReflectance_TrueColor`, matrixset
+  `GoogleMapsCompatible_Level9`, volgorde `{z}/{y}/{x}`). De datum komt uit
+  `/api/satellietbeeld?meta=1`, met de bestaande terugvalketen (vandaag, anders
+  gisteren, tot vier dagen terug). De datum staat zichtbaar bij de kaart.
+  Attributie: *NASA GIBS / EOSDIS*.
+- **EUMETSAT** — geostationair, elke tien minuten, als WMS-laag
+  (`view.eumetsat.int/geoserver/wms`, 1.3.0, `EPSG:3857`). Twee schakelbare
+  lagen: `mtg_fd:rgb_dust` (stof- en rookcompositie, standaard zichtbaar) en
+  `mtg_fd:frp` (brandintensiteit). Attributie: *EUMETSAT*. **Waarom dit ertoe
+  doet:** onze hittebronnenlaag komt van poolsatellieten die maar een paar keer
+  per etmaal overkomen; een brand die 's nachts begint en 's ochtends geblust is
+  kan daar volledig tussenvallen. De geostationaire laag kijkt continu en dicht
+  dat gat. Dit staat ook in de technische verantwoording in de app.
+
+**Tijdlus.** Een schuif over de laatste twee uur (twaalf frames van tien minuten)
+met afspelen/pauze. Het beschikbare tijdvenster komt uit de GetCapabilities
+(`/api/eumetsat-tijden`), niet uit een berekening — het laatst beschikbare frame
+loopt achter op de kloktijd. Frames laden lui: alleen het huidige en het volgende
+frame worden voorgeladen (twee onzichtbaar overlappende WMS-lagen), nooit twaalf
+tegelijk. `setParams({ time })` wisselt het frame zonder de kaart te verplaatsen.
+Elk frame toont het tijdstip in Franse tijd, met de vermelding dat het
+UTC-gebaseerd is.
+
+**Wat er niet in zit:** geen 3D, geen deeltjesanimatie van de wind, geen
+weermodellen. Dat is het terrein van partijen met een team; onze meerwaarde zit in
+de Nederlandse uitleg, het antwoord per postcode, het officiële Franse
+gevaarniveau en de verantwoording.
 
 ### EFFIS als kandidaat voor een latere brandmodule
 

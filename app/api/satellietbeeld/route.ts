@@ -28,6 +28,9 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const gevraagdeLaag = params.get("laag") ?? STANDAARD_LAAG;
   const laag = TOEGESTANE_LAGEN.has(gevraagdeLaag) ? gevraagdeLaag : STANDAARD_LAAG;
+  // meta=1: geen beeld, alleen de gekozen datum als JSON. De Leaflet-tegellaag
+  // heeft alleen de datum nodig; het beeld haalt Leaflet zelf per tegel op.
+  const meta = params.get("meta") === "1";
 
   const bbox = `${GEO_BBOX.minLon},${GEO_BBOX.minLat},${GEO_BBOX.maxLon},${GEO_BBOX.maxLat}`;
 
@@ -41,6 +44,17 @@ export async function GET(request: Request) {
       const kleuren = telUniekeKleuren(Buffer.from(beeld), 64);
       const leeg = bytes < MIN_BYTES || (kleuren >= 0 && kleuren < MIN_KLEUREN);
       probeersels.push({ datum, bytes, kleuren, leeg });
+
+      if (!leeg && meta) {
+        return Response.json(
+          { beschikbaar: true, datum, laag, bron: "NASA GIBS / EOSDIS", probeersels },
+          {
+            headers: {
+              "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=3600",
+            },
+          }
+        );
+      }
 
       if (!leeg) {
         return new Response(beeld, {

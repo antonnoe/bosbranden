@@ -65,6 +65,17 @@ const VERANTWOORDING: Verantwoording[] = [
     ],
   },
   {
+    id: "geostationair",
+    titel: "Geostationair satellietbeeld",
+    bronNaam: "EUMETSAT (MTG) en NASA GIBS",
+    bronUrl: "https://view.eumetsat.int/",
+    ververs: 600, // tien minuten
+    grenzen: [
+      "Onze hittebronnenlaag komt van poolsatellieten die maar een paar keer per etmaal overkomen; een brand die 's nachts begint en 's ochtends geblust is, kan daar volledig tussenvallen.",
+      "Het geostationaire beeld kijkt continu (elke tien minuten) en dicht dat gat, maar toont waarneming — geen door de autoriteiten bevestigde brand.",
+    ],
+  },
+  {
     id: "waarschuwingen",
     titel: "Officiële meldingen",
     bronNaam: "FR-Alert — Franse autoriteiten",

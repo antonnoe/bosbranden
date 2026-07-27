@@ -97,104 +97,88 @@
   height: 16px;
 }
 
-/* ---- Kaart ---- */
-.kaartKader {
-  border: 1px solid var(--primair-08);
-  border-radius: 10px;
-  overflow: hidden;
-  background: #fdfcfb;
-}
-
+/* ---- Kaart (Leaflet-schil) ---- */
 .kaart {
-  width: 100%;
-  height: auto;
+  margin-top: 4px;
+}
+
+/* Bronmarker als divIcon: bordeauxrode stip met halo, toetsenbord-bereikbaar. */
+.bronIcon {
+  background: none;
+  border: none;
+}
+
+.bronDot {
   display: block;
-}
-
-.departement {
-  fill: #f0ece9;
-  stroke: #fff;
-  stroke-width: 1.1;
-}
-
-/* Pluimen */
-.pluim {
+  width: 14px;
+  height: 14px;
+  margin: 4px;
+  border-radius: 50%;
+  background: var(--primair);
+  box-shadow: 0 0 0 4px rgba(128, 0, 0, 0.22);
   cursor: pointer;
 }
 
-.kegel {
-  stroke: rgba(128, 0, 0, 0.28);
-  stroke-width: 1;
-  transition: opacity 0.15s ease;
+.bronDotGekozen {
+  box-shadow: 0 0 0 6px rgba(128, 0, 0, 0.34);
 }
 
-.pluim:hover .kegel,
-.pluimGekozen .kegel {
-  opacity: 0.85;
-  stroke: rgba(128, 0, 0, 0.5);
+/* Zichtbare focus op de toetsenbord-bereikbare markers. */
+.kaart :global(.leaflet-marker-icon):focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
 }
 
-.middenlijn {
-  fill: none;
-  stroke: var(--primair);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 5 5;
-  opacity: 0.75;
+/* ---- Geostationaire bediening + tijdlus ---- */
+.geoBediening {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--primair-08);
+  border-radius: 8px;
+  background: #fff;
 }
 
-.pluimGekozen .middenlijn {
-  opacity: 1;
-  stroke-width: 2.6;
+.tijdlus {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.pluimKop {
-  fill: var(--primair);
+.tijdlus input[type="range"] {
+  flex: 1;
+  accent-color: var(--primair);
 }
 
-.stroomStip {
-  fill: rgba(128, 0, 0, 0.55);
-}
-
-.pluim:focus-visible {
-  outline: none;
-}
-
-.pluim:focus-visible .middenlijn {
-  stroke-dasharray: none;
-  opacity: 1;
-}
-
-/* Bronmarkeringen */
-.bron {
+.speelKnop {
+  flex: 0 0 auto;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border: 1.5px solid var(--primair-30);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primair);
   cursor: pointer;
 }
 
-/* Onzichtbaar, maar wel klikbaar: transparante vulling vangt de pointer. */
-.bronRaakvlak {
-  fill: transparent;
-  pointer-events: all;
+.speelKnop[aria-pressed="true"] {
+  background: var(--primair);
+  color: #fff;
 }
 
-.bronHalo {
-  fill: rgba(128, 0, 0, 0.18);
-  stroke: var(--primair);
-  stroke-width: 1.2;
+.speelKnop:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
 }
 
-.bronKern {
-  fill: var(--primair);
-  pointer-events: none;
-}
-
-.bronGekozen .bronHalo {
-  fill: rgba(128, 0, 0, 0.34);
-  stroke-width: 2;
-}
-
-.bron:focus-visible .bronHalo {
-  stroke-width: 2.5;
+.geoTijd {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--primair-80);
+  line-height: 1.5;
 }
 
 /* Tip-regel onder de kaart */

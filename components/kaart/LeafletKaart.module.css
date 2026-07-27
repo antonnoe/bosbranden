@@ -1,0 +1,34 @@
+/* Generieke Leaflet-schil. Alleen kaart-agnostische opmaak; de datalaag-opmaak
+   (pluimen, satelliet, legenda) staat bij de rookmodule. */
+
+.kaart {
+  width: 100%;
+  height: clamp(360px, 56vw, 600px);
+  border: 1px solid var(--primair-08);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #eef1f4;
+}
+
+/* Zichtbare focus wanneer de kaart met het toetsenbord wordt bediend. */
+.kaart:global(.leaflet-container):focus,
+.kaart :global(.leaflet-container):focus {
+  outline: 3px solid var(--primair);
+  outline-offset: -3px;
+}
+
+/* Huisstijl doortrekken naar de Leaflet-knoppen en attributie. */
+.kaart :global(.leaflet-bar a),
+.kaart :global(.leaflet-control-zoom a) {
+  color: var(--primair);
+}
+
+.kaart :global(.leaflet-bar a:focus-visible) {
+  outline: 2px solid var(--primair);
+  outline-offset: 1px;
+}
+
+.kaart :global(.leaflet-control-attribution) {
+  font-size: 0.68rem;
+  background: rgba(255, 255, 255, 0.82);
+}
