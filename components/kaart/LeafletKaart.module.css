@@ -1,18 +1,15 @@
-/* Generieke Leaflet-schil. Alleen kaart-agnostische opmaak; de datalaag-opmaak
-   (pluimen, satelliet, legenda) staat bij de rookmodule. */
+/* Generieke Leaflet-schil. Alleen kaart-agnostische opmaak; de datalaag- en
+   bediening-opmaak staat bij de rookmodule. De schil vult zijn ouder volledig,
+   zodat de rookmodule er een volvlak-kaart van kan maken. */
 
 .kaart {
   width: 100%;
-  height: clamp(360px, 56vw, 600px);
-  border: 1px solid var(--primair-08);
-  border-radius: 10px;
-  overflow: hidden;
+  height: 100%;
   background: #eef1f4;
 }
 
 /* Zichtbare focus wanneer de kaart met het toetsenbord wordt bediend. */
-.kaart:global(.leaflet-container):focus,
-.kaart :global(.leaflet-container):focus {
+.kaart:global(.leaflet-container):focus {
   outline: 3px solid var(--primair);
   outline-offset: -3px;
 }
@@ -29,6 +26,30 @@
 }
 
 .kaart :global(.leaflet-control-attribution) {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   background: rgba(255, 255, 255, 0.82);
+}
+
+/* ---- Coöperatieve gebaren (embed): hint over de kaart ---- */
+.wielHint {
+  position: absolute;
+  inset: 0;
+  z-index: 650;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+  background: rgba(30, 20, 20, 0.16);
+}
+
+/* Alleen tonen als de kaart de hint-klasse draagt en nog niet actief is. */
+.coop.toonHint:not(.actief) .wielHint {
+  opacity: 1;
 }

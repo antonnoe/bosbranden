@@ -2,10 +2,9 @@
 
 // Generieke Leaflet-kaartschil. Bevat géén rook-, brand- of FIRMS-specifieke
 // logica: alleen initialisatie, opruimen, resize, de gedempte basiskaart, de
-// departementsgrenzen en de begrenzing op Frankrijk. De datalagen komen van
-// buitenaf: de ouder krijgt via onKaart de kaart en de Leaflet-module en beheert
-// daarmee zijn eigen lagen (in eigen panes). Zo kan de brandkaart later dezelfde
-// schil hergebruiken.
+// departementsgrenzen, de begrenzing op Frankrijk en (optioneel) coöperatieve
+// gebaren voor embed. De datalagen komen van buitenaf: de ouder krijgt via
+// onKaart de kaart en de Leaflet-module en beheert daarmee zijn eigen lagen.
 
 import { useEffect, useRef } from "react";
 import "leaflet/dist/leaflet.css";
@@ -15,33 +14,30 @@ import type * as LeafletType from "leaflet";
 export type LeafletModule = typeof LeafletType;
 export type LeafletKaartInstantie = LeafletType.Map;
 
-// Frankrijk métropole inclusief Corsica. Iets ruimer dan de departementen zelf,
-// zodat de randen niet tegen het kader plakken.
-const FRANKRIJK_ZUIDWEST: [number, number] = [41.0, -5.6];
-const FRANKRIJK_NOORDOOST: [number, number] = [51.6, 9.9];
-const MIN_ZOOM = 5;
+// Frankrijk métropole inclusief Corsica (de bbox van de tool). Strak, zodat je
+// niet in Spanje of op zee belandt.
+const FRANKRIJK_ZUIDWEST: [number, number] = [41.33, -5.15];
+const FRANKRIJK_NOORDOOST: [number, number] = [51.09, 9.56];
 const MAX_ZOOM = 11;
 
-// Pane-hoogtes. De grenzen liggen op 400; datalagen die eronder horen
-// (satelliet, fijnstof) gebruiken een lagere z, lagen die erboven horen
-// (pluimen, bronnen) een hogere. De ouder maakt zijn eigen panes.
 export const PANE_GRENZEN = "grenzen";
 const Z_GRENZEN = 400;
 
 interface Props {
   className?: string;
   ariaLabel?: string;
-  // Wordt één keer aangeroepen zodra de kaart klaar is. Een eventuele
-  // teruggegeven functie wordt bij het opruimen aangeroepen.
+  // In coöperatieve modus (embed) staat wielzoom uit tot een klik op de kaart,
+  // en op mobiel het slepen tot een tik — zodat de pagina blijft scrollen.
+  coöperatief?: boolean;
   onKaart?: (kaart: LeafletKaartInstantie, L: LeafletModule) => void | (() => void);
 }
 
-export default function LeafletKaart({ className, ariaLabel, onKaart }: Props) {
+export default function LeafletKaart({ className, ariaLabel, coöperatief, onKaart }: Props) {
   const houderRef = useRef<HTMLDivElement>(null);
-  // onKaart in een ref, zodat een nieuwe (inline) functie de kaart niet opnieuw
-  // opbouwt. De kaart wordt precies één keer geïnitialiseerd.
   const onKaartRef = useRef(onKaart);
   onKaartRef.current = onKaart;
+  const coöpRef = useRef(coöperatief);
+  coöpRef.current = coöperatief;
 
   useEffect(() => {
     let opgeruimd = false;
@@ -52,23 +48,47 @@ export default function LeafletKaart({ className, ariaLabel, onKaart }: Props) {
     (async () => {
       const L = await import("leaflet");
       if (opgeruimd || !houderRef.current) return;
+      const houder = houderRef.current;
 
       const hoeken = L.latLngBounds(FRANKRIJK_ZUIDWEST, FRANKRIJK_NOORDOOST);
-      kaart = L.map(houderRef.current, {
+      const coöp = !!coöpRef.current;
+      const mobiel = L.Browser.mobile;
+
+      kaart = L.map(houder, {
         center: hoeken.getCenter(),
         zoom: 6,
-        minZoom: MIN_ZOOM,
+        minZoom: 4,
         maxZoom: MAX_ZOOM,
-        maxBounds: hoeken.pad(0.12),
-        maxBoundsViscosity: 0.85,
+        // Strakke begrenzing met een elastische rand die terugveert.
+        maxBounds: hoeken.pad(0.06),
+        maxBoundsViscosity: 0.8,
         zoomControl: true,
         attributionControl: true,
         keyboard: true,
         worldCopyJump: false,
+        // Gedempt zoomen: halve stappen en meer wielweg per niveau, zodat één
+        // wieltik niet twee niveaus springt.
+        zoomSnap: 0.5,
+        zoomDelta: 0.5,
+        wheelPxPerZoomLevel: 120,
+        // Coöperatief in embed: wiel uit tot klik; op mobiel slepen uit tot tik.
+        scrollWheelZoom: !coöp,
+        dragging: !(coöp && mobiel),
       });
       kaart.fitBounds(hoeken);
 
-      // Gedempte, lichte basiskaart zodat de datalagen leesbaar blijven.
+      // minZoom zó dat Frankrijk het venster vult (cover, inside=true): je kunt
+      // niet verder uitzoomen, zodat er nooit Spanje of open zee onder verschijnt.
+      // Herberekenen bij een maatverandering.
+      const pasMinZoomAan = () => {
+        if (!kaart) return;
+        const z = kaart.getBoundsZoom(hoeken, true);
+        kaart.setMinZoom(z);
+        if (kaart.getZoom() < z) kaart.setZoom(z);
+      };
+      pasMinZoomAan();
+      kaart.setView(hoeken.getCenter(), Math.max(kaart.getZoom(), kaart.getBoundsZoom(hoeken, true)));
+
       L.tileLayer("https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bijdragers, tegels &copy; <a href="https://carto.com/attributions">CARTO</a>',
@@ -77,12 +97,10 @@ export default function LeafletKaart({ className, ariaLabel, onKaart }: Props) {
         detectRetina: true,
       }).addTo(kaart);
 
-      // Pane voor de departementsgrenzen (boven de datalagen die eronder horen).
       kaart.createPane(PANE_GRENZEN);
       const grenzenPane = kaart.getPane(PANE_GRENZEN);
       if (grenzenPane) grenzenPane.style.zIndex = String(Z_GRENZEN);
 
-      // Departementsgrenzen als rustige onderlaag (niet klikbaar).
       try {
         const res = await fetch("/departementen.geojson");
         if (res.ok && !opgeruimd && kaart) {
@@ -90,21 +108,55 @@ export default function LeafletKaart({ className, ariaLabel, onKaart }: Props) {
           L.geoJSON(gj, {
             pane: PANE_GRENZEN,
             interactive: false,
-            style: {
-              color: "#800000",
-              weight: 1,
-              opacity: 0.35,
-              fillOpacity: 0,
-            },
+            style: { color: "#800000", weight: 1, opacity: 0.35, fillOpacity: 0 },
           }).addTo(kaart);
         }
       } catch {
         /* zonder grenzen werkt de kaart nog steeds */
       }
 
-      // Container mee laten schalen met de kolom/embed-breedte.
-      resizeWaarnemer = new ResizeObserver(() => kaart?.invalidateSize());
-      resizeWaarnemer.observe(houderRef.current);
+      // Coöperatieve gebaren: hint tonen, en pas activeren na klik/tik.
+      if (coöp) {
+        const hint = L.DomUtil.create("div", styles.wielHint, houder);
+        hint.textContent = mobiel ? "Tik om de kaart te gebruiken" : "Klik om te zoomen";
+        houder.classList.add(styles.coop);
+        if (mobiel) houder.classList.add(styles.toonHint);
+
+        let actief = false;
+        const activeer = () => {
+          if (actief || !kaart) return;
+          actief = true;
+          kaart.scrollWheelZoom.enable();
+          if (mobiel) kaart.dragging.enable();
+          houder.classList.remove(styles.toonHint);
+          houder.classList.add(styles.actief);
+        };
+        const deactiveer = () => {
+          if (!actief || !kaart) return;
+          actief = false;
+          kaart.scrollWheelZoom.disable();
+          if (mobiel) kaart.dragging.disable();
+          houder.classList.remove(styles.actief);
+        };
+        kaart.on("click", activeer);
+        houder.addEventListener("focusin", activeer);
+        houder.addEventListener("mouseenter", () => {
+          if (!actief) houder.classList.add(styles.toonHint);
+        });
+        houder.addEventListener("mouseleave", () => {
+          houder.classList.remove(styles.toonHint);
+          deactiveer();
+        });
+        houder.addEventListener("focusout", (e) => {
+          if (!houder.contains((e as FocusEvent).relatedTarget as Node)) deactiveer();
+        });
+      }
+
+      resizeWaarnemer = new ResizeObserver(() => {
+        kaart?.invalidateSize();
+        pasMinZoomAan();
+      });
+      resizeWaarnemer.observe(houder);
 
       if (onKaartRef.current) opruimenExtern = onKaartRef.current(kaart, L);
     })();

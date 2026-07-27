@@ -1,10 +1,9 @@
 "use client";
 
-// Rookmodule op de Leaflet-kaartschil. De zware berekening staat server-side in
-// lib/rookdrift.ts; deze component tekent de pluimen, kegels, bronnen, de
-// fijnstoflaag en de satellietlagen als Leaflet-lagen. De coördinaten zijn al
-// lon/lat, dus ze gaan rechtstreeks de kaart in — de handmatige projectie is
-// vervallen.
+// Rookmodule op de Leaflet-kaartschil, in volvlak-opzet: de kaart is het
+// grootste element, de bediening zweeft erop en de details verschijnen in een
+// popup (of, op smalle schermen, een schuifpaneel van onderen). De zware
+// berekening staat server-side in lib/rookdrift.ts.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LeafletKaart, {
@@ -26,8 +25,6 @@ const LAAD_FASEN = [
   "Windbanen berekenen…",
 ];
 
-// Pane-hoogtes: satelliet en geostationair onder de grenzen (400, uit de schil),
-// fijnstof net daaronder; pluimen en bronnen erboven.
 const PANE_Z: Record<string, number> = {
   satelliet: 300,
   geo: 320,
@@ -37,13 +34,10 @@ const PANE_Z: Record<string, number> = {
   bronnen: 550,
 };
 
-// GIBS als WMTS-tegellaag. {TIME} vullen we met de gekozen datum; {z}/{y}/{x}
-// vult Leaflet. Let op de volgorde y vóór x, en matrixset Level9.
 const GIBS_SJABLOON =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{TIME}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg";
 const EUMETSAT_WMS = "https://view.eumetsat.int/geoserver/wms";
 
-// PM2.5-klassen (µg/m³), gelijk aan taak B. Onder de WHO-daggrens tekenen we niets.
 const WHO_DAGGRENS_PM25 = 15;
 const PM25_KLASSEN = [
   { min: 15, kleur: "168, 130, 195", kernAlpha: 0.5, label: "15–35", duiding: "verhoogd" },
@@ -118,18 +112,17 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [uur, setUur] = useState(24);
   const [modus, setModus] = useState<Windmodus>("leefniveau");
   const [gekozenId, setGekozenId] = useState<string | null>(null);
+  const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);
 
   const [toonFijnstof, setToonFijnstof] = useState(false);
   const [fijnstof, setFijnstof] = useState<{ grid: FijnstofGridpunt[]; uren: string[] } | null>(null);
   const [fijnstofLaden, setFijnstofLaden] = useState(false);
 
-  // NASA GIBS (dagelijks, hoge resolutie).
   const [toonSatelliet, setToonSatelliet] = useState(false);
   const [satelliet, setSatelliet] = useState<{ datum: string; laag: string } | null>(null);
   const [satellietLaden, setSatellietLaden] = useState(false);
   const [satellietFout, setSatellietFout] = useState(false);
 
-  // EUMETSAT geostationair (elke tien minuten).
   const [toonGeo, setToonGeo] = useState(false);
   const [geoLaag, setGeoLaag] = useState<GeoLaag>("mtg_fd:rgb_dust");
   const [geoTijden, setGeoTijden] = useState<GeoTijden | null>(null);
@@ -139,6 +132,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [geoFout, setGeoFout] = useState(false);
 
   const [dekking, setDekking] = useState(70);
+  const [lagenOpen, setLagenOpen] = useState(!embed);
+  const [smal, setSmal] = useState(false);
 
   const [postcode, setPostcode] = useState("");
   const [postcodeAntwoord, setPostcodeAntwoord] = useState<PostcodeAntwoord | null>(null);
@@ -146,10 +141,21 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
   const [kaart, setKaart] = useState<{ map: LeafletKaartInstantie; L: LeafletModule } | null>(null);
 
-  // Laag-referenties die we imperatief bijwerken in plaats van herbouwen.
   const gibsRef = useRef<LT.TileLayer | null>(null);
   const geoActiefRef = useRef<LT.TileLayer.WMS | null>(null);
   const geoVolgendRef = useRef<LT.TileLayer.WMS | null>(null);
+  const popupProgrammatischRef = useRef(false);
+
+  // Smalle schermen (<600px): geen popup maar een schuifpaneel van onderen.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 599px)");
+    const ver = () => setSmal(mq.matches);
+    ver();
+    // Op een smal scherm start het lagenpaneel ingeklapt (één keer, bij mount).
+    if (mq.matches) setLagenOpen(false);
+    mq.addEventListener("change", ver);
+    return () => mq.removeEventListener("change", ver);
+  }, []);
 
   useEffect(() => {
     if (embed) document.documentElement.classList.add("embed");
@@ -172,7 +178,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     };
   }, [embed]);
 
-  // Fijnstof pas ophalen wanneer de gebruiker de laag inschakelt.
   useEffect(() => {
     if (!toonFijnstof || fijnstof) return;
     let actief = true;
@@ -183,7 +188,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         const json: Antwoord = await res.json();
         if (actief && json.fijnstof) setFijnstof(json.fijnstof);
       } catch {
-        /* stil: laag blijft leeg, kaart blijft werken */
+        /* stil */
       } finally {
         if (actief) setFijnstofLaden(false);
       }
@@ -193,8 +198,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     };
   }, [toonFijnstof, fijnstof]);
 
-  // GIBS-datum ophalen zodra de laag aangaat (alleen de datum; de tegels haalt
-  // Leaflet zelf op). De terugvalketen (vandaag → vier dagen terug) zit in de API.
   useEffect(() => {
     if (!toonSatelliet || satelliet) return;
     let actief = true;
@@ -218,7 +221,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     };
   }, [toonSatelliet, satelliet]);
 
-  // Tijdvenster van de geostationaire laag uit de GetCapabilities halen.
   useEffect(() => {
     if (!toonGeo) return;
     let actief = true;
@@ -233,7 +235,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
           throw new Error("leeg venster");
         if (actief) {
           setGeoTijden(j);
-          setGeoFrame(j.reeks.length - 1); // begin bij het meest recente frame
+          setGeoFrame(j.reeks.length - 1);
         }
       } catch {
         if (actief) setGeoFout(true);
@@ -249,13 +251,20 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const pluimen = useMemo(() => data?.pluimen ?? [], [data]);
   const gekozen = pluimen.find((p) => p.id === gekozenId) ?? null;
 
-  // ---- Kaart klaar: panes aanmaken en de kaart bewaren ----
+  const kies = useCallback((id: string, latlng: [number, number]) => {
+    setKlikPunt(latlng);
+    setGekozenId((h) => (h === id ? null : id));
+  }, []);
+
   const onKaart = useCallback((map: LeafletKaartInstantie, L: LeafletModule) => {
     for (const [naam, z] of Object.entries(PANE_Z)) {
       map.createPane(naam);
       const pane = map.getPane(naam);
       if (pane) pane.style.zIndex = String(z);
     }
+    // Onopvallende debug-handle (ook handig voor end-to-end-controle van de
+    // begrenzing); leest alleen, verandert niets.
+    (window as unknown as { __rookKaart?: LeafletKaartInstantie }).__rookKaart = map;
     setKaart({ map, L });
   }, []);
 
@@ -284,7 +293,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
           opacity: isGekozen ? 1 : 0.75,
           dashArray: isGekozen ? undefined : "5 6",
         });
-        lijn.on("click", () => setGekozenId((h) => (h === pluim.id ? null : pluim.id)));
+        lijn.on("click", (e: LT.LeafletMouseEvent) => kies(pluim.id, [e.latlng.lat, e.latlng.lng]));
         lijn.addTo(groep);
         L.circleMarker(geo.eind, {
           pane: "pluimen",
@@ -300,9 +309,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     return () => {
       map.removeLayer(groep);
     };
-  }, [kaart, data, pluimen, modus, uur, gekozenId]);
+  }, [kaart, data, pluimen, modus, uur, gekozenId, kies]);
 
-  // ---- Bronmarkers (toetsenbord-bereikbaar via L.marker) ----
+  // ---- Bronmarkers (toetsenbord-bereikbaar) ----
   useEffect(() => {
     if (!kaart) return;
     const { map, L } = kaart;
@@ -323,18 +332,18 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         title: label,
         alt: label,
       });
-      marker.on("click", () => setGekozenId((h) => (h === pluim.id ? null : pluim.id)));
+      marker.on("click", (e: LT.LeafletMouseEvent) =>
+        kies(pluim.id, [e.latlng?.lat ?? pluim.lat, e.latlng?.lng ?? pluim.lon])
+      );
       marker.on("keypress", (e: LT.LeafletKeyboardEvent) => {
-        if (e.originalEvent.key === "Enter" || e.originalEvent.key === " ") {
-          setGekozenId((h) => (h === pluim.id ? null : pluim.id));
-        }
+        if (e.originalEvent.key === "Enter" || e.originalEvent.key === " ") kies(pluim.id, [pluim.lat, pluim.lon]);
       });
       marker.addTo(groep);
     }
     return () => {
       map.removeLayer(groep);
     };
-  }, [kaart, pluimen, gekozenId]);
+  }, [kaart, pluimen, gekozenId, kies]);
 
   // ---- Fijnstoflaag ----
   useEffect(() => {
@@ -361,7 +370,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     };
   }, [kaart, toonFijnstof, fijnstof, uur]);
 
-  // ---- GIBS-tegellaag (aanmaken/verwijderen) ----
+  // ---- GIBS-tegellaag ----
   useEffect(() => {
     if (!kaart || !toonSatelliet || !satelliet) return;
     const { map, L } = kaart;
@@ -378,7 +387,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       map.removeLayer(laag);
       gibsRef.current = null;
     };
-    // dekking bewust buiten de deps: die past een apart effect toe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kaart, toonSatelliet, satelliet]);
 
@@ -400,7 +408,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         attribution: "EUMETSAT",
       });
     const actief = maak(start, dekking / 100).addTo(map);
-    const volgend = maak(start, 0).addTo(map); // onzichtbaar: alleen voorladen
+    const volgend = maak(start, 0).addTo(map);
     geoActiefRef.current = actief;
     geoVolgendRef.current = volgend;
     return () => {
@@ -412,7 +420,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kaart, toonGeo, geoLaag, geoTijden]);
 
-  // Frame wisselen: actief op het huidige frame, voorlader op het volgende.
   useEffect(() => {
     const actief = geoActiefRef.current;
     const volgend = geoVolgendRef.current;
@@ -423,19 +430,45 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     volgend?.setParams({ time: reeks[volgendeIndex] } as unknown as LT.WMSParams);
   }, [geoFrame, geoTijden]);
 
-  // Dekking (opacity) toepassen op beide satellietlagen zonder ze te herbouwen.
   useEffect(() => {
     gibsRef.current?.setOpacity(dekking / 100);
     geoActiefRef.current?.setOpacity(dekking / 100);
   }, [dekking]);
 
-  // Tijdlus afspelen.
   useEffect(() => {
     if (!geoSpeelt || !toonGeo || !geoTijden?.reeks?.length) return;
     const lengte = geoTijden.reeks.length;
     const id = setInterval(() => setGeoFrame((f) => (f + 1) % lengte), 800);
     return () => clearInterval(id);
   }, [geoSpeelt, toonGeo, geoTijden]);
+
+  // ---- Popup bij klik (breed scherm); smal scherm gebruikt het schuifpaneel ----
+  useEffect(() => {
+    if (!kaart || smal || !gekozen || !klikPunt) return;
+    const { map, L } = kaart;
+    const popup = L.popup({ maxWidth: 300, minWidth: 216, className: styles.pluimPopup, autoPanPadding: [26, 26] })
+      .setLatLng(klikPunt)
+      .setContent(bouwPopupHtml(gekozen))
+      .openOn(map);
+    const opClose = () => {
+      if (popupProgrammatischRef.current) return;
+      setGekozenId(null);
+    };
+    map.on("popupclose", opClose);
+    // Escape sluit de popup, ook als de kaart niet de focus heeft (Leaflet's
+    // eigen closeOnEscapeKey werkt alleen bij focus op de kaart).
+    const opEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setGekozenId(null);
+    };
+    window.addEventListener("keydown", opEscape);
+    return () => {
+      window.removeEventListener("keydown", opEscape);
+      map.off("popupclose", opClose);
+      popupProgrammatischRef.current = true;
+      if (map.hasLayer(popup)) map.closePopup(popup);
+      popupProgrammatischRef.current = false;
+    };
+  }, [kaart, gekozen, klikPunt, smal]);
 
   async function zoekPostcode(e: React.FormEvent) {
     e.preventDefault();
@@ -459,7 +492,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     }
   }
 
-  // Additief: leest ?postcode= bij het opstarten.
   useEffect(() => {
     const pc = new URLSearchParams(window.location.search).get("postcode")?.trim();
     if (!pc) return;
@@ -528,7 +560,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
       {!laden && !fout && (
         <>
-          {/* ---------- Postcode-antwoord ---------- */}
           <section className="sectie" aria-labelledby="postcode-titel">
             <h2 id="postcode-titel">Komt die rook naar mij toe?</h2>
             <p style={{ marginTop: 0 }}>
@@ -555,9 +586,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             {postcodeAntwoord && (
               <p
                 className={`${styles.postcodeAntwoord} ${
-                  postcodeAntwoord.status === "ok" && postcodeAntwoord.bronId
-                    ? styles.postcodeTreft
-                    : ""
+                  postcodeAntwoord.status === "ok" && postcodeAntwoord.bronId ? styles.postcodeTreft : ""
                 }`}
                 role="status"
               >
@@ -566,7 +595,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             )}
           </section>
 
-          {/* ---------- Kaart ---------- */}
           <section className="sectie" aria-labelledby="kaart-titel">
             <h2 id="kaart-titel" style={{ marginBottom: 6 }}>
               Kaart van de pluimen
@@ -575,35 +603,178 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               {statusTekst(data)}
             </p>
 
-            {/* ---------- Bediening ---------- */}
-            {data?.windBeschikbaar && (
-              <div className={styles.bediening}>
-                <div className={styles.laagKnoppen} role="group" aria-label="Kies de laag">
-                  <button
-                    type="button"
-                    aria-pressed={modus === "leefniveau"}
-                    onClick={() => setModus("leefniveau")}
-                  >
-                    Leefniveau
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={modus === "ophoogte"}
-                    onClick={() => setModus("ophoogte")}
-                  >
-                    Op hoogte
-                  </button>
-                </div>
-                <p className={styles.laagUitleg}>
-                  {modus === "leefniveau"
-                    ? "Leefniveau volgt de wind vlak boven de grond — bepalend voor stanklast dichtbij de bron."
-                    : "Op hoogte stijgt de pluim mee met het 850 hPa-transportveld — bepalend voor verplaatsing over grotere afstand."}
-                </p>
+            {/* ---- Volvlak-kaart met zwevende bediening ---- */}
+            <div className={styles.kaartVlak}>
+              <LeafletKaart
+                className={styles.kaart}
+                coöperatief={embed}
+                ariaLabel="Kaart van Frankrijk met de berekende windbanen vanaf hittebronnen"
+                onKaart={onKaart}
+              />
 
-                <label className={styles.tijdSchuif}>
+              {/* Datumbanner (klein, bovenin) */}
+              {((toonSatelliet && satelliet) || (toonGeo && geoTijden)) && (
+                <div className={styles.datumBalk}>
+                  {toonSatelliet && satelliet && (
+                    <span>NASA · {satellietDatum(satelliet.datum)}</span>
+                  )}
+                  {toonGeo && geoTijden && (
+                    <span>
+                      EUMETSAT · {geoFrameTijd(geoTijden.reeks[geoFrame])} (Fr, UTC)
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Lagenpaneel rechtsboven */}
+              <div className={styles.laagPaneel}>
+                <button
+                  type="button"
+                  className={styles.lagenKop}
+                  aria-expanded={lagenOpen}
+                  aria-controls="rook-lagen"
+                  onClick={() => setLagenOpen((v) => !v)}
+                >
+                  Lagen <span aria-hidden="true">{lagenOpen ? "▾" : "▸"}</span>
+                </button>
+                {lagenOpen && (
+                  <div id="rook-lagen" className={styles.laagInhoud}>
+                    {data?.windBeschikbaar && (
+                      <div className={styles.modusRij} role="group" aria-label="Windlaag">
+                        <button
+                          type="button"
+                          aria-pressed={modus === "leefniveau"}
+                          onClick={() => setModus("leefniveau")}
+                        >
+                          Leefniveau
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={modus === "ophoogte"}
+                          onClick={() => setModus("ophoogte")}
+                        >
+                          Op hoogte
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="button"
+                      className={styles.laagKnop}
+                      aria-pressed={toonFijnstof}
+                      onClick={() => setToonFijnstof((v) => !v)}
+                    >
+                      Fijnstof (PM2.5){toonFijnstof && fijnstofLaden ? " …" : ""}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.laagKnop}
+                      aria-pressed={toonSatelliet}
+                      onClick={() => setToonSatelliet((v) => !v)}
+                    >
+                      Satelliet — dag (NASA){toonSatelliet && satellietLaden ? " …" : ""}
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.laagKnop}
+                      aria-pressed={toonGeo}
+                      onClick={() => {
+                        setToonGeo((v) => !v);
+                        if (toonGeo) setGeoSpeelt(false);
+                      }}
+                    >
+                      Geostationair — 10 min{toonGeo && geoLaden ? " …" : ""}
+                    </button>
+                    {toonSatelliet && satellietFout && (
+                      <span className={styles.laagFout}>satelliet nu niet beschikbaar</span>
+                    )}
+                    {toonGeo && geoFout && (
+                      <span className={styles.laagFout}>geostationair nu niet beschikbaar</span>
+                    )}
+
+                    {toonGeo && geoTijden && (
+                      <div className={styles.geoExtra}>
+                        <div className={styles.subKnoppen}>
+                          <button
+                            type="button"
+                            aria-pressed={geoLaag === "mtg_fd:rgb_dust"}
+                            onClick={() => setGeoLaag("mtg_fd:rgb_dust")}
+                          >
+                            Stof &amp; rook
+                          </button>
+                          <button
+                            type="button"
+                            aria-pressed={geoLaag === "mtg_fd:frp"}
+                            onClick={() => setGeoLaag("mtg_fd:frp")}
+                          >
+                            Brand
+                          </button>
+                        </div>
+                        <div className={styles.geoLus}>
+                          <button
+                            type="button"
+                            className={styles.speelKnop}
+                            aria-pressed={geoSpeelt}
+                            aria-label={geoSpeelt ? "Pauzeer tijdlus" : "Speel tijdlus af"}
+                            onClick={() => setGeoSpeelt((s) => !s)}
+                          >
+                            {geoSpeelt ? "⏸" : "▶"}
+                          </button>
+                          <input
+                            type="range"
+                            min={0}
+                            max={geoTijden.reeks.length - 1}
+                            step={1}
+                            value={geoFrame}
+                            onChange={(e) => {
+                              setGeoSpeelt(false);
+                              setGeoFrame(Number(e.target.value));
+                            }}
+                            aria-label="Tijdstip geostationair beeld"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {toonDekking && (
+                      <label className={styles.dekking}>
+                        <span>Dekking {dekking}%</span>
+                        <input
+                          type="range"
+                          min={20}
+                          max={100}
+                          step={5}
+                          value={dekking}
+                          onChange={(e) => setDekking(Number(e.target.value))}
+                          aria-label="Dekking van het satellietbeeld"
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Legenda linksonder */}
+              <div className={styles.legenda}>
+                <span>
+                  <i className={styles.legKegel} /> onzekerheid richting
+                </span>
+                <span>
+                  <i className={styles.legBron} /> hittebron
+                </span>
+                {toonFijnstof && (
                   <span>
-                    Tijd: <strong>{uur === 0 ? "nu" : `+${uur} uur`}</strong>
-                    {data?.startuur ? ` (${klok(data.startuur, uur)})` : ""}
+                    <i className={styles.legFijnstof} /> PM2.5
+                  </span>
+                )}
+              </div>
+
+              {/* Tijdschuif als balk onderin */}
+              {data?.windBeschikbaar && (
+                <div className={styles.tijdBalk}>
+                  <span className={styles.tijdLabel}>
+                    {uur === 0 ? "nu" : `+${uur} u`}
+                    {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
                   </span>
                   <input
                     type="range"
@@ -614,125 +785,20 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     onChange={(e) => setUur(Number(e.target.value))}
                     aria-label="Aantal uren dat de pluimen doorgroeien"
                   />
-                </label>
+                </div>
+              )}
 
-                <label className={styles.fijnstofSchakel}>
-                  <input
-                    type="checkbox"
-                    checked={toonFijnstof}
-                    onChange={(e) => setToonFijnstof(e.target.checked)}
-                  />
-                  Fijnstoflaag tonen (CAMS PM2.5)
-                  {toonFijnstof && fijnstofLaden ? " — laden…" : ""}
-                </label>
+              {/* Schuifpaneel van onderen op smalle schermen */}
+              {smal && gekozen && (
+                <BronSheet pluim={gekozen} onSluit={() => setGekozenId(null)} />
+              )}
+            </div>
 
-                <label className={styles.fijnstofSchakel}>
-                  <input
-                    type="checkbox"
-                    checked={toonSatelliet}
-                    onChange={(e) => setToonSatelliet(e.target.checked)}
-                  />
-                  Satellietbeeld — dagelijks (NASA)
-                  {toonSatelliet && satellietLaden ? " — laden…" : ""}
-                  {toonSatelliet && satellietFout ? " — nu niet beschikbaar" : ""}
-                </label>
+            <p className={styles.kaartHint}>
+              Tip: klik of tik op een hittebron of een pluim voor de details. Zoomen en pannen met de
+              knoppen, slepen of het toetsenbord{embed ? " (klik eerst op de kaart)" : ""}.
+            </p>
 
-                <label className={styles.fijnstofSchakel}>
-                  <input
-                    type="checkbox"
-                    checked={toonGeo}
-                    onChange={(e) => {
-                      setToonGeo(e.target.checked);
-                      if (!e.target.checked) setGeoSpeelt(false);
-                    }}
-                  />
-                  Geostationair beeld — elke 10 min (EUMETSAT)
-                  {toonGeo && geoLaden ? " — laden…" : ""}
-                  {toonGeo && geoFout ? " — nu niet beschikbaar" : ""}
-                </label>
-
-                {toonGeo && geoTijden && (
-                  <div className={styles.geoBediening}>
-                    <div className={styles.laagKnoppen} role="group" aria-label="Kies de geostationaire laag">
-                      <button
-                        type="button"
-                        aria-pressed={geoLaag === "mtg_fd:rgb_dust"}
-                        onClick={() => setGeoLaag("mtg_fd:rgb_dust")}
-                      >
-                        Stof &amp; rook
-                      </button>
-                      <button
-                        type="button"
-                        aria-pressed={geoLaag === "mtg_fd:frp"}
-                        onClick={() => setGeoLaag("mtg_fd:frp")}
-                      >
-                        Brandintensiteit
-                      </button>
-                    </div>
-                    <div className={styles.tijdlus}>
-                      <button
-                        type="button"
-                        className={styles.speelKnop}
-                        onClick={() => setGeoSpeelt((s) => !s)}
-                        aria-pressed={geoSpeelt}
-                      >
-                        {geoSpeelt ? "⏸ Pauze" : "▶ Afspelen"}
-                      </button>
-                      <input
-                        type="range"
-                        min={0}
-                        max={geoTijden.reeks.length - 1}
-                        step={1}
-                        value={geoFrame}
-                        onChange={(e) => {
-                          setGeoSpeelt(false);
-                          setGeoFrame(Number(e.target.value));
-                        }}
-                        aria-label="Tijdstip geostationair beeld"
-                      />
-                    </div>
-                    <p className={styles.geoTijd}>
-                      Beeld van <strong>{geoFrameTijd(geoTijden.reeks[geoFrame])}</strong> (Franse
-                      tijd, UTC-gebaseerd).
-                    </p>
-                  </div>
-                )}
-
-                {toonDekking && (
-                  <label className={styles.tijdSchuif}>
-                    <span>Dekking satellietbeeld: {dekking}%</span>
-                    <input
-                      type="range"
-                      min={20}
-                      max={100}
-                      step={5}
-                      value={dekking}
-                      onChange={(e) => setDekking(Number(e.target.value))}
-                      aria-label="Dekking van het satellietbeeld"
-                    />
-                  </label>
-                )}
-              </div>
-            )}
-
-            <LeafletKaart
-              className={styles.kaart}
-              ariaLabel="Kaart van Frankrijk met de berekende windbanen vanaf hittebronnen"
-              onKaart={onKaart}
-            />
-
-            {toonSatelliet && satelliet && (
-              <p className={styles.satellietBanner}>
-                <strong>Satellietbeeld (waarneming) van {satellietDatum(satelliet.datum)}.</strong>{" "}
-                Dit toont waar de rook wás; de pluimen zijn een berekende verwachting van waar de
-                lucht náártoe waait. Bron: NASA GIBS / EOSDIS · {satelliet.laag}.
-              </p>
-            )}
-            {toonSatelliet && satellietFout && !satellietLaden && (
-              <p className={styles.satellietBanner}>
-                Er is de afgelopen dagen geen bruikbaar satellietbeeld beschikbaar.
-              </p>
-            )}
             {toonGeo && geoTijden && (
               <p className={styles.satellietBanner}>
                 <strong>Geostationair beeld (EUMETSAT), elke tien minuten ververst.</strong> Onze
@@ -741,23 +807,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 tussenuit. Deze laag kijkt continu en dicht dat gat. Bron: EUMETSAT.
               </p>
             )}
-
-            <p className={styles.kaartHint}>
-              Tip: klik of tik op een hittebron of een pluim voor de details (bron, aantal
-              detecties, driftrichting en afgelegde afstand). Zoomen en pannen met de knoppen, slepen
-              of het toetsenbord (klik eerst op de kaart).
-            </p>
-
-            {/* ---------- Legenda ---------- */}
-            <div className={styles.legenda}>
-              <span>
-                <i className={styles.legKegel} /> kegel = onzekerheid over de richting, niet de
-                hoeveelheid rook
-              </span>
-              <span>
-                <i className={styles.legBron} /> gedetecteerde hittebron
-              </span>
-            </div>
 
             {toonFijnstof && (
               <div className={styles.fijnstofLegenda}>
@@ -780,16 +829,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 </p>
               </div>
             )}
-
-            {gekozen && (
-              <PluimPaneel
-                pluim={gekozen}
-                onSluit={() => setGekozenId(null)}
-              />
-            )}
           </section>
 
-          {/* ---------- Verplichte tekstkaders ---------- */}
           <section className="sectie" aria-labelledby="kaders-titel">
             <h2 id="kaders-titel">Belangrijk om te weten</h2>
             <ul className={styles.kaders}>
@@ -843,52 +884,100 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   );
 }
 
-// ---- Detailpaneel van een gekozen pluim ----
+// ---- Schuifpaneel van onderen (smalle schermen) ----
 
-function PluimPaneel({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
+function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
+  const [sleep, setSleep] = useState(0);
+  const startY = useRef(0);
   return (
-    <div className="dep-paneel" aria-live="polite">
-      <div className="paneel-kop">
-        <h3>
-          Pluim vanaf {pluim.bronDepartement ?? "een hittebron"}{" "}
-          {pluim.bronDepartementCode ? (
-            <span className="dep-code">{pluim.bronDepartementCode}</span>
-          ) : null}
-        </h3>
-        <button type="button" className="paneel-sluit" aria-label="Paneel sluiten" onClick={onSluit}>
-          ×
-        </button>
+    <div className={styles.sheetOverlay} onClick={onSluit}>
+      <div
+        className={styles.sheet}
+        style={{ transform: sleep ? `translateY(${sleep}px)` : undefined }}
+        role="dialog"
+        aria-label={`Details pluim vanaf ${pluim.bronDepartement ?? "een hittebron"}`}
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => {
+          startY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          const d = e.touches[0].clientY - startY.current;
+          if (d > 0) setSleep(d);
+        }}
+        onTouchEnd={() => {
+          if (sleep > 90) onSluit();
+          else setSleep(0);
+        }}
+      >
+        <div className={styles.sheetGreep} aria-hidden="true" />
+        <div className={styles.sheetKop}>
+          <h3>
+            Pluim vanaf {pluim.bronDepartement ?? "een hittebron"}{" "}
+            {pluim.bronDepartementCode ? (
+              <span className={styles.code}>{pluim.bronDepartementCode}</span>
+            ) : null}
+          </h3>
+          <button type="button" aria-label="Sluiten" onClick={onSluit}>
+            ×
+          </button>
+        </div>
+        <div className={styles.detailGrid}>
+          <span className={styles.detailLabel}>Detecties</span>
+          <span>{pluim.detecties} VIIRS-detecties in dit cluster</span>
+          {pluim.frp != null && (
+            <>
+              <span className={styles.detailLabel}>FRP (som)</span>
+              <span>{formatteerGetal(pluim.frp)} MW</span>
+            </>
+          )}
+          <span className={styles.detailLabel}>Laatste detectie</span>
+          <span>{volledigeDatum(pluim.laatsteDetectie)}</span>
+          <span className={styles.detailLabel}>Driftrichting</span>
+          <span>{pluim.richting || "onbekend"}</span>
+          <span className={styles.detailLabel}>Afgelegd (leefniveau)</span>
+          <span>{pluim.kmLeefniveau} km in 24 uur</span>
+          <span className={styles.detailLabel}>Afgelegd (op hoogte)</span>
+          <span>{pluim.kmOphoogte} km in 24 uur</span>
+        </div>
+        <p className={styles.paneelNoot}>
+          Een cluster van detecties is één brandhaard, niet één brand per detectie. FRP is het
+          geschatte uitgestraalde vermogen en zegt niets over het verbrande oppervlak.
+        </p>
       </div>
-      <div className={styles.detailGrid}>
-        <span className={styles.detailLabel}>Detecties</span>
-        <span>{pluim.detecties} VIIRS-detecties in dit cluster</span>
-        {pluim.frp != null && (
-          <>
-            <span className={styles.detailLabel}>FRP (som)</span>
-            <span>{formatteerGetal(pluim.frp)} MW</span>
-          </>
-        )}
-        <span className={styles.detailLabel}>Laatste detectie</span>
-        <span>{volledigeDatum(pluim.laatsteDetectie)}</span>
-        <span className={styles.detailLabel}>Driftrichting</span>
-        <span>{pluim.richting || "onbekend"}</span>
-        <span className={styles.detailLabel}>Afgelegd (leefniveau)</span>
-        <span>{pluim.kmLeefniveau} km in 24 uur</span>
-        <span className={styles.detailLabel}>Afgelegd (op hoogte)</span>
-        <span>{pluim.kmOphoogte} km in 24 uur</span>
-      </div>
-      <p className={styles.paneelNoot}>
-        Een cluster van detecties is één brandhaard, niet één brand per detectie. FRP is het
-        geschatte uitgestraalde vermogen en zegt niets over het verbrande oppervlak.
-      </p>
     </div>
+  );
+}
+
+// ---- Popup-inhoud (breed scherm) ----
+
+function bouwPopupHtml(p: Pluim): string {
+  const rij = (label: string, waarde: string) =>
+    `<div class="rij"><span class="label">${escapeHtml(label)}</span><span>${escapeHtml(waarde)}</span></div>`;
+  const kop = `Pluim vanaf ${p.bronDepartement ?? "een hittebron"}${
+    p.bronDepartementCode ? ` <span class="code">${escapeHtml(p.bronDepartementCode)}</span>` : ""
+  }`;
+  return (
+    `<div class="pluimPopupInhoud">` +
+    `<h3>${kop}</h3>` +
+    rij("Detecties", `${p.detecties} VIIRS-detecties`) +
+    (p.frp != null ? rij("FRP (som)", `${formatteerGetal(p.frp)} MW`) : "") +
+    rij("Laatste detectie", volledigeDatum(p.laatsteDetectie)) +
+    rij("Driftrichting", p.richting || "onbekend") +
+    rij("Afgelegd (leefniveau)", `${p.kmLeefniveau} km / 24u`) +
+    rij("Afgelegd (op hoogte)", `${p.kmOphoogte} km / 24u`) +
+    `<p class="noot">Een cluster is één brandhaard, niet één brand per detectie. FRP zegt niets over het verbrande oppervlak.</p>` +
+    `</div>`
+  );
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) =>
+    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;"
   );
 }
 
 // ---- Pluimgeometrie in geografische ruimte ----
 
-// Bouwt de polylijn (lat/lon) en de onzekerheidskegel (polygoon) voor de gekozen
-// modus tot en met het gekozen uur.
 function bouwPluimGeo(
   pluim: Pluim,
   modus: Windmodus,
@@ -896,12 +985,11 @@ function bouwPluimGeo(
 ): { latlngs: Array<[number, number]>; kegel: Array<[number, number]>; eind: [number, number] } | null {
   const volledig = pluim[modus];
   const n = Math.min(uur, volledig.length - 1) + 1;
-  const gesneden = volledig.slice(0, n); // [lon, lat]
+  const gesneden = volledig.slice(0, n);
   if (gesneden.length < 2) return null;
 
   const latlngs = gesneden.map(([lon, lat]) => [lat, lon] as [number, number]);
 
-  // Halve breedte per punt = max(8 km, 0,15 × afgelegde afstand).
   const halveBreedtes: number[] = [];
   let cumKm = 0;
   for (let i = 0; i < gesneden.length; i += 1) {
@@ -914,8 +1002,6 @@ function bouwPluimGeo(
   return { latlngs, kegel: bouwKegelGeo(latlngs, halveBreedtes), eind: latlngs[latlngs.length - 1] };
 }
 
-// Bouwt een kegelpolygoon door elk middenlijnpunt loodrecht op de lokale richting
-// naar links en rechts te verplaatsen over de opgegeven halve breedte in km.
 function bouwKegelGeo(
   punten: Array<[number, number]>,
   halveBreedtesKm: number[]
@@ -962,8 +1048,7 @@ function statusTekst(data: Antwoord | null): string {
   if (data.pluimen.length === 0) return data.opmerking ?? "Er zijn geen pluimen om te tekenen.";
   if (!data.windBeschikbaar)
     return (
-      data.opmerking ??
-      "De hittebronnen worden getoond; de windbanen zijn tijdelijk niet beschikbaar."
+      data.opmerking ?? "De hittebronnen worden getoond; de windbanen zijn tijdelijk niet beschikbaar."
     );
   const n = data.pluimen.length;
   return `${n} ${n === 1 ? "pluim" : "pluimen"} berekend vanaf de grootste gedetecteerde hittebronnen. Een groot brandcomplex krijgt meerdere oorsprongen langs de vuurlijn.`;
@@ -1008,7 +1093,6 @@ function volledigeDatum(iso: string): string {
   }).format(d);
 }
 
-// Datum van het GIBS-beeld (YYYY-MM-DD) in gewone taal.
 function satellietDatum(datum: string): string {
   const d = new Date(`${datum}T12:00:00Z`);
   if (Number.isNaN(d.getTime())) return datum;
@@ -1019,11 +1103,10 @@ function satellietDatum(datum: string): string {
   const woord = dagen === 0 ? "vandaag" : dagen === 1 ? "gisteren" : dagen === 2 ? "eergisteren" : null;
   const volledig = new Intl.DateTimeFormat("nl-NL", {
     day: "numeric",
-    month: "long",
-    year: "numeric",
+    month: "short",
     timeZone: "UTC",
   }).format(d);
-  return woord ? `${woord} (${volledig})` : volledig;
+  return woord ? `${woord}` : volledig;
 }
 
 function isoDag(d: Date): string {

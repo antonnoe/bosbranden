@@ -1,8 +1,8 @@
-/* Rookmodule — huisstijl: Poppins koppen, Mulish body, #800000-varianten,
-   witte kaarten met subtiele rand. Sluit aan op de globale variabelen. */
+/* Rookmodule — volvlak-kaart met zwevende bediening. Huisstijl: Poppins koppen,
+   Mulish body, #800000-varianten, witte kaarten met subtiele rand. */
 
 .status {
-  margin: 0 0 12px;
+  margin: 0 0 10px;
   color: var(--primair-80);
   font-size: 0.92rem;
 }
@@ -23,144 +23,187 @@
   font-weight: 600;
 }
 
-/* ---- Bediening ---- */
-.bediening {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 14px;
-  padding: 14px;
-  border: 1px solid var(--primair-08);
-  border-radius: 10px;
-  background: var(--primair-04);
+/* ====================================================================
+   Volvlak-kaart
+   ==================================================================== */
+.kaartVlak {
+  position: relative;
+  width: 100%;
+  height: clamp(420px, 66vw, 640px);
+  margin: 6px 0 2px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #eef1f4;
+  isolation: isolate;
 }
 
-.laagKnoppen {
+.kaart {
+  width: 100%;
+  height: 100%;
+}
+
+/* Zwevende panelen: gemeenschappelijke stijl. z boven de kaartlagen, onder de
+   Leaflet-eigen bediening (zoom/attributie) en onder popups/sheet. */
+.datumBalk,
+.laagPaneel,
+.legenda,
+.tijdBalk {
+  position: absolute;
+  z-index: 640;
+  font-family: "Mulish", sans-serif;
+}
+
+/* ---- Datumbanner (klein, linksboven, náást de zoomknoppen) ---- */
+.datumBalk {
+  top: 8px;
+  left: 50px;
+  max-width: calc(100% - 160px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(128, 0, 0, 0.14);
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--primair);
+}
+
+/* ---- Lagenpaneel (rechtsboven) ---- */
+.laagPaneel {
+  top: 8px;
+  right: 8px;
+  width: min(230px, 62%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lagenKop {
+  align-self: flex-end;
   display: inline-flex;
-  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: var(--primair);
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(128, 0, 0, 0.2);
+}
+
+.lagenKop:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -3px;
+}
+
+.laagInhoud {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 3px 12px rgba(128, 0, 0, 0.16);
+  max-height: calc(100% - 4px);
+  overflow-y: auto;
+}
+
+.modusRij,
+.subKnoppen {
+  display: inline-flex;
   border: 1.5px solid var(--primair-30);
   border-radius: 8px;
   overflow: hidden;
 }
 
-.laagKnoppen button {
+.modusRij button,
+.subKnoppen button {
+  flex: 1;
   font-family: "Poppins", sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 500;
-  padding: 7px 18px;
+  padding: 6px 8px;
   border: none;
   background: #fff;
   color: var(--primair);
   cursor: pointer;
 }
 
-.laagKnoppen button[aria-pressed="true"] {
+.modusRij button[aria-pressed="true"],
+.subKnoppen button[aria-pressed="true"] {
   background: var(--primair);
   color: #fff;
 }
 
-.laagKnoppen button:focus-visible {
-  outline: 2px solid var(--primair);
-  outline-offset: -2px;
-}
-
-.laagUitleg {
-  margin: 0;
-  font-size: 0.86rem;
-  color: var(--primair-80);
-  line-height: 1.5;
-}
-
-.tijdSchuif {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.9rem;
-}
-
-.tijdSchuif input[type="range"] {
-  width: 100%;
-  accent-color: var(--primair);
-}
-
-.fijnstofSchakel {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.fijnstofSchakel input {
-  accent-color: var(--primair);
-  width: 16px;
-  height: 16px;
-}
-
-/* ---- Kaart (Leaflet-schil) ---- */
-.kaart {
-  margin-top: 4px;
-}
-
-/* Bronmarker als divIcon: bordeauxrode stip met halo, toetsenbord-bereikbaar. */
-.bronIcon {
-  background: none;
-  border: none;
-}
-
-.bronDot {
-  display: block;
-  width: 14px;
-  height: 14px;
-  margin: 4px;
-  border-radius: 50%;
-  background: var(--primair);
-  box-shadow: 0 0 0 4px rgba(128, 0, 0, 0.22);
-  cursor: pointer;
-}
-
-.bronDotGekozen {
-  box-shadow: 0 0 0 6px rgba(128, 0, 0, 0.34);
-}
-
-/* Zichtbare focus op de toetsenbord-bereikbare markers. */
-.kaart :global(.leaflet-marker-icon):focus-visible {
-  outline: 2px solid var(--primair);
-  outline-offset: 2px;
-}
-
-/* ---- Geostationaire bediening + tijdlus ---- */
-.geoBediening {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--primair-08);
+.laagKnop {
+  text-align: left;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 7px 10px;
+  border: 1.5px solid var(--primair-30);
   border-radius: 8px;
   background: #fff;
+  color: var(--primair);
+  cursor: pointer;
 }
 
-.tijdlus {
+.laagKnop[aria-pressed="true"] {
+  background: var(--primair);
+  border-color: var(--primair);
+  color: #fff;
+}
+
+.laagKnop:focus-visible,
+.modusRij button:focus-visible,
+.subKnoppen button:focus-visible,
+.speelKnop:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 1px;
+}
+
+.laagFout {
+  font-size: 0.72rem;
+  color: #b00020;
+  line-height: 1.3;
+}
+
+.geoExtra {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--primair-08);
+}
+
+.geoLus {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
-.tijdlus input[type="range"] {
+.geoLus input[type="range"],
+.dekking input[type="range"] {
   flex: 1;
+  width: 100%;
   accent-color: var(--primair);
 }
 
 .speelKnop {
   flex: 0 0 auto;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.86rem;
-  font-weight: 600;
-  padding: 6px 14px;
+  width: 30px;
+  height: 28px;
   border: 1.5px solid var(--primair-30);
-  border-radius: 8px;
+  border-radius: 7px;
   background: #fff;
   color: var(--primair);
+  font-size: 0.8rem;
   cursor: pointer;
 }
 
@@ -169,19 +212,239 @@
   color: #fff;
 }
 
-.speelKnop:focus-visible {
-  outline: 2px solid var(--primair);
-  outline-offset: 2px;
+.dekking {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.74rem;
+  color: var(--primair-80);
 }
 
-.geoTijd {
-  margin: 0;
+/* ---- Legenda (linksonder) ---- */
+.legenda {
+  bottom: 24px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 4px rgba(128, 0, 0, 0.14);
+  font-size: 0.75rem;
+  color: var(--tekst);
+}
+
+.legenda span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legenda i {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 11px;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.legKegel {
+  background: linear-gradient(90deg, rgba(128, 0, 0, 0.42), rgba(128, 0, 0, 0.06));
+  border: 1px solid rgba(128, 0, 0, 0.28);
+}
+
+.legBron {
+  width: 12px !important;
+  border-radius: 50% !important;
+  background: var(--primair);
+}
+
+.legFijnstof {
+  background: rgba(142, 78, 168, 0.55);
+  border: 1px solid rgba(108, 34, 132, 0.5);
+}
+
+/* ---- Tijdschuif (balk onderin, over de kaart) ---- */
+.tijdBalk {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(440px, calc(100% - 130px));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 2px 10px rgba(128, 0, 0, 0.18);
+}
+
+.tijdLabel {
+  flex: 0 0 auto;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primair);
+  white-space: nowrap;
+}
+
+.tijdBalk input[type="range"] {
+  flex: 1;
+  width: 100%;
+  accent-color: var(--primair);
+}
+
+/* ====================================================================
+   Popup (breed scherm)
+   ==================================================================== */
+.kaartVlak :global(.leaflet-popup-content-wrapper) {
+  border-radius: 10px;
+}
+
+.kaartVlak :global(.leaflet-popup-content) {
+  margin: 12px 14px;
+  font-family: "Mulish", sans-serif;
+  line-height: 1.6;
+}
+
+.kaartVlak :global(.leaflet-popup-content) h3 {
+  margin: 0 0 8px;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primair);
+}
+
+.kaartVlak :global(.leaflet-popup-content) .code {
+  font-size: 0.78rem;
+  color: var(--primair-80);
+  font-weight: 600;
+}
+
+.kaartVlak :global(.leaflet-popup-content) .rij {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
   font-size: 0.85rem;
+  padding: 1px 0;
+}
+
+.kaartVlak :global(.leaflet-popup-content) .label {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--primair-80);
+}
+
+.kaartVlak :global(.leaflet-popup-content) .noot {
+  margin: 8px 0 0;
+  font-size: 0.77rem;
   color: var(--primair-80);
   line-height: 1.5;
 }
 
-/* Tip-regel onder de kaart */
+/* ====================================================================
+   Schuifpaneel van onderen (smalle schermen)
+   ==================================================================== */
+.sheetOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 800;
+  background: rgba(0, 0, 0, 0.28);
+  display: flex;
+  align-items: flex-end;
+}
+
+.sheet {
+  width: 100%;
+  max-height: 58%;
+  padding: 6px 16px 18px;
+  background: #fff;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 24px rgba(128, 0, 0, 0.2);
+  overflow-y: auto;
+  touch-action: none;
+  animation: sheetOmhoog 0.24s ease;
+}
+
+@keyframes sheetOmhoog {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.sheetGreep {
+  width: 40px;
+  height: 4px;
+  margin: 6px auto 10px;
+  border-radius: 2px;
+  background: var(--primair-30);
+}
+
+.sheetKop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sheetKop h3 {
+  margin: 0;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--primair);
+}
+
+.sheetKop button {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: var(--primair-08);
+  color: var(--primair);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.code {
+  font-size: 0.8rem;
+  color: var(--primair-80);
+  font-weight: 600;
+}
+
+/* ---- Detailrooster (gedeeld: sheet) ---- */
+.detailGrid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 10px 0;
+  font-size: 0.92rem;
+}
+
+.detailLabel {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primair-80);
+}
+
+.paneelNoot {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--primair-80);
+  line-height: 1.5;
+}
+
+/* ====================================================================
+   Onder de kaart (tekst, geen zwevende bediening)
+   ==================================================================== */
 .kaartHint {
   margin: 10px 0 0;
   font-size: 0.85rem;
@@ -189,7 +452,6 @@
   line-height: 1.5;
 }
 
-/* Datum/attributie van het satellietbeeld — prominent, niet in een voetnoot. */
 .satellietBanner {
   margin: 10px 0 0;
   padding: 9px 12px;
@@ -202,47 +464,7 @@
   color: var(--tekst);
 }
 
-/* ---- Legenda ---- */
-.legenda {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin-top: 12px;
-  font-size: 0.85rem;
-  color: var(--tekst);
-}
-
-.legenda span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.legenda i {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 14px;
-  border-radius: 3px;
-  display: inline-block;
-}
-
-.legKegel {
-  background: linear-gradient(90deg, rgba(128, 0, 0, 0.42), rgba(128, 0, 0, 0.06));
-  border: 1px solid rgba(128, 0, 0, 0.28);
-}
-
-.legBron {
-  width: 14px !important;
-  border-radius: 50% !important;
-  background: var(--primair);
-}
-
-.legFijnstof {
-  background: rgba(90, 96, 112, 0.4);
-  border: 1px solid rgba(90, 96, 112, 0.35);
-}
-
-/* ---- Fijnstof-legenda met klassegrenzen ---- */
+/* ---- Fijnstof-legenda met klassegrenzen (onder de kaart) ---- */
 .fijnstofLegenda {
   margin-top: 12px;
   padding: 10px 12px;
@@ -301,29 +523,6 @@
   line-height: 1.5;
 }
 
-/* ---- Detailpaneel ---- */
-.detailGrid {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 14px;
-  margin: 8px 0 10px;
-  font-size: 0.92rem;
-}
-
-.detailLabel {
-  font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--primair-80);
-}
-
-.paneelNoot {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--primair-80);
-  line-height: 1.5;
-}
-
 /* ---- Verplichte tekstkaders ---- */
 .kaders {
   margin: 0;
@@ -338,7 +537,6 @@
   font-size: 0.94rem;
 }
 
-/* ---- Bronregel ---- */
 .bronregel {
   font-size: 0.86rem;
   color: var(--primair-80);
@@ -346,15 +544,37 @@
   line-height: 1.6;
 }
 
-/* ---- Embed ----
-   Het iframe meet zich via EmbedHoogte zelf op de inhoud; er is geen vaste
-   hoogtegrens meer. De kaart volgt daarom gewoon de volledige kolombreedte en
-   is het grootste element op de pagina — niet de bediening of de tekstblokken.
-   Alleen de bediening en de tekstkaders krijgen een lichte verdichting, zodat
-   de kaart visueel blijft domineren. */
-:global(.embed) .bediening {
-  padding: 10px 12px;
-  gap: 9px;
+/* ---- Bronmarker (divIcon) ---- */
+.bronIcon {
+  background: none;
+  border: none;
+}
+
+.bronDot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 4px;
+  border-radius: 50%;
+  background: var(--primair);
+  box-shadow: 0 0 0 4px rgba(128, 0, 0, 0.22);
+  cursor: pointer;
+}
+
+.bronDotGekozen {
+  box-shadow: 0 0 0 6px rgba(128, 0, 0, 0.34);
+}
+
+.kaartVlak :global(.leaflet-marker-icon):focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
+}
+
+/* ====================================================================
+   Embed: iets compacter, kaart blijft het grootste element
+   ==================================================================== */
+:global(.embed) .kaartVlak {
+  height: clamp(360px, 64vw, 520px);
 }
 
 :global(.embed) .kaders {
