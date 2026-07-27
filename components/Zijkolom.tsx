@@ -103,10 +103,8 @@ function BronLink({ bron }: { bron: StandBron }) {
 }
 
 export default function Zijkolom({
-  embed,
   onAantal,
 }: {
-  embed: boolean;
   onAantal?: (aantal: number) => void;
 }) {
   const [laatsteMelding, setLaatsteMelding] = useState<string | null>(null);

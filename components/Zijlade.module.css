@@ -1,0 +1,104 @@
+/* Uitschuifbare zijlade — bordeaux paneel, wit afgedwongen. De schil is een
+   fixed, schermvullende laag met overflow:hidden: die knipt het ingeschoven
+   paneel netjes af (geen horizontale overflow) en laat, zelf pointer-events:none,
+   klikken door naar de pagina; alleen de handgreep en het paneel vangen ze. De
+   schil valt buiten het gemeten omhulsel, dus de embed-hoogtemelding blijft
+   gelijk of de lade nu open of dicht is. */
+
+.schil {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.lade {
+  --greep: 42px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  width: calc(330px + var(--greep));
+  max-width: 100%;
+  transform: translateX(calc(100% - var(--greep)));
+  transition: transform 0.28s ease;
+}
+
+.open {
+  transform: translateX(0);
+}
+
+/* ---- Handgreep: bordeaux tab, wit, verticaal gecentreerd ---- */
+.greep {
+  flex: 0 0 var(--greep);
+  align-self: center;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 150px;
+  padding: 18px 0;
+  border: none;
+  border-radius: 12px 0 0 12px;
+  background: #800000;
+  color: #ffffff;
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  box-shadow: -3px 0 14px rgba(0, 0, 0, 0.28);
+}
+
+.greep:hover {
+  background: #911b1b;
+}
+
+.greep:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: -6px;
+}
+
+.greepPijl {
+  writing-mode: horizontal-tb;
+  font-size: 1rem;
+  line-height: 1;
+  color: #ffffff;
+}
+
+/* ---- Paneel: bordeaux, volle hoogte, wit ---- */
+.paneel {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  pointer-events: auto;
+  overflow-y: auto;
+  background: #800000;
+  color: #ffffff;
+  border-left: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: -8px 0 28px rgba(0, 0, 0, 0.3);
+  padding: 18px;
+}
+
+.paneel:focus {
+  outline: none;
+}
+
+/* Mobiel: schermbreed paneel in plaats van een smalle kolom. */
+@media (max-width: 599px) {
+  .lade {
+    width: 100%;
+  }
+}
+
+/* Print: geen drawer. */
+@media print {
+  .schil {
+    display: none;
+  }
+}

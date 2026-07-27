@@ -1,11 +1,14 @@
-/* Zijkolom /start — twee inklapbare secties (harmonica) in de uitschuifbare
-   lade. Huisstijl: Poppins voor de sectiekoppen, Mulish voor de inhoud,
-   regelafstand 1.8, primair #800000 met rgba-varianten. */
+/* Zijkolom — inhoud van de bordeaux uitschuifbare lade. Wit wordt TECHNISCH
+   AFGEDWONGEN: elk tekstelement krijgt een expliciete lichte color, niets leunt
+   op overerving of currentColor. Scheidslijnen en accenten zijn witte varianten
+   met opacity (geen transparant bordeaux op bordeaux). Poppins voor koppen,
+   Mulish voor tekst, regelafstand body 1.8. */
 
 .zijkolom {
   display: flex;
   flex-direction: column;
   font-family: "Mulish", sans-serif;
+  color: #ffffff;
 }
 
 .sectie {
@@ -13,9 +16,9 @@
   flex-direction: column;
 }
 
-/* Duidelijke scheidslijn tussen de twee secties. */
+/* Duidelijke scheidslijn tussen de twee secties (wit met opacity). */
 .metScheiding {
-  border-top: 1px solid var(--primair-15);
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
   margin-top: 6px;
   padding-top: 2px;
 }
@@ -35,11 +38,11 @@
 }
 
 .kop:hover .kopTitel {
-  color: var(--primair-80);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 .kop:focus-visible {
-  outline: 2px solid var(--primair);
+  outline: 2px solid #ffffff;
   outline-offset: 2px;
 }
 
@@ -47,10 +50,11 @@
   font-family: "Poppins", "Mulish", sans-serif;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--primair);
+  color: #ffffff;
   line-height: 1.4;
 }
 
+/* [i]-pictogram: wit vlak met bordeaux letter, zodat het op bordeaux zichtbaar is. */
 .infoIcoon {
   flex: 0 0 auto;
   display: inline-flex;
@@ -59,8 +63,8 @@
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--primair);
-  color: #fff;
+  background: #ffffff;
+  color: #800000;
   font-family: "Poppins", serif;
   font-size: 0.8rem;
   font-weight: 700;
@@ -75,14 +79,11 @@
   font-family: "Poppins", sans-serif;
   font-size: 1.2rem;
   font-weight: 600;
-  color: var(--primair-80);
+  color: rgba(255, 255, 255, 0.85);
   line-height: 1;
 }
 
-/* ---- Rustige hoogte-overgang (orde 0,25s, zelfde stijl als de lade) ----
-   grid 0fr → 1fr animeert de échte hoogte; de inhoud blijft gemount zodat de
-   overgang werkt. Bij het openen springt niets naar boven: er wordt alleen
-   uitgevouwen, geen focus verlegd of gescrold. */
+/* ---- Rustige hoogte-overgang (orde 0,25s) ---- */
 .wikkel {
   display: grid;
   grid-template-rows: 0fr;
@@ -97,11 +98,9 @@
   overflow: hidden;
   min-height: 0;
   line-height: 1.8;
+  color: #ffffff;
 }
 
-/* Ingeklapt: uit de tab-volgorde en onzichtbaar voor hulpsoftware — maar pas
-   nadat de inklap-overgang klaar is, zodat de inhoud tijdens het dichtklappen
-   zichtbaar blijft. */
 .wikkel:not(.open) .inhoud {
   visibility: hidden;
   transition: visibility 0s linear 0.25s;
@@ -117,7 +116,7 @@
   padding: 4px 0 10px;
   font-size: 0.86rem;
   line-height: 1.8;
-  color: var(--tekst);
+  color: #ffffff;
 }
 
 .standDatum {
@@ -125,17 +124,18 @@
   font-family: "Poppins", sans-serif;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--primair);
+  color: #ffffff;
 }
 
 .standInleiding {
   margin: 0;
+  color: #ffffff;
 }
 
 .standBlok {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--primair-08);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .standKop {
@@ -143,11 +143,12 @@
   font-family: "Poppins", sans-serif;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--primair);
+  color: #ffffff;
 }
 
 .standParagraaf {
   margin: 0;
+  color: #ffffff;
 }
 
 .standLijst {
@@ -162,36 +163,61 @@
 .standLijst li {
   position: relative;
   padding-left: 12px;
+  color: #ffffff;
 }
 
 .standLijst li::before {
   content: "–";
   position: absolute;
   left: 0;
-  color: var(--primair-55);
+  color: rgba(255, 255, 255, 0.7);
 }
 
-/* Bronlink: zelfde link-opmaak als elders, met een middot ervoor. */
+/* ---- Bron- en praktische links: wit, hoog contrast tegen bordeaux ---- */
+.standBron,
+.standPraktisch,
+.verantwoordingBron a {
+  color: #ffffff;
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.55);
+  text-underline-offset: 2px;
+}
+
+.standBron:visited,
+.standPraktisch:visited,
+.verantwoordingBron a:visited {
+  color: #ffffff;
+}
+
+.standBron:hover,
+.standPraktisch:hover,
+.verantwoordingBron a:hover {
+  color: #ffffff;
+  text-decoration-color: #ffffff;
+}
+
+.standBron:focus-visible,
+.standPraktisch:focus-visible,
+.verantwoordingBron a:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .standBron {
   white-space: nowrap;
   font-family: "Poppins", sans-serif;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--primair);
-  text-decoration: none;
 }
 
 .standBron::before {
   content: "· ";
-  color: var(--primair-55);
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 400;
 }
 
-.standBron:hover {
-  text-decoration: underline;
-}
-
-/* Praktische verwijzing (geen feitclaim): een gewone link, los onderaan. */
+/* Praktische verwijzing (geen feitclaim): een losse link onderaan. */
 .standPraktischLijst {
   list-style: none;
   margin: 8px 0 0;
@@ -202,18 +228,12 @@
   font-family: "Poppins", sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--primair);
-  text-decoration: none;
 }
 
 .standPraktisch::before {
   content: "→ ";
-  color: var(--primair-55);
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 400;
-}
-
-.standPraktisch:hover {
-  text-decoration: underline;
 }
 
 /* ---- Verantwoording ---- */
@@ -225,7 +245,7 @@
 }
 
 .verantwoordingModule {
-  border-top: 1px solid var(--primair-08);
+  border-top: 1px solid rgba(255, 255, 255, 0.18);
   padding-top: 10px;
 }
 
@@ -238,7 +258,7 @@
   font-family: "Poppins", sans-serif;
   font-size: 0.86rem;
   font-weight: 600;
-  color: var(--primair);
+  color: #ffffff;
   margin: 0 0 4px;
   line-height: 1.4;
 }
@@ -247,20 +267,20 @@
   margin: 0 0 5px;
   font-size: 0.8rem;
   line-height: 1.8;
-  color: var(--tekst);
+  color: #ffffff;
 }
 
 .verantwoordingGrens {
   margin: 0 0 4px;
   font-size: 0.79rem;
   line-height: 1.8;
-  color: var(--primair-80);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .verantwoordingSlot {
   margin: 2px 0 0;
   font-size: 0.78rem;
   line-height: 1.8;
-  color: var(--primair-55);
+  color: rgba(255, 255, 255, 0.78);
   font-style: italic;
 }

@@ -30,110 +30,25 @@
   line-height: 1.6;
 }
 
-/* ---- Hub-indeling: vast tegelraster met uitschuifbare zijkolom ----
-   Eén gedrag op álle breedtes (ook 925px en embed): de tegels vullen de volle
-   breedte in een vast raster van drie kolommen. De zijkolom is standaard
-   ingeklapt tot een smalle handgreep aan de rechterkant en schuift als overlay
-   binnen het kader over de tegels heen. Geen 1024px-grens, geen aparte
-   "zijkolom eronder"-variant meer. */
+/* ---- Hub-indeling: vast tegelraster ----
+   De uitschuifbare zijlade zit nu in de gedeelde schil (app-layout), niet meer
+   hier. Nooit meer dan twee kolommen: twee vanaf 640px, één daaronder. Het
+   aantal kolommen staat los van het aantal modules. */
 .hub {
-  --handgreep-breedte: 38px;
-  --handgreep-marge: 10px;
-  position: relative;
-  overflow: hidden;
   margin-bottom: 22px;
 }
 
-/* Nooit meer dan twee kolommen: twee vanaf 640px, één daaronder. Het aantal
-   kolommen staat volledig los van het aantal modules. De rechtermarge houdt
-   ruimte vrij voor de ingeklapte handgreep, zodat die geen tegel afsnijdt. */
 .tegels {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
   align-content: start;
-  margin-right: calc(var(--handgreep-breedte) + var(--handgreep-marge));
 }
 
 @media (min-width: 640px) {
   .tegels {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-
-/* De overlay bevat de handgreep (links) en het paneel (rechts). Ingeklapt is
-   hij naar rechts geschoven zodat alleen de handgreep zichtbaar blijft; de rest
-   valt buiten het kader en wordt door .hub afgesneden. De container zelf laat
-   klikken door (pointer-events: none); alleen handgreep en paneel vangen ze. */
-.overlay {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: calc(300px + var(--handgreep-breedte));
-  max-width: 100%;
-  display: flex;
-  transform: translateX(calc(100% - var(--handgreep-breedte)));
-  transition: transform 0.28s ease;
-  pointer-events: none;
-  z-index: 5;
-}
-
-.overlayOpen {
-  transform: translateX(0);
-}
-
-.handgreep {
-  flex: 0 0 var(--handgreep-breedte);
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border: 1px solid var(--primair-15);
-  border-right: none;
-  border-radius: 10px 0 0 10px;
-  background: #fff;
-  box-shadow: -2px 0 8px rgba(128, 0, 0, 0.08);
-  color: var(--primair);
-  cursor: pointer;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  padding: 12px 0;
-}
-
-.handgreep:hover {
-  background: var(--primair-04);
-}
-
-.handgreep:focus-visible {
-  outline: 2px solid var(--primair);
-  outline-offset: 2px;
-}
-
-.handgreepPijl {
-  writing-mode: horizontal-tb;
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.paneel {
-  flex: 1 1 auto;
-  min-width: 0;
-  pointer-events: auto;
-  overflow-y: auto;
-  background: #fff;
-  border: 1px solid var(--primair-08);
-  border-radius: 12px 0 0 12px;
-  box-shadow: -6px 0 18px rgba(128, 0, 0, 0.1);
-  padding: 16px;
-}
-
-.paneel:focus {
-  outline: none;
 }
 
 .tegel {

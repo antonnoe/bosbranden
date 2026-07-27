@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import Zijlade from "@/components/Zijlade";
 
 export const metadata: Metadata = {
   title: "Brandrisico Frankrijk — Météo des forêts per departement",
@@ -23,7 +24,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* Eén instantie van de uitschuifbare zijlade voor álle routes. */}
+        <Zijlade />
+      </body>
     </html>
   );
 }

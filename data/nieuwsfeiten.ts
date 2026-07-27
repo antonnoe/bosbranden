@@ -102,14 +102,24 @@ export const STAND_VAN_ZAKEN: StandVanZaken | null = {
     },
     {
       kop: "Landelijke overheid",
-      paragraaf: {
-        tekst:
-          "Macron zat maandag om 10u een interministeriële crisiscel voor, gevolgd door een ministerraad; minister Lescure bevestigde dat verzekeraars de herhuisvestingskosten van geëvacueerden dekken.",
-        bron: {
-          label: "franceinfo",
-          url: "https://www.franceinfo.fr/faits-divers/incendies-en-gironde/direct-incendies-en-gironde-84-sapeurs-pompiers-blesses-par-l-incendie-reste-globalement-stable-au-cours-de-la-nuit_8123420.html",
+      punten: [
+        {
+          tekst:
+            "Macron zat maandag om 10u een interministeriële crisiscel voor op het ministerie van Binnenlandse Zaken; de twee eerdere bijeenkomsten stonden onder leiding van premier Lecornu. Daarna volgden overleggen over de economische gevolgen van de branden.",
+          bron: {
+            label: "Euronews",
+            url: "https://fr.euronews.com/my-europe/2026/07/27/lincendie-pres-de-bordeaux-globalement-stable-durant-la-nuit",
+          },
         },
-      },
+        {
+          tekst:
+            "Verzekeraars nemen de herhuisvestingskosten van geëvacueerden op zich. De regeling is met France Assureurs onderhandeld, geldt voor hoofdverblijven, loopt tot maximaal drie weken afhankelijk van hoe lang de toegang tot de woning verboden blijft, geldt of de woning beschadigd is of niet, en er worden bewijsstukken gevraagd.",
+          bron: {
+            label: "AFP",
+            url: "https://www.boursorama.com/actualite-economique/actualites/les-assureurs-prennent-des-mesures-exceptionnelles-pour-les-victimes-des-incendies-1433cfc7e4ac564acf6f33b26c1f0eec",
+          },
+        },
+      ],
     },
     {
       kop: "Luchtkwaliteit en reizen",
