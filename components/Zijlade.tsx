@@ -10,7 +10,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ZijkolomNieuws, ZijkolomVerantwoording, NIEUWS_AANTAL } from "@/components/Zijkolom";
+import { ZijkolomNieuws, ZijkolomVerantwoording } from "@/components/Zijkolom";
+import { useNieuws } from "@/components/Nieuws";
 import styles from "@/components/Zijlade.module.css";
 
 const SLEUTEL = "bosbranden-zijkolom";
@@ -27,6 +28,10 @@ export default function Zijlade() {
   const [query, setQuery] = useState("");
   const paneelRef = useRef<HTMLDivElement>(null);
   const schilRef = useRef<HTMLDivElement>(null);
+
+  // Nieuws wordt op railniveau opgehaald en zichzelf ververst, zodat de teller
+  // op het Nieuws-tabblad live blijft, óók als de lade dicht is.
+  const nieuws = useNieuws();
 
   // Bewaarde open-stand teruglezen (sessionStorage, geen cookies).
   useEffect(() => {
@@ -100,7 +105,7 @@ export default function Zijlade() {
         aria-label={paneel === "verantwoording" ? "Technische verantwoording" : "Nieuws"}
         aria-hidden={!open}
       >
-        {paneel === "nieuws" && <ZijkolomNieuws />}
+        {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
         {paneel === "verantwoording" && <ZijkolomVerantwoording />}
       </div>
 
@@ -114,7 +119,7 @@ export default function Zijlade() {
           aria-controls="app-zijkolom"
           onClick={() => wissel("nieuws")}
         >
-          Nieuws ({NIEUWS_AANTAL})
+          {nieuws.data ? `Nieuws (${nieuws.aantal})` : "Nieuws"}
         </button>
         <button
           type="button"

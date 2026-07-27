@@ -10,6 +10,18 @@
   line-height: 1.8;
 }
 
+/* ---- Nieuwspaneel: gecureerd blok boven, automatische stroom eronder ---- */
+.nieuwsPaneel {
+  color: #ffffff;
+}
+
+/* Alleen een scheiding tonen als er BOVEN de stroom een STAND-blok staat. */
+.autoNieuwsMetStand {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+}
+
 /* ---- Stand van zaken (nieuwsblok) ---- */
 .stand {
   font-size: 0.86rem;

@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { STAND_VAN_ZAKEN, type StandBron } from "@/data/nieuwsfeiten";
 import { VERVERS_SECONDEN, formatteerDuur } from "@/lib/cache";
+import { Nieuwsgroepen, type NieuwsHaal } from "@/components/Nieuws";
 import styles from "@/components/Zijkolom.module.css";
 
 interface Verantwoording {
@@ -75,16 +76,6 @@ const VERANTWOORDING: Verantwoording[] = [
   },
 ];
 
-// Aantal afzonderlijk gebronde uitspraken in het nieuwsblok, voor de teller op
-// het Nieuws-tabblad ("Nieuws (8)"). Data-afgeleid, niet hardcoded.
-export const NIEUWS_AANTAL = STAND_VAN_ZAKEN
-  ? 1 +
-    STAND_VAN_ZAKEN.blokken.reduce(
-      (n, blok) => n + (blok.paragraaf ? 1 : 0) + (blok.punten?.length ?? 0),
-      0
-    )
-  : 0;
-
 // Bronlink: zelfde link-opmaak als de overige bronlinks in de zijkolom.
 function BronLink({ bron }: { bron: StandBron }) {
   return (
@@ -94,52 +85,62 @@ function BronLink({ bron }: { bron: StandBron }) {
   );
 }
 
-// ---- Paneel 1: Nieuws (Stand van zaken) ----
-export function ZijkolomNieuws() {
-  if (!STAND_VAN_ZAKEN) {
-    return <p className={styles.leeg}>Op dit moment geen nieuws te melden.</p>;
-  }
+// ---- Paneel 1: Nieuws ----
+// Boven (indien gevuld) het gecureerde STAND_VAN_ZAKEN-blok; daaronder de
+// automatische, zelfververste nieuwsstroom in twee groepen (officieel/pers).
+// Is STAND_VAN_ZAKEN null, dan verdwijnt het zonder lege kop of tussenruimte en
+// is de automatische stroom het nieuws.
+export function ZijkolomNieuws({ haal }: { haal: NieuwsHaal }) {
   return (
-    <div className={styles.stand}>
-      <p className={styles.standDatum}>{STAND_VAN_ZAKEN.titel}</p>
-      <p className={styles.standInleiding}>
-        {STAND_VAN_ZAKEN.inleiding.tekst} <BronLink bron={STAND_VAN_ZAKEN.inleiding.bron} />
-      </p>
-      {STAND_VAN_ZAKEN.blokken.map((blok, bi) => (
-        <div key={bi} className={styles.standBlok}>
-          <h3 className={styles.standKop}>{blok.kop}</h3>
-          {blok.paragraaf && (
-            <p className={styles.standParagraaf}>
-              {blok.paragraaf.tekst} <BronLink bron={blok.paragraaf.bron} />
-            </p>
-          )}
-          {blok.punten && (
-            <ul className={styles.standLijst}>
-              {blok.punten.map((punt, pi) => (
-                <li key={pi}>
-                  {punt.tekst} <BronLink bron={punt.bron} />
-                </li>
-              ))}
-            </ul>
-          )}
-          {blok.praktischeLinks && (
-            <ul className={styles.standPraktischLijst}>
-              {blok.praktischeLinks.map((link, li) => (
-                <li key={li}>
-                  <a
-                    className={styles.standPraktisch}
-                    href={link.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {link.tekst}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
+    <div className={styles.nieuwsPaneel}>
+      {STAND_VAN_ZAKEN && (
+        <div className={styles.stand}>
+          <p className={styles.standDatum}>{STAND_VAN_ZAKEN.titel}</p>
+          <p className={styles.standInleiding}>
+            {STAND_VAN_ZAKEN.inleiding.tekst}{" "}
+            <BronLink bron={STAND_VAN_ZAKEN.inleiding.bron} />
+          </p>
+          {STAND_VAN_ZAKEN.blokken.map((blok, bi) => (
+            <div key={bi} className={styles.standBlok}>
+              <h3 className={styles.standKop}>{blok.kop}</h3>
+              {blok.paragraaf && (
+                <p className={styles.standParagraaf}>
+                  {blok.paragraaf.tekst} <BronLink bron={blok.paragraaf.bron} />
+                </p>
+              )}
+              {blok.punten && (
+                <ul className={styles.standLijst}>
+                  {blok.punten.map((punt, pi) => (
+                    <li key={pi}>
+                      {punt.tekst} <BronLink bron={punt.bron} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {blok.praktischeLinks && (
+                <ul className={styles.standPraktischLijst}>
+                  {blok.praktischeLinks.map((link, li) => (
+                    <li key={li}>
+                      <a
+                        className={styles.standPraktisch}
+                        href={link.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {link.tekst}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
         </div>
-      ))}
+      )}
+
+      <div className={STAND_VAN_ZAKEN ? styles.autoNieuwsMetStand : undefined}>
+        <Nieuwsgroepen haal={haal} thema="donker" />
+      </div>
     </div>
   );
 }
