@@ -1,8 +1,9 @@
 "use client";
 
-// Zijkolom van /start: het redactionele "Stand van zaken"-nieuwsblok (met per
-// claim een vaste bron) en een uitklapbare technische verantwoording. Beide
-// secties zijn los inklapbaar (harmonica).
+// Inhoud van de uitschuifbare lade, opgesplitst in twee losse panelen die de
+// rail-tabbladen tonen: "Nieuws" (het Stand van zaken-blok) en "Verantwoording"
+// (de technische verantwoording). Bordeaux paneel; wit wordt in de CSS technisch
+// afgedwongen. De bestaande link-opmaak (target/rel) blijft ongewijzigd.
 
 import { useEffect, useState } from "react";
 import { STAND_VAN_ZAKEN, type StandBron } from "@/data/nieuwsfeiten";
@@ -73,14 +74,9 @@ const VERANTWOORDING: Verantwoording[] = [
   },
 ];
 
-// sessionStorage-sleutels per sectie (geen cookies). De lade zelf gebruikt
-// "bosbranden-zijkolom"; deze twee staan daar los van.
-const SLEUTEL_NIEUWS = "bosbranden-zijkolom-nieuws";
-const SLEUTEL_VERANTWOORDING = "bosbranden-zijkolom-verantwoording";
-
 // Aantal afzonderlijk gebronde uitspraken in het nieuwsblok, voor de teller op
-// de handgreep ("Nieuws (8)").
-const NIEUWS_AANTAL = STAND_VAN_ZAKEN
+// het Nieuws-tabblad ("Nieuws (8)"). Data-afgeleid, niet hardcoded.
+export const NIEUWS_AANTAL = STAND_VAN_ZAKEN
   ? 1 +
     STAND_VAN_ZAKEN.blokken.reduce(
       (n, blok) => n + (blok.paragraaf ? 1 : 0) + (blok.punten?.length ?? 0),
@@ -88,60 +84,69 @@ const NIEUWS_AANTAL = STAND_VAN_ZAKEN
     )
   : 0;
 
-// Bronlink: zelfde opmaak als de overige bronlinks in de zijkolom.
+// Bronlink: zelfde link-opmaak als de overige bronlinks in de zijkolom.
 function BronLink({ bron }: { bron: StandBron }) {
   return (
-    <a
-      className={styles.standBron}
-      href={bron.url}
-      target="_blank"
-      rel="noopener noreferrer"
-    >
+    <a className={styles.standBron} href={bron.url} target="_blank" rel="noopener noreferrer">
       {bron.label}
     </a>
   );
 }
 
-export default function Zijkolom({
-  onAantal,
-}: {
-  onAantal?: (aantal: number) => void;
-}) {
+// ---- Paneel 1: Nieuws (Stand van zaken) ----
+export function ZijkolomNieuws() {
+  if (!STAND_VAN_ZAKEN) {
+    return <p className={styles.leeg}>Op dit moment geen nieuws te melden.</p>;
+  }
+  return (
+    <div className={styles.stand}>
+      <p className={styles.standDatum}>{STAND_VAN_ZAKEN.titel}</p>
+      <p className={styles.standInleiding}>
+        {STAND_VAN_ZAKEN.inleiding.tekst} <BronLink bron={STAND_VAN_ZAKEN.inleiding.bron} />
+      </p>
+      {STAND_VAN_ZAKEN.blokken.map((blok, bi) => (
+        <div key={bi} className={styles.standBlok}>
+          <h3 className={styles.standKop}>{blok.kop}</h3>
+          {blok.paragraaf && (
+            <p className={styles.standParagraaf}>
+              {blok.paragraaf.tekst} <BronLink bron={blok.paragraaf.bron} />
+            </p>
+          )}
+          {blok.punten && (
+            <ul className={styles.standLijst}>
+              {blok.punten.map((punt, pi) => (
+                <li key={pi}>
+                  {punt.tekst} <BronLink bron={punt.bron} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {blok.praktischeLinks && (
+            <ul className={styles.standPraktischLijst}>
+              {blok.praktischeLinks.map((link, li) => (
+                <li key={li}>
+                  <a
+                    className={styles.standPraktisch}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {link.tekst}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Paneel 2: Technische verantwoording ----
+export function ZijkolomVerantwoording() {
   const [laatsteMelding, setLaatsteMelding] = useState<string | null>(null);
-  // Nieuws standaard OPEN, verantwoording standaard DICHT. Beide mogen tegelijk
-  // open staan — het is geen accordeon.
-  const [nieuwsOpen, setNieuwsOpen] = useState(true);
-  const [verantwoordingOpen, setVerantwoordingOpen] = useState(false);
 
-  // Bewaarde open/dicht-stand per sectie teruglezen (sessionStorage).
-  useEffect(() => {
-    try {
-      const n = sessionStorage.getItem(SLEUTEL_NIEUWS);
-      const v = sessionStorage.getItem(SLEUTEL_VERANTWOORDING);
-      if (n !== null) setNieuwsOpen(n === "open");
-      if (v !== null) setVerantwoordingOpen(v === "open");
-    } catch {
-      /* sessionStorage kan geblokkeerd zijn; dan blijven de standaardwaarden */
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(SLEUTEL_NIEUWS, nieuwsOpen ? "open" : "dicht");
-    } catch {
-      /* stil */
-    }
-  }, [nieuwsOpen]);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(SLEUTEL_VERANTWOORDING, verantwoordingOpen ? "open" : "dicht");
-    } catch {
-      /* stil */
-    }
-  }, [verantwoordingOpen]);
-
-  // Alleen het tijdstip van de laatste officiële melding (voor de verantwoording).
   useEffect(() => {
     let actief = true;
     (async () => {
@@ -159,132 +164,33 @@ export default function Zijkolom({
     };
   }, []);
 
-  const toonNieuws = STAND_VAN_ZAKEN !== null;
-
-  // Meld het aantal gebronde nieuwsuitspraken terug aan de ouder, zodat de
-  // handgreep van de uitschuifbare zijkolom een teller kan tonen ("Nieuws (8)").
-  useEffect(() => {
-    onAantal?.(NIEUWS_AANTAL);
-  }, [onAantal]);
-
   return (
-    <div className={styles.zijkolom}>
-      {toonNieuws && STAND_VAN_ZAKEN && (
-        <section className={styles.sectie}>
-          <button
-            type="button"
-            className={styles.kop}
-            aria-expanded={nieuwsOpen}
-            aria-controls="zijkolom-nieuws"
-            onClick={() => setNieuwsOpen((v) => !v)}
-          >
-            <span className={styles.kopTitel}>Nieuws ({NIEUWS_AANTAL})</span>
-            <span className={styles.chevron} aria-hidden="true">
-              {nieuwsOpen ? "−" : "+"}
-            </span>
-          </button>
-          <div className={`${styles.wikkel} ${nieuwsOpen ? styles.open : ""}`}>
-            <div id="zijkolom-nieuws" role="region" aria-label="Nieuws" className={styles.inhoud}>
-              <div className={styles.stand}>
-                <p className={styles.standDatum}>{STAND_VAN_ZAKEN.titel}</p>
-                <p className={styles.standInleiding}>
-                  {STAND_VAN_ZAKEN.inleiding.tekst}{" "}
-                  <BronLink bron={STAND_VAN_ZAKEN.inleiding.bron} />
-                </p>
-                {STAND_VAN_ZAKEN.blokken.map((blok, bi) => (
-                  <div key={bi} className={styles.standBlok}>
-                    <h3 className={styles.standKop}>{blok.kop}</h3>
-                    {blok.paragraaf && (
-                      <p className={styles.standParagraaf}>
-                        {blok.paragraaf.tekst} <BronLink bron={blok.paragraaf.bron} />
-                      </p>
-                    )}
-                    {blok.punten && (
-                      <ul className={styles.standLijst}>
-                        {blok.punten.map((punt, pi) => (
-                          <li key={pi}>
-                            {punt.tekst} <BronLink bron={punt.bron} />
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {blok.praktischeLinks && (
-                      <ul className={styles.standPraktischLijst}>
-                        {blok.praktischeLinks.map((link, li) => (
-                          <li key={li}>
-                            <a
-                              className={styles.standPraktisch}
-                              href={link.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              {link.tekst}
-                            </a>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className={`${styles.sectie} ${toonNieuws ? styles.metScheiding : ""}`}>
-        <button
-          type="button"
-          className={styles.kop}
-          aria-expanded={verantwoordingOpen}
-          aria-controls="zijkolom-verantwoording"
-          onClick={() => setVerantwoordingOpen((v) => !v)}
-        >
-          <span className={styles.infoIcoon} aria-hidden="true">
-            i
-          </span>
-          <span className={styles.kopTitel}>Technische verantwoording</span>
-          <span className={styles.chevron} aria-hidden="true">
-            {verantwoordingOpen ? "−" : "+"}
-          </span>
-        </button>
-        <div className={`${styles.wikkel} ${verantwoordingOpen ? styles.open : ""}`}>
-          <div
-            id="zijkolom-verantwoording"
-            role="region"
-            aria-label="Technische verantwoording"
-            className={styles.inhoud}
-          >
-            <div className={styles.verantwoordingInhoud}>
-              {VERANTWOORDING.map((v) => (
-                <div key={v.id} className={styles.verantwoordingModule}>
-                  <h3 className={styles.verantwoordingKop}>{v.titel}</h3>
-                  <p className={styles.verantwoordingBron}>
-                    Bron:{" "}
-                    <a href={v.bronUrl} target="_blank" rel="noopener noreferrer">
-                      {v.bronNaam}
-                    </a>
-                    . Ververst elke {formatteerDuur(v.ververs)}.
-                  </p>
-                  {v.grenzen.map((grens, i) => (
-                    <p key={i} className={styles.verantwoordingGrens}>
-                      {grens}
-                    </p>
-                  ))}
-                  {v.id === "waarschuwingen" && laatsteMelding && (
-                    <p className={styles.verantwoordingGrens}>
-                      Laatst gepubliceerde melding: {formatteerVolledig(laatsteMelding)}.
-                    </p>
-                  )}
-                </div>
-              ))}
-              <p className={styles.verantwoordingSlot}>
-                We tonen waar de cijfers vandaan komen en waar ze ophouden — niet meer dan dat.
-              </p>
-            </div>
-          </div>
+    <div className={styles.verantwoordingInhoud}>
+      {VERANTWOORDING.map((v) => (
+        <div key={v.id} className={styles.verantwoordingModule}>
+          <h3 className={styles.verantwoordingKop}>{v.titel}</h3>
+          <p className={styles.verantwoordingBron}>
+            Bron:{" "}
+            <a href={v.bronUrl} target="_blank" rel="noopener noreferrer">
+              {v.bronNaam}
+            </a>
+            . Ververst elke {formatteerDuur(v.ververs)}.
+          </p>
+          {v.grenzen.map((grens, i) => (
+            <p key={i} className={styles.verantwoordingGrens}>
+              {grens}
+            </p>
+          ))}
+          {v.id === "waarschuwingen" && laatsteMelding && (
+            <p className={styles.verantwoordingGrens}>
+              Laatst gepubliceerde melding: {formatteerVolledig(laatsteMelding)}.
+            </p>
+          )}
         </div>
-      </section>
+      ))}
+      <p className={styles.verantwoordingSlot}>
+        We tonen waar de cijfers vandaan komen en waar ze ophouden — niet meer dan dat.
+      </p>
     </div>
   );
 }

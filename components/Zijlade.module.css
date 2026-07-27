@@ -1,81 +1,33 @@
-/* Uitschuifbare zijlade — bordeaux paneel, wit afgedwongen. De schil is een
-   fixed, schermvullende laag met overflow:hidden: die knipt het ingeschoven
-   paneel netjes af (geen horizontale overflow) en laat, zelf pointer-events:none,
-   klikken door naar de pagina; alleen de handgreep en het paneel vangen ze. De
-   schil valt buiten het gemeten omhulsel, dus de embed-hoogtemelding blijft
-   gelijk of de lade nu open of dicht is. */
+/* Uitschuifbare zijlade. De schil beslaat ALLEEN het paneel + de rail (een
+   rechterstrook), niet de hele viewport — zo ligt er geen klik-blokkerend vlak
+   over de pagina. pointer-events staat uit op de schil en de rail-container en
+   AAN op de losse tabbladen en het paneel; met de lade dicht is dus uitsluitend
+   de rail klikgevoelig. De schil valt buiten het gemeten omhulsel, dus het
+   openen/sluiten van een paneel verandert de embed-hoogtemelding niet. Wit wordt
+   technisch afgedwongen; huisstijl #800000, Poppins koppen, Mulish tekst. */
 
 .schil {
+  --rail: 46px;
+  --paneel-breedte: 322px;
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: calc(var(--paneel-breedte) + var(--rail));
+  max-width: 100%;
   overflow: hidden;
   pointer-events: none;
   z-index: 1000;
 }
 
-.lade {
-  --greep: 42px;
+/* ---- Paneel: links van de rail, schuift uit ---- */
+.paneel {
   position: absolute;
   top: 0;
-  right: 0;
   bottom: 0;
-  display: flex;
-  align-items: center;
-  width: calc(330px + var(--greep));
-  max-width: 100%;
-  transform: translateX(calc(100% - var(--greep)));
-  transition: transform 0.28s ease;
-}
-
-.open {
-  transform: translateX(0);
-}
-
-/* ---- Handgreep: bordeaux tab, wit, verticaal gecentreerd ---- */
-.greep {
-  flex: 0 0 var(--greep);
-  align-self: center;
-  pointer-events: auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 150px;
-  padding: 18px 0;
-  border: none;
-  border-radius: 12px 0 0 12px;
-  background: #800000;
-  color: #ffffff;
-  cursor: pointer;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  box-shadow: -3px 0 14px rgba(0, 0, 0, 0.28);
-}
-
-.greep:hover {
-  background: #911b1b;
-}
-
-.greep:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: -6px;
-}
-
-.greepPijl {
-  writing-mode: horizontal-tb;
-  font-size: 1rem;
-  line-height: 1;
-  color: #ffffff;
-}
-
-/* ---- Paneel: bordeaux, volle hoogte, wit ---- */
-.paneel {
-  flex: 1 1 auto;
-  align-self: stretch;
-  min-width: 0;
+  right: var(--rail);
+  width: var(--paneel-breedte);
+  max-width: calc(100% - var(--rail));
   pointer-events: auto;
   overflow-y: auto;
   background: #800000;
@@ -83,20 +35,187 @@
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: -8px 0 28px rgba(0, 0, 0, 0.3);
   padding: 18px;
+  transform: translateX(calc(100% + var(--rail)));
+  transition: transform 0.28s ease;
+}
+
+.paneelOpen {
+  transform: translateX(0);
 }
 
 .paneel:focus {
   outline: none;
 }
 
-/* Mobiel: schermbreed paneel in plaats van een smalle kolom. */
+/* ---- Rail: altijd zichtbaar aan de rechterrand, verticaal gecentreerd ---- */
+.rail {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  width: var(--rail);
+  max-height: 96vh;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  pointer-events: none; /* alleen de tabbladen vangen klikken */
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ---- Tabblad (gemeenschappelijk) ---- */
+.tab {
+  pointer-events: auto;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 5px;
+  border: none;
+  border-radius: 10px 0 0 10px;
+  background: #800000;
+  color: #ffffff;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: -3px 0 12px rgba(0, 0, 0, 0.26);
+}
+
+.tab:hover {
+  background: #911b1b;
+}
+
+.tab:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: -6px;
+}
+
+/* Groep 1 — PANELEN: een chevron laat zien dat er iets uitschuift. */
+.tabPaneel::before {
+  content: "‹";
+  writing-mode: horizontal-tb;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tabActief {
+  background: #ffffff;
+  color: #800000;
+}
+
+.tabActief::before {
+  content: "›";
+  color: #800000;
+}
+
+.tabActief:hover {
+  background: #ffffff;
+}
+
+/* Groep 2 — NAVIGATIE: een pijl laat zien dat je de pagina verlaat. */
+.tabNav {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.tabNav::before {
+  content: "→";
+  writing-mode: horizontal-tb;
+  font-size: 0.9rem;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tabNav:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Actieve route: gemarkeerd en niet aanklikbaar. */
+.tabHier {
+  background: #ffffff;
+  color: #800000;
+  cursor: default;
+  box-shadow: none;
+}
+
+.tabHier::before {
+  content: "•";
+  color: #800000;
+}
+
+.tabHier:hover {
+  background: #ffffff;
+}
+
+/* ---- Scheiding tussen panelen en navigatie: witte lijn + extra ruimte ---- */
+.scheiding {
+  height: 1px;
+  margin: 8px 6px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+/* Twee labelvarianten voor het Verantwoording-tabblad (mobiel korter). */
+.labelKort {
+  display: none;
+}
+
+/* ---- Mobiel: schermbreed paneel; compacte rail (< 1/3 vensterhoogte) ----
+   Onder 600px draaien de tabbladen naar horizontale tekst met korte labels,
+   zodat vier gestapelde tabbladen laag blijven in plaats van hoog. */
 @media (max-width: 599px) {
-  .lade {
+  .schil {
+    --rail: 78px;
     width: 100%;
+  }
+
+  .paneel {
+    width: calc(100% - var(--rail));
+    max-width: none;
+  }
+
+  .rail {
+    gap: 4px;
+  }
+
+  .tab {
+    writing-mode: horizontal-tb;
+    text-orientation: mixed;
+    padding: 5px 8px;
+    font-size: 0.72rem;
+    border-radius: 8px 0 0 8px;
+  }
+
+  .tabPaneel::before,
+  .tabNav::before,
+  .tabActief::before,
+  .tabHier::before {
+    font-size: 0.8rem;
+  }
+
+  .scheiding {
+    margin: 4px 6px;
+  }
+
+  .labelVol {
+    display: none;
+  }
+
+  .labelKort {
+    display: inline;
   }
 }
 
-/* Print: geen drawer. */
+/* ---- Print: geen lade ---- */
 @media print {
   .schil {
     display: none;

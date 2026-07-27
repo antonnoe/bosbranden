@@ -1,119 +1,17 @@
-/* Zijkolom — inhoud van de bordeaux uitschuifbare lade. Wit wordt TECHNISCH
-   AFGEDWONGEN: elk tekstelement krijgt een expliciete lichte color, niets leunt
-   op overerving of currentColor. Scheidslijnen en accenten zijn witte varianten
-   met opacity (geen transparant bordeaux op bordeaux). Poppins voor koppen,
-   Mulish voor tekst, regelafstand body 1.8. */
+/* Inhoud van de bordeaux uitschuifbare lade. Wit wordt TECHNISCH AFGEDWONGEN:
+   elk tekstelement krijgt een expliciete lichte color, niets leunt op overerving
+   of currentColor. Scheidslijnen en accenten zijn witte varianten met opacity.
+   Poppins voor koppen, Mulish voor tekst, regelafstand body 1.8. */
 
-.zijkolom {
-  display: flex;
-  flex-direction: column;
-  font-family: "Mulish", sans-serif;
-  color: #ffffff;
-}
-
-.sectie {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Duidelijke scheidslijn tussen de twee secties (wit met opacity). */
-.metScheiding {
-  border-top: 1px solid rgba(255, 255, 255, 0.22);
-  margin-top: 6px;
-  padding-top: 2px;
-}
-
-/* ---- Sectiekop (echte knop) ---- */
-.kop {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 10px 2px;
-  background: none;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.kop:hover .kopTitel {
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.kop:focus-visible {
-  outline: 2px solid #ffffff;
-  outline-offset: 2px;
-}
-
-.kopTitel {
-  font-family: "Poppins", "Mulish", sans-serif;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #ffffff;
-  line-height: 1.4;
-}
-
-/* [i]-pictogram: wit vlak met bordeaux letter, zodat het op bordeaux zichtbaar is. */
-.infoIcoon {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #ffffff;
-  color: #800000;
-  font-family: "Poppins", serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  font-style: italic;
-}
-
-.chevron {
-  margin-left: auto;
-  flex: 0 0 auto;
-  width: 1.2rem;
-  text-align: center;
-  font-family: "Poppins", sans-serif;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1;
-}
-
-/* ---- Rustige hoogte-overgang (orde 0,25s) ---- */
-.wikkel {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.25s ease;
-}
-
-.wikkel.open {
-  grid-template-rows: 1fr;
-}
-
-.inhoud {
-  overflow: hidden;
-  min-height: 0;
+.leeg {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.86rem;
   line-height: 1.8;
-  color: #ffffff;
-}
-
-.wikkel:not(.open) .inhoud {
-  visibility: hidden;
-  transition: visibility 0s linear 0.25s;
-}
-
-.wikkel.open .inhoud {
-  visibility: visible;
-  transition: visibility 0s;
 }
 
 /* ---- Stand van zaken (nieuwsblok) ---- */
 .stand {
-  padding: 4px 0 10px;
   font-size: 0.86rem;
   line-height: 1.8;
   color: #ffffff;
@@ -217,7 +115,6 @@
   font-weight: 400;
 }
 
-/* Praktische verwijzing (geen feitclaim): een losse link onderaan. */
 .standPraktischLijst {
   list-style: none;
   margin: 8px 0 0;
@@ -241,7 +138,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 0 10px;
+  color: #ffffff;
 }
 
 .verantwoordingModule {
