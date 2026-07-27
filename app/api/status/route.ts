@@ -162,7 +162,7 @@ async function statusRook(origin: string): Promise<ModuleStatus> {
       id: "rook",
       ernst: 0,
       samenvatting:
-        json.opmerking ?? "Geen pluimen: er zijn geen hittebronnen om vanaf te tekenen.",
+        json.opmerking ?? "Geen windbanen: er zijn geen hittebronnen om vanaf te tekenen.",
       beschikbaar: true,
     };
   }
@@ -183,7 +183,7 @@ async function statusRook(origin: string): Promise<ModuleStatus> {
   return {
     id: "rook",
     ernst,
-    samenvatting: `${aantal} ${aantal === 1 ? "pluim" : "pluimen"}${
+    samenvatting: `${aantal} ${aantal === 1 ? "windbaan" : "windbanen"}${
       richting ? `, overwegend richting ${richting}` : ""
     }.`,
     beschikbaar: true,
