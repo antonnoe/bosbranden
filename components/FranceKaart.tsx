@@ -403,7 +403,7 @@ export default function FranceKaart({
       : weergave === "waarschijnlijk"
         ? `${formatteerAantal(waarschijnlijkeAantal)} van ${formatteerAantal(
             waarnemingen.length
-          )} metingen voldoen aan conservatieve technische criteria. Niet officieel bevestigd.`
+          )} metingen vormen een ruimtelijk en in tijd samenhangend cluster. Industriële warmtebronnen worden niet uitgesloten.`
         : "Recente officiële FR-Alert-meldingen. FR-Alert wordt alleen bij ernstige situaties ingezet en is geen volledige brandenlijst.";
 
   return (
@@ -424,7 +424,7 @@ export default function FranceKaart({
               aria-pressed={weergave === "waarschijnlijk"}
               onClick={() => kiesWeergave("waarschijnlijk")}
             >
-              Waarschijnlijke natuurbranden
+              Geclusterde hittebronnen
             </button>
             <button
               type="button"
@@ -890,8 +890,8 @@ export default function FranceKaart({
               <p className={laagStyles.technischeDuiding}>
                 <strong>Technische duiding:</strong>{" "}
                 {gekozenPunt.waarneming.waarschijnlijkNatuurbrand
-                  ? "het patroon past bij een mogelijke natuurbrand"
-                  : "de meting voldoet niet aan de conservatieve criteria voor een waarschijnlijke natuurbrand"}
+                  ? "deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster"
+                  : "deze meting hoort niet bij een samenhangend cluster"}
                 {gekozenPunt.waarneming.waarschijnlijkheidsRedenen.length > 0
                   ? `. Signalen: ${gekozenPunt.waarneming.waarschijnlijkheidsRedenen.join(
                       ", "
@@ -909,8 +909,9 @@ export default function FranceKaart({
                 </a>
               </p>
               <p className={styles.caveat}>
-                Technische waarschijnlijkheid is geen bevestiging. FRP is het geschatte
-                uitgestraalde vermogen, niet het verbrande oppervlak.
+                Een cluster is geen bevestigde natuurbrand: de filter maakt geen onderscheid
+                tussen vegetatiebranden en vaste industriële warmtebronnen. FRP is het
+                geschatte uitgestraalde vermogen, niet het verbrande oppervlak.
               </p>
             </div>
           )}
@@ -1004,9 +1005,10 @@ export default function FranceKaart({
           <p>
             Dezelfde brand kan tijdens verschillende satellietpassages meermaals worden gemeten.
             Ook landbouwvuren, industrie, hete rook of een andere warmtebron kunnen een detectie
-            veroorzaken. De stand “Waarschijnlijke natuurbranden” gebruikt daarom een conservatieve
-            combinatie van betrouwbaarheid, FRP en samenhangende metingen in tijd en ruimte. Dit
-            blijft een technische inschatting.
+            veroorzaken. De stand “Geclusterde hittebronnen” selecteert op samenhang en
+            signaalsterkte, maar maakt geen onderscheid tussen vegetatiebranden en vaste
+            industriële warmtebronnen. Een cluster is dus geen bevestigde natuurbrand, maar een
+            technische inschatting.
           </p>
           <p>
             Bron:{" "}

@@ -472,10 +472,19 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
   async function zoekPostcode(e: React.FormEvent) {
     e.preventDefault();
+    // Valideer vóór het ophalen: precies vijf cijfers, geen stille afwijzing.
+    const cijfers = postcode.replace(/\D/g, "");
+    if (cijfers.length !== 5) {
+      setPostcodeAntwoord({
+        status: "fout",
+        tekst: "Een Franse postcode heeft vijf cijfers.",
+      });
+      return;
+    }
     setPostcodeLaden(true);
     setPostcodeAntwoord(null);
     try {
-      const res = await fetch(`/api/rookpluimen?postcode=${encodeURIComponent(postcode.trim())}`);
+      const res = await fetch(`/api/rookpluimen?postcode=${encodeURIComponent(cijfers)}`);
       const json: Antwoord & { postcode?: PostcodeAntwoord } = await res.json();
       setPostcodeAntwoord(json.postcode ?? null);
       if (json.postcode?.bronId) {
@@ -566,13 +575,14 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               Vul een Franse postcode in (5 cijfers). Dan berekenen we of een van de pluimen in de
               komende 24 uur boven uw departement komt.
             </p>
-            <form className="postcode-vorm" onSubmit={zoekPostcode}>
+            <form className="postcode-vorm" noValidate onSubmit={zoekPostcode}>
               <label htmlFor="rook-postcode" style={{ position: "absolute", left: "-9999px" }}>
                 Franse postcode
               </label>
               <input
                 id="rook-postcode"
                 inputMode="numeric"
+                pattern="[0-9]{5}"
                 autoComplete="postal-code"
                 placeholder="bijv. 11000"
                 maxLength={5}

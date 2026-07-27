@@ -108,6 +108,7 @@ export default function Start({ embed }: { embed: boolean }) {
           <input
             id="start-postcode"
             inputMode="numeric"
+            pattern="[0-9]{5}"
             autoComplete="postal-code"
             placeholder="bijv. 33000"
             maxLength={5}

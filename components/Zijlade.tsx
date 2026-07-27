@@ -26,6 +26,7 @@ export default function Zijlade() {
   const [paneel, setPaneel] = useState<PaneelSoort | null>(null);
   const [query, setQuery] = useState("");
   const paneelRef = useRef<HTMLDivElement>(null);
+  const schilRef = useRef<HTMLDivElement>(null);
 
   // Bewaarde open-stand teruglezen (sessionStorage, geen cookies).
   useEffect(() => {
@@ -54,8 +55,21 @@ export default function Zijlade() {
     const opToets = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPaneel(null);
     };
+    // Klik buiten paneel én rail sluit de lade. De schil (paneel + rail) heeft
+    // pointer-events:none op zichzelf, dus een klik op de kaart komt hier terecht
+    // met een doel buiten schilRef; een klik op tab of paneel valt er binnen.
+    const opKlikBuiten = (e: PointerEvent) => {
+      const doel = e.target as Node | null;
+      if (doel && schilRef.current && !schilRef.current.contains(doel)) {
+        setPaneel(null);
+      }
+    };
     window.addEventListener("keydown", opToets);
-    return () => window.removeEventListener("keydown", opToets);
+    document.addEventListener("pointerdown", opKlikBuiten);
+    return () => {
+      window.removeEventListener("keydown", opToets);
+      document.removeEventListener("pointerdown", opKlikBuiten);
+    };
   }, [paneel]);
 
   function wissel(soort: PaneelSoort) {
@@ -75,7 +89,7 @@ export default function Zijlade() {
   const open = paneel !== null;
 
   return (
-    <div className={styles.schil}>
+    <div className={styles.schil} ref={schilRef}>
       {/* Paneel (schuift uit); links van de rail. */}
       <div
         id="app-zijkolom"
