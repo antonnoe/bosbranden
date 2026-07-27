@@ -54,7 +54,10 @@
 .tegel {
   display: flex;
   flex-direction: column;
-  min-height: 100%;
+  /* Geen min-height:100% — een percentagehoogte lost hier op tegen de
+     iframe-hoogte, waardoor de inhoud meegroeit/krimpt met het venster en de
+     gemelde embed-hoogte nooit stabiel werd. Rasteritems rekken standaard al
+     tot gelijke rijhoogte (align-items:stretch); dat volstaat. */
   padding: 18px 20px;
   border: 1px solid var(--primair-08);
   border-left: 4px solid var(--geen-data);
