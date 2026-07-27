@@ -1,27 +1,13 @@
 "use client";
 
-// Zijkolom van /start: samengevoegde nieuwsfeiten (handmatig + /api/nieuws) en
-// een uitklapbare technische verantwoording. Puur additief.
+// Zijkolom van /start: het redactionele "Stand van zaken"-nieuwsblok (met per
+// claim een vaste bron) en een uitklapbare technische verantwoording. Beide
+// secties zijn los inklapbaar (harmonica).
 
 import { useEffect, useState } from "react";
-import { NIEUWSFEITEN, type Nieuwsfeit } from "@/data/nieuwsfeiten";
+import { STAND_VAN_ZAKEN, type StandBron } from "@/data/nieuwsfeiten";
 import { VERVERS_SECONDEN, formatteerDuur } from "@/lib/cache";
 import styles from "@/components/Zijkolom.module.css";
-
-interface NieuwsApiItem {
-  titel: string;
-  url: string;
-  bron: string;
-  gepubliceerdOp: string | null;
-}
-
-interface GecombineerdItem {
-  tijd: string | null;
-  tekst: string;
-  bron?: string;
-  url?: string;
-  zwaar?: boolean;
-}
 
 interface Verantwoording {
   id: string;
@@ -92,6 +78,30 @@ const VERANTWOORDING: Verantwoording[] = [
 const SLEUTEL_NIEUWS = "bosbranden-zijkolom-nieuws";
 const SLEUTEL_VERANTWOORDING = "bosbranden-zijkolom-verantwoording";
 
+// Aantal afzonderlijk gebronde uitspraken in het nieuwsblok, voor de teller op
+// de handgreep ("Nieuws (8)").
+const NIEUWS_AANTAL = STAND_VAN_ZAKEN
+  ? 1 +
+    STAND_VAN_ZAKEN.blokken.reduce(
+      (n, blok) => n + (blok.paragraaf ? 1 : 0) + (blok.punten?.length ?? 0),
+      0
+    )
+  : 0;
+
+// Bronlink: zelfde opmaak als de overige bronlinks in de zijkolom.
+function BronLink({ bron }: { bron: StandBron }) {
+  return (
+    <a
+      className={styles.standBron}
+      href={bron.url}
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {bron.label}
+    </a>
+  );
+}
+
 export default function Zijkolom({
   embed,
   onAantal,
@@ -99,7 +109,6 @@ export default function Zijkolom({
   embed: boolean;
   onAantal?: (aantal: number) => void;
 }) {
-  const [nieuwsItems, setNieuwsItems] = useState<NieuwsApiItem[] | null>(null);
   const [laatsteMelding, setLaatsteMelding] = useState<string | null>(null);
   // Nieuws standaard OPEN, verantwoording standaard DICHT. Beide mogen tegelijk
   // open staan — het is geen accordeon.
@@ -134,17 +143,9 @@ export default function Zijkolom({
     }
   }, [verantwoordingOpen]);
 
+  // Alleen het tijdstip van de laatste officiële melding (voor de verantwoording).
   useEffect(() => {
     let actief = true;
-    (async () => {
-      try {
-        const res = await fetch("/api/nieuws");
-        const json: { beschikbaar?: boolean; items?: NieuwsApiItem[] } = await res.json();
-        if (actief) setNieuwsItems(json.beschikbaar && Array.isArray(json.items) ? json.items : []);
-      } catch {
-        if (actief) setNieuwsItems([]);
-      }
-    })();
     (async () => {
       try {
         const res = await fetch("/api/fr-alert");
@@ -160,37 +161,17 @@ export default function Zijkolom({
     };
   }, []);
 
-  const maxItems = embed ? 3 : 8;
-  const items: GecombineerdItem[] = [
-    ...NIEUWSFEITEN.map((f: Nieuwsfeit) => ({
-      tijd: f.tijd,
-      tekst: f.tekst,
-      bron: f.bron,
-      url: f.url,
-      zwaar: f.zwaar,
-    })),
-    ...(nieuwsItems ?? []).map((n) => ({
-      tijd: n.gepubliceerdOp,
-      tekst: n.titel,
-      bron: n.bron,
-      url: n.url,
-      zwaar: false,
-    })),
-  ]
-    .sort((a, b) => tijdWaarde(b.tijd) - tijdWaarde(a.tijd))
-    .slice(0, maxItems);
+  const toonNieuws = STAND_VAN_ZAKEN !== null;
 
-  const toonNieuws = items.length > 0;
-
-  // Meld het aantal nieuwsitems terug aan de ouder, zodat de handgreep van de
-  // uitschuifbare zijkolom een teller kan tonen ("Nieuws (3)").
+  // Meld het aantal gebronde nieuwsuitspraken terug aan de ouder, zodat de
+  // handgreep van de uitschuifbare zijkolom een teller kan tonen ("Nieuws (8)").
   useEffect(() => {
-    onAantal?.(items.length);
-  }, [items.length, onAantal]);
+    onAantal?.(NIEUWS_AANTAL);
+  }, [onAantal]);
 
   return (
     <div className={styles.zijkolom}>
-      {toonNieuws && (
+      {toonNieuws && STAND_VAN_ZAKEN && (
         <section className={styles.sectie}>
           <button
             type="button"
@@ -199,40 +180,39 @@ export default function Zijkolom({
             aria-controls="zijkolom-nieuws"
             onClick={() => setNieuwsOpen((v) => !v)}
           >
-            <span className={styles.kopTitel}>Nieuws ({items.length})</span>
+            <span className={styles.kopTitel}>Nieuws ({NIEUWS_AANTAL})</span>
             <span className={styles.chevron} aria-hidden="true">
               {nieuwsOpen ? "−" : "+"}
             </span>
           </button>
           <div className={`${styles.wikkel} ${nieuwsOpen ? styles.open : ""}`}>
-            <div
-              id="zijkolom-nieuws"
-              role="region"
-              aria-label="Nieuws"
-              className={styles.inhoud}
-            >
-              <ul className={styles.nieuwsLijst}>
-                {items.map((item, i) => (
-                  <li
-                    key={`${item.url ?? item.tekst}-${i}`}
-                    className={`${styles.nieuwsItem} ${item.zwaar ? styles.zwaar : ""}`}
-                  >
-                    <span className={styles.nieuwsTijd}>{formatteerNieuwsTijd(item.tijd)}</span>
-                    <span className={styles.nieuwsTekst}>
-                      {item.url ? (
-                        <a href={item.url} target="_blank" rel="noopener noreferrer">
-                          {item.tekst}
-                        </a>
-                      ) : (
-                        item.tekst
-                      )}
-                      {item.bron ? (
-                        <span className={styles.nieuwsBron}> · {item.bron}</span>
-                      ) : null}
-                    </span>
-                  </li>
+            <div id="zijkolom-nieuws" role="region" aria-label="Nieuws" className={styles.inhoud}>
+              <div className={styles.stand}>
+                <p className={styles.standDatum}>{STAND_VAN_ZAKEN.titel}</p>
+                <p className={styles.standInleiding}>
+                  {STAND_VAN_ZAKEN.inleiding.tekst}{" "}
+                  <BronLink bron={STAND_VAN_ZAKEN.inleiding.bron} />
+                </p>
+                {STAND_VAN_ZAKEN.blokken.map((blok, bi) => (
+                  <div key={bi} className={styles.standBlok}>
+                    <h3 className={styles.standKop}>{blok.kop}</h3>
+                    {blok.paragraaf && (
+                      <p className={styles.standParagraaf}>
+                        {blok.paragraaf.tekst} <BronLink bron={blok.paragraaf.bron} />
+                      </p>
+                    )}
+                    {blok.punten && (
+                      <ul className={styles.standLijst}>
+                        {blok.punten.map((punt, pi) => (
+                          <li key={pi}>
+                            {punt.tekst} <BronLink bron={punt.bron} />
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
           </div>
         </section>
@@ -293,42 +273,6 @@ export default function Zijkolom({
       </section>
     </div>
   );
-}
-
-function tijdWaarde(iso: string | null): number {
-  if (!iso) return 0;
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? t : 0;
-}
-
-function formatteerNieuwsTijd(iso: string | null): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const nu = new Date();
-  const zelfdeDag =
-    d.getUTCFullYear() === nu.getUTCFullYear() &&
-    d.getUTCMonth() === nu.getUTCMonth() &&
-    d.getUTCDate() === nu.getUTCDate();
-  if (zelfdeDag) {
-    return new Intl.DateTimeFormat("nl-NL", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Europe/Paris",
-    }).format(d);
-  }
-  const gisteren = new Date(nu);
-  gisteren.setUTCDate(nu.getUTCDate() - 1);
-  const isGisteren =
-    d.getUTCFullYear() === gisteren.getUTCFullYear() &&
-    d.getUTCMonth() === gisteren.getUTCMonth() &&
-    d.getUTCDate() === gisteren.getUTCDate();
-  if (isGisteren) return "gisteren";
-  return new Intl.DateTimeFormat("nl-NL", {
-    day: "numeric",
-    month: "short",
-    timeZone: "Europe/Paris",
-  }).format(d);
 }
 
 function formatteerVolledig(iso: string): string {
