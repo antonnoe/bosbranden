@@ -40,10 +40,20 @@ export interface StandRegel {
   bron: StandBron;
 }
 
+// Een praktische verwijzing is uitdrukkelijk géén feitclaim: het is een losse
+// nuttige link zonder cijfer of bewering. Bewust een aparte soort regel, zodat
+// claims en praktische links in het datamodel gescheiden blijven (en de link
+// niet als bron wordt meegeteld).
+export interface PraktischeLink {
+  tekst: string;
+  url: string;
+}
+
 export interface StandBlok {
   kop: string;
   paragraaf?: StandRegel; // doorlopende alinea met één bron
   punten?: StandRegel[]; // opsomming, elk punt met een eigen bron
+  praktischeLinks?: PraktischeLink[]; // losse verwijzingen, geen feitclaim
 }
 
 export interface StandVanZaken {
@@ -88,13 +98,6 @@ export const STAND_VAN_ZAKEN: StandVanZaken | null = {
             url: "https://www.vrt.be/vrtnws/nl/liveblog/branden-rond-bordeaux-overwegend-stabiel-gebleven-~1783176592077/",
           },
         },
-        {
-          tekst: "Het vuur sprong in de nacht door van Saumos naar het grondgebied van Le Porge.",
-          bron: {
-            label: "Atmo",
-            url: "https://www.atmo-nouvelleaquitaine.org/actualite/incendies-en-gironde-et-dans-les-landes-suivi-de-la-qualite-de-lair",
-          },
-        },
       ],
     },
     {
@@ -123,9 +126,15 @@ export const STAND_VAN_ZAKEN: StandVanZaken | null = {
           tekst:
             "De A63 is tussen Bordeaux en Bayonne in beide richtingen dicht; de prefect roept toeristen op niet te komen en, indien al aanwezig, te overwegen te vertrekken.",
           bron: {
-            label: "ANWB",
-            url: "https://www.anwb.nl/verkeer/nieuws/buitenland/2026/juli/bosbranden-frankrijk",
+            label: "NOS",
+            url: "https://nos.nl/liveblog/2624302-al-54-brandweerlieden-gewond-in-gironde-toeristen-moeten-wegblijven-uit-gironde",
           },
+        },
+      ],
+      praktischeLinks: [
+        {
+          tekst: "Actuele wegafsluitingen Frankrijk, Spanje en Portugal — ANWB",
+          url: "https://www.anwb.nl/verkeer/nieuws/buitenland/2026/juli/bosbranden-frankrijk",
         },
       ],
     },

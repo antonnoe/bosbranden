@@ -210,6 +210,22 @@ export default function Zijkolom({
                         ))}
                       </ul>
                     )}
+                    {blok.praktischeLinks && (
+                      <ul className={styles.standPraktischLijst}>
+                        {blok.praktischeLinks.map((link, li) => (
+                          <li key={li}>
+                            <a
+                              className={styles.standPraktisch}
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {link.tekst}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
                 ))}
               </div>

@@ -191,6 +191,31 @@
   text-decoration: underline;
 }
 
+/* Praktische verwijzing (geen feitclaim): een gewone link, los onderaan. */
+.standPraktischLijst {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.standPraktisch {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primair);
+  text-decoration: none;
+}
+
+.standPraktisch::before {
+  content: "→ ";
+  color: var(--primair-55);
+  font-weight: 400;
+}
+
+.standPraktisch:hover {
+  text-decoration: underline;
+}
+
 /* ---- Verantwoording ---- */
 .verantwoordingInhoud {
   display: flex;
