@@ -1,156 +1,99 @@
 import { NextResponse } from "next/server";
+import { NIEUWSBRONNEN, type Nieuwsbron } from "@/data/nieuwsbronnen";
+import {
+  bouwAllowlist,
+  filterBron,
+  MAX_PER_GROEP,
+  parseerFeed,
+  sorteerNieuwsteBoven,
+  type BronStatus,
+  type NieuwsAntwoord,
+  type NieuwsItem,
+} from "@/lib/nieuws-filter";
 
-export const revalidate = 900;
+export const revalidate = 900; // 15 minuten
 
-const ZOEKOPDRACHT =
-  '("feu de forêt" OR "feux de forêt" OR "incendie de forêt" OR "incendie forêt") France when:7d';
-const FEED_URL = `https://news.google.com/rss/search?q=${encodeURIComponent(
-  ZOEKOPDRACHT
-)}&hl=fr&gl=FR&ceid=FR:fr`;
+const FEED_TIMEOUT_MS = 8000;
 
-interface NieuwsItem {
-  titel: string;
-  url: string;
-  bron: string;
-  gepubliceerdOp: string | null;
+interface BronResultaat {
+  bron: Nieuwsbron;
+  ok: boolean;
+  items: NieuwsItem[];
 }
 
 export async function GET() {
-  try {
-    const reactie = await fetch(FEED_URL, {
-      headers: {
-        "User-Agent": "Infofrankrijk-Bosbranden/1.0",
-        Accept: "application/rss+xml, application/xml, text/xml",
-      },
-      next: { revalidate: 900 },
-    });
+  const nu = Date.now();
+  const nuIso = new Date(nu).toISOString();
+  const allowlist = bouwAllowlist(NIEUWSBRONNEN);
 
-    if (!reactie.ok) {
-      throw new Error(`Nieuwsfeed gaf HTTP ${reactie.status}.`);
-    }
+  const resultaten = await Promise.all(
+    NIEUWSBRONNEN.map((bron) => haalBron(bron, allowlist, nu))
+  );
 
-    const xml = await reactie.text();
-    const items = parseerItems(xml).slice(0, 5);
+  // Groepen samenstellen, chronologisch (nieuwste boven), max 8 per groep.
+  const officieel = sorteerNieuwsteBoven(
+    resultaten.filter((r) => r.bron.soort === "officieel").flatMap((r) => r.items)
+  ).slice(0, MAX_PER_GROEP);
+  const pers = sorteerNieuwsteBoven(
+    resultaten.filter((r) => r.bron.soort === "pers").flatMap((r) => r.items)
+  ).slice(0, MAX_PER_GROEP);
 
-    return NextResponse.json(
-      {
-        beschikbaar: true,
-        items,
-        bijgewerkt: new Date().toISOString(),
-        bron: "Google Nieuws RSS",
-        zoekperiodeDagen: 7,
-      },
-      {
-        headers: {
-          "Cache-Control": "public, s-maxage=900, stale-while-revalidate=900",
-        },
-      }
-    );
-  } catch (fout) {
-    return NextResponse.json(
-      {
-        beschikbaar: false,
-        items: [],
-        bijgewerkt: null,
-        bron: "Google Nieuws RSS",
-        zoekperiodeDagen: 7,
-        fout: fout instanceof Error ? fout.message : "Onbekende fout.",
-        opmerking: "Actueel nieuws is tijdelijk niet beschikbaar.",
-      },
-      { status: 502 }
-    );
-  }
-}
+  // Per-bron status. `aantal` telt de items die deze bron in de GETOONDE
+  // (afgekapte) groepen bijdraagt, zodat de statusregel klopt met wat je ziet.
+  const getoond = new Set([...officieel, ...pers]);
+  const bronnen: BronStatus[] = resultaten.map((r) => ({
+    naam: r.bron.naam,
+    soort: r.bron.soort,
+    regio: r.bron.regio,
+    bevestigd: r.bron.bevestigd,
+    ok: r.ok,
+    aantal: r.items.filter((item) => getoond.has(item)).length,
+    tijdstip: nuIso,
+  }));
 
-function parseerItems(xml: string): NieuwsItem[] {
-  const blokken = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)];
-  const gezien = new Set<string>();
-  const items: NieuwsItem[] = [];
+  const eenGeslaagd = resultaten.some((r) => r.ok);
 
-  for (const match of blokken) {
-    const blok = match[1];
-    const bron = schoonTekst(leesTag(blok, "source")) || "Onbekende nieuwsbron";
-    let titel = schoonTekst(leesTag(blok, "title"));
-    const url = schoonTekst(leesTag(blok, "link"));
-    const pubDate = schoonTekst(leesTag(blok, "pubDate"));
+  const antwoord: NieuwsAntwoord = {
+    officieel,
+    pers,
+    bronnen,
+    bijgewerkt: nuIso,
+    laatstGeslaagd: eenGeslaagd ? nuIso : null,
+  };
 
-    if (!titel || !isVeiligeUrl(url)) continue;
-
-    const bronSuffix = ` - ${bron}`;
-    if (titel.endsWith(bronSuffix)) {
-      titel = titel.slice(0, -bronSuffix.length).trim();
-    }
-
-    const sleutel = titel.toLocaleLowerCase("fr-FR").replace(/\s+/g, " ").trim();
-    if (gezien.has(sleutel)) continue;
-    gezien.add(sleutel);
-
-    const datum = pubDate ? new Date(pubDate) : null;
-    items.push({
-      titel,
-      url,
-      bron,
-      gepubliceerdOp:
-        datum && !Number.isNaN(datum.getTime()) ? datum.toISOString() : null,
-    });
-  }
-
-  return items.sort((a, b) => {
-    const tijdA = a.gepubliceerdOp ? Date.parse(a.gepubliceerdOp) : 0;
-    const tijdB = b.gepubliceerdOp ? Date.parse(b.gepubliceerdOp) : 0;
-    return tijdB - tijdA;
+  return NextResponse.json(antwoord, {
+    headers: {
+      "Cache-Control": "public, s-maxage=900, stale-while-revalidate=900",
+    },
   });
 }
 
-function leesTag(blok: string, tag: string): string {
-  const patroon = new RegExp(
-    `<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`,
-    "i"
-  );
-  return blok.match(patroon)?.[1] ?? "";
-}
-
-function schoonTekst(waarde: string): string {
-  return decodeerXml(
-    waarde
-      .replace(/^<!\[CDATA\[([\s\S]*?)\]\]>$/i, "$1")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-  );
-}
-
-function decodeerXml(waarde: string): string {
-  const benoemd: Record<string, string> = {
-    amp: "&",
-    apos: "'",
-    gt: ">",
-    lt: "<",
-    quot: '"',
-    nbsp: " ",
-  };
-
-  return waarde.replace(
-    /&(#x[\da-f]+|#\d+|[a-z]+);/gi,
-    (volledig, code: string) => {
-      if (code.startsWith("#x")) {
-        const getal = Number.parseInt(code.slice(2), 16);
-        return Number.isFinite(getal) ? String.fromCodePoint(getal) : volledig;
-      }
-      if (code.startsWith("#")) {
-        const getal = Number.parseInt(code.slice(1), 10);
-        return Number.isFinite(getal) ? String.fromCodePoint(getal) : volledig;
-      }
-      return benoemd[code.toLowerCase()] ?? volledig;
-    }
-  );
-}
-
-function isVeiligeUrl(waarde: string): boolean {
+async function haalBron(
+  bron: Nieuwsbron,
+  allowlist: Set<string>,
+  nu: number
+): Promise<BronResultaat> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FEED_TIMEOUT_MS);
   try {
-    const url = new URL(waarde);
-    return url.protocol === "https:" || url.protocol === "http:";
+    const reactie = await fetch(bron.url, {
+      headers: {
+        "User-Agent": "Infofrankrijk-Bosbranden/1.0",
+        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
+      },
+      signal: controller.signal,
+      next: { revalidate: 900 },
+    });
+    if (!reactie.ok) {
+      return { bron, ok: false, items: [] };
+    }
+    const xml = await reactie.text();
+    const ruw = parseerFeed(xml);
+    const items = filterBron(ruw, bron, allowlist, nu);
+    return { bron, ok: true, items };
   } catch {
-    return false;
+    return { bron, ok: false, items: [] };
+  } finally {
+    clearTimeout(timer);
   }
 }

@@ -1,0 +1,232 @@
+/* Weergave van de twee nieuwsgroepen + bronstatus. Twee thema's via
+   data-thema: "donker" (zijlade, wit op #800000) en "licht" (kaartblok,
+   #800000 op licht). Alle kleuren staan expliciet; niets leunt op overerving.
+   Lange koppen en URL's breken netjes af (geen horizontale overschrijding). */
+
+.wrap {
+  text-align: left;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.status {
+  margin: 8px 0;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.wrap[data-thema="donker"] .status,
+.waarschuwing {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ---- Groep ---- */
+.groep {
+  margin-top: 12px;
+}
+
+.groep:first-of-type {
+  margin-top: 0;
+}
+
+.groepKop {
+  margin: 0 0 6px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.lijst {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.item {
+  padding: 8px 0;
+  line-height: 1.5;
+  border-top: 1px solid transparent;
+}
+
+.item + .item {
+  border-top-color: currentColor;
+}
+
+.item a {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.item a:hover,
+.item a:focus-visible {
+  text-decoration: underline;
+}
+
+.meta {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.74rem;
+}
+
+.paywall {
+  font-style: italic;
+}
+
+/* ---- Bronstatus ---- */
+.bronnen {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px solid currentColor;
+  font-size: 0.78rem;
+}
+
+.bronnen summary {
+  cursor: pointer;
+  font-family: "Poppins", sans-serif;
+  font-weight: 600;
+}
+
+.bronnenLijst {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bronRegel {
+  line-height: 1.4;
+}
+
+.bronNaam {
+  display: block;
+  font-weight: 600;
+}
+
+.bronMeta {
+  display: block;
+  font-size: 0.72rem;
+}
+
+.ok {
+  font-weight: 600;
+}
+
+.mislukt {
+  font-weight: 600;
+}
+
+/* ---- Thema DONKER (zijlade: wit op bordeaux) ---- */
+.wrap[data-thema="donker"] {
+  color: #ffffff;
+}
+
+.wrap[data-thema="donker"] .groepKop,
+.wrap[data-thema="donker"] .item a,
+.wrap[data-thema="donker"] .bronNaam,
+.wrap[data-thema="donker"] .bronnen summary {
+  color: #ffffff;
+}
+
+.wrap[data-thema="donker"] .item a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+  text-underline-offset: 2px;
+}
+
+.wrap[data-thema="donker"] .meta,
+.wrap[data-thema="donker"] .bronMeta {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.wrap[data-thema="donker"] .item + .item {
+  border-top-color: rgba(255, 255, 255, 0.18);
+}
+
+.wrap[data-thema="donker"] .bronnen {
+  border-top-color: rgba(255, 255, 255, 0.18);
+}
+
+.wrap[data-thema="donker"] .waarschuwing {
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.wrap[data-thema="donker"] .ok {
+  color: #b8f0c8;
+}
+
+.wrap[data-thema="donker"] .mislukt {
+  color: #ffc9c9;
+}
+
+.wrap[data-thema="donker"] .item a:focus-visible,
+.wrap[data-thema="donker"] .bronnen summary:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* ---- Thema LICHT (kaartblok: bordeaux op licht) ---- */
+.wrap[data-thema="licht"] {
+  color: #332727;
+}
+
+.wrap[data-thema="licht"] .groepKop {
+  color: #800000;
+}
+
+.wrap[data-thema="licht"] .item a {
+  color: #800000;
+}
+
+.wrap[data-thema="licht"] .meta,
+.wrap[data-thema="licht"] .bronMeta {
+  color: rgba(51, 39, 39, 0.7);
+}
+
+.wrap[data-thema="licht"] .item + .item {
+  border-top-color: rgba(128, 0, 0, 0.1);
+}
+
+.wrap[data-thema="licht"] .bronnen {
+  border-top-color: rgba(128, 0, 0, 0.14);
+  color: rgba(51, 39, 39, 0.85);
+}
+
+.wrap[data-thema="licht"] .bronnen summary,
+.wrap[data-thema="licht"] .bronNaam {
+  color: #800000;
+}
+
+.wrap[data-thema="licht"] .waarschuwing {
+  color: #7a2a2a;
+}
+
+.wrap[data-thema="licht"] .status {
+  color: rgba(51, 39, 39, 0.8);
+}
+
+.wrap[data-thema="licht"] .ok {
+  color: #1f7a3d;
+}
+
+.wrap[data-thema="licht"] .mislukt {
+  color: #a11212;
+}
+
+.waarschuwing {
+  margin: 0 0 10px;
+  padding: 7px 9px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  background: rgba(128, 0, 0, 0.06);
+}
+
+.wrap[data-thema="donker"] .waarschuwing {
+  background: rgba(255, 255, 255, 0.1);
+}

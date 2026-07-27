@@ -8,6 +8,7 @@ import { niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
 import { isNuActueel, type FrAlertAntwoord, type FrAlertMelding } from "@/lib/fr-alert";
 import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
+import { useNieuws, Nieuwsgroepen } from "@/components/Nieuws";
 import styles from "@/components/Waarnemingen.module.css";
 import clusterStyles from "@/components/KaartClusters.module.css";
 import laagStyles from "@/components/BrandLagen.module.css";
@@ -29,20 +30,6 @@ interface Camera {
 interface SchermPunt {
   x: number;
   y: number;
-}
-
-interface NieuwsItem {
-  titel: string;
-  url: string;
-  bron: string;
-  gepubliceerdOp: string | null;
-}
-
-interface NieuwsAntwoord {
-  beschikbaar: boolean;
-  items: NieuwsItem[];
-  bijgewerkt: string | null;
-  opmerking?: string;
 }
 
 interface GeprojecteerdeWaarneming {
@@ -112,8 +99,8 @@ export default function FranceKaart({
   const [frAlertLaden, setFrAlertLaden] = useState(false);
   const [gekozenMeldingId, setGekozenMeldingId] = useState<string | null>(null);
   const [nieuwsOpen, setNieuwsOpen] = useState(false);
-  const [nieuws, setNieuws] = useState<NieuwsAntwoord | null>(null);
-  const [nieuwsLaden, setNieuwsLaden] = useState(false);
+  // Nieuws wordt pas opgehaald (en ververst zich pas) zodra het blok open is.
+  const nieuws = useNieuws(nieuwsOpen);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const pointersRef = useRef(new Map<number, SchermPunt>());
@@ -371,30 +358,8 @@ export default function FranceKaart({
     setCamera({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
   }
 
-  async function wisselNieuws() {
-    if (nieuwsOpen) {
-      setNieuwsOpen(false);
-      return;
-    }
-
-    setNieuwsOpen(true);
-    if (nieuws || nieuwsLaden) return;
-
-    setNieuwsLaden(true);
-    try {
-      const res = await fetch("/api/nieuws", { cache: "no-store" });
-      const json: NieuwsAntwoord = await res.json();
-      setNieuws(json);
-    } catch {
-      setNieuws({
-        beschikbaar: false,
-        items: [],
-        bijgewerkt: null,
-        opmerking: "Actueel nieuws is tijdelijk niet beschikbaar.",
-      });
-    } finally {
-      setNieuwsLaden(false);
-    }
+  function wisselNieuws() {
+    setNieuwsOpen((huidig) => !huidig);
   }
 
   const filterUitleg =
@@ -1052,29 +1017,7 @@ export default function FranceKaart({
             >
               Officiële FR-Alert-waarschuwingen
             </a>
-            {nieuwsLaden && <p className={styles.nieuwsStatus}>Nieuws laden…</p>}
-            {!nieuwsLaden && (!nieuws?.beschikbaar || nieuws.items.length === 0) && (
-              <p className={styles.nieuwsStatus}>
-                {nieuws?.opmerking ?? "Er zijn momenteel geen recente berichten gevonden."}
-              </p>
-            )}
-            {!nieuwsLaden && nieuws?.beschikbaar && nieuws.items.length > 0 && (
-              <ol className={styles.nieuwsLijst}>
-                {nieuws.items.map((item) => (
-                  <li key={`${item.url}-${item.titel}`}>
-                    <a href={item.url} target="_blank" rel="noopener noreferrer">
-                      {item.titel}
-                    </a>
-                    <span>
-                      {item.bron}
-                      {item.gepubliceerdOp
-                        ? ` · ${formatteerNieuwsDatum(item.gepubliceerdOp)}`
-                        : ""}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            )}
+            <Nieuwsgroepen haal={nieuws} thema="licht" />
             <p className={styles.nieuwsNoot}>
               Nieuwsberichten zijn geen officiële veiligheidswaarschuwingen. Volg bij gevaar
               FR-Alert, de prefectuur en de hulpdiensten.
@@ -1127,18 +1070,6 @@ function formatteerDatum(iso: string): string {
   return new Intl.DateTimeFormat("nl-NL", {
     dateStyle: "medium",
     timeStyle: "short",
-    timeZone: "Europe/Paris",
-  }).format(d);
-}
-
-function formatteerNieuwsDatum(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return new Intl.DateTimeFormat("nl-NL", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
     timeZone: "Europe/Paris",
   }).format(d);
 }
