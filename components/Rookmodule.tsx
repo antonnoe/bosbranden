@@ -11,6 +11,7 @@ import LeafletKaart, {
   type LeafletModule,
 } from "@/components/kaart/LeafletKaart";
 import type * as LT from "leaflet";
+import { departementVoorPostcode } from "@/lib/departements";
 import Voortgang from "@/components/Voortgang";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import styles from "@/components/Rookmodule.module.css";
@@ -136,6 +137,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [smal, setSmal] = useState(false);
 
   const [postcode, setPostcode] = useState("");
+  const [gezochtePostcode, setGezochtePostcode] = useState("");
   const [postcodeAntwoord, setPostcodeAntwoord] = useState<PostcodeAntwoord | null>(null);
   const [postcodeLaden, setPostcodeLaden] = useState(false);
 
@@ -481,6 +483,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       });
       return;
     }
+    setGezochtePostcode(cijfers);
     setPostcodeLaden(true);
     setPostcodeAntwoord(null);
     try {
@@ -505,6 +508,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     const pc = new URLSearchParams(window.location.search).get("postcode")?.trim();
     if (!pc) return;
     setPostcode(pc);
+    setGezochtePostcode(pc);
     let actief = true;
     setPostcodeLaden(true);
     setPostcodeAntwoord(null);
@@ -572,8 +576,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
           <section className="sectie" aria-labelledby="postcode-titel">
             <h2 id="postcode-titel">Komt die rook naar mij toe?</h2>
             <p style={{ marginTop: 0 }}>
-              Vul een Franse postcode in (5 cijfers). Dan berekenen we of een van de pluimen in de
-              komende 24 uur boven uw departement komt.
+              Vul een Franse postcode in (5 cijfers). Dan berekenen we of een van de berekende
+              windbanen in de komende 24 uur boven uw departement komt.
             </p>
             <form className="postcode-vorm" noValidate onSubmit={zoekPostcode}>
               <label htmlFor="rook-postcode" style={{ position: "absolute", left: "-9999px" }}>
@@ -600,14 +604,14 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 }`}
                 role="status"
               >
-                {postcodeAntwoord.tekst}
+                {postcodeUitspraak(postcodeAntwoord, gezochtePostcode, pluimen.length)}
               </p>
             )}
           </section>
 
           <section className="sectie" aria-labelledby="kaart-titel">
             <h2 id="kaart-titel" style={{ marginBottom: 6 }}>
-              Kaart van de pluimen
+              Kaart van de berekende windbanen
             </h2>
             <p className={styles.status} aria-live="polite">
               {statusTekst(data)}
@@ -793,7 +797,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     step={1}
                     value={uur}
                     onChange={(e) => setUur(Number(e.target.value))}
-                    aria-label="Aantal uren dat de pluimen doorgroeien"
+                    aria-label="Aantal uren dat de berekende windbanen doorgroeien"
                   />
                 </div>
               )}
@@ -805,7 +809,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             </div>
 
             <p className={styles.kaartHint}>
-              Tip: klik of tik op een hittebron of een pluim voor de details. Zoomen en pannen met de
+              Tip: klik of tik op een hittebron of een berekende windbaan voor de details. Zoomen en pannen met de
               knoppen, slepen of het toetsenbord{embed ? " (klik eerst op de kaart)" : ""}.
             </p>
 
@@ -894,6 +898,47 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   );
 }
 
+// ---- Postcode-uitspraak: eerlijke formulering, zonder de rekenlogica te raken ----
+// De berekening (rookdrift.ts) blijft ongewijzigd; we hergebruiken alleen zijn
+// uitkomsten (status, treffer-ja/nee, het al berekende km-getal uit de tekst) en
+// het aantal getekende windbanen, en formuleren de zin hier opnieuw. Onderwerp is
+// altijd een GEMETEN WARMTEBRON en een BEREKENDE WINDBAAN — geen bevestigde brand —
+// en industriële warmtebronnen worden expliciet niet uitgesloten. Het afstandsgetal
+// meet de dichtstbijzijnde berekende windbaan (zie minAfstandTotDepartementKm).
+function postcodeUitspraak(
+  antwoord: PostcodeAntwoord,
+  gezochtePostcode: string,
+  aantalWindbanen: number
+): string {
+  const res = departementVoorPostcode(gezochtePostcode);
+  const dep = res.type === "ok" ? res.departementen.map((d) => d.naam).join(" / ") : "uw departement";
+
+  if (antwoord.status === "buiten-metropole") {
+    return "Deze module dekt alleen Frankrijk métropole (incl. Corsica). Voor de overzeese gebieden zijn geen berekende windbanen beschikbaar.";
+  }
+  if (antwoord.status === "geen-pluimen") {
+    return `Er zijn nu geen berekende windbanen, dus er komt niets richting ${dep}.`;
+  }
+  if (antwoord.status !== "ok") {
+    // ongeldig / onbekend / fout: bevatten geen brand- of pluimterminologie.
+    return antwoord.tekst;
+  }
+  if (antwoord.bronId) {
+    // Treffer: één of meer windbanen komen boven het departement.
+    return `Eén of meer berekende windbanen komen in de komende 24 uur boven ${dep}. Dit is een berekende windbaan vanaf een gemeten warmtebron, geen rookmodel en geen bevestigde brand. Industriële warmtebronnen worden niet uitgesloten. Volg bij een brand altijd FR-Alert en de instructies van prefectuur en mairie.`;
+  }
+  // Geen treffer. Hergebruik het al berekende km-getal uit de brontekst.
+  const kmMatch = antwoord.tekst.match(/ongeveer\s+(\d+)\s*km/);
+  const afstandZin = kmMatch
+    ? ` De dichtstbijzijnde berekende windbaan ligt op ongeveer ${kmMatch[1]} km.`
+    : "";
+  const aanhef =
+    aantalWindbanen === 1
+      ? `De enige berekende windbaan komt in de komende 24 uur niet boven ${dep}.`
+      : `Geen van de ${aantalWindbanen} berekende windbanen komt in de komende 24 uur boven ${dep}.`;
+  return `${aanhef}${afstandZin} Let op: dit is een satellietmeting van een warmtebron, geen door de autoriteiten bevestigde brand. Industriële warmtebronnen zoals raffinaderijen en staalfabrieken worden niet uitgesloten.`;
+}
+
 // ---- Schuifpaneel van onderen (smalle schermen) ----
 
 function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
@@ -905,7 +950,7 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
         className={styles.sheet}
         style={{ transform: sleep ? `translateY(${sleep}px)` : undefined }}
         role="dialog"
-        aria-label={`Details pluim vanaf ${pluim.bronDepartement ?? "een hittebron"}`}
+        aria-label={`Details berekende windbaan vanaf ${pluim.bronDepartement ?? "een hittebron"}`}
         onClick={(e) => e.stopPropagation()}
         onTouchStart={(e) => {
           startY.current = e.touches[0].clientY;
@@ -922,7 +967,7 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
         <div className={styles.sheetGreep} aria-hidden="true" />
         <div className={styles.sheetKop}>
           <h3>
-            Pluim vanaf {pluim.bronDepartement ?? "een hittebron"}{" "}
+            Berekende windbaan vanaf {pluim.bronDepartement ?? "een hittebron"}{" "}
             {pluim.bronDepartementCode ? (
               <span className={styles.code}>{pluim.bronDepartementCode}</span>
             ) : null}
@@ -950,8 +995,10 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
           <span>{pluim.kmOphoogte} km in 24 uur</span>
         </div>
         <p className={styles.paneelNoot}>
-          Een cluster van detecties is één brandhaard, niet één brand per detectie. FRP is het
-          geschatte uitgestraalde vermogen en zegt niets over het verbrande oppervlak.
+          Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is
+          geen bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden
+          en vaste industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet
+          het verbrande oppervlak.
         </p>
       </div>
     </div>
@@ -963,7 +1010,7 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
 function bouwPopupHtml(p: Pluim): string {
   const rij = (label: string, waarde: string) =>
     `<div class="rij"><span class="label">${escapeHtml(label)}</span><span>${escapeHtml(waarde)}</span></div>`;
-  const kop = `Pluim vanaf ${p.bronDepartement ?? "een hittebron"}${
+  const kop = `Berekende windbaan vanaf ${p.bronDepartement ?? "een hittebron"}${
     p.bronDepartementCode ? ` <span class="code">${escapeHtml(p.bronDepartementCode)}</span>` : ""
   }`;
   return (
@@ -975,7 +1022,7 @@ function bouwPopupHtml(p: Pluim): string {
     rij("Driftrichting", p.richting || "onbekend") +
     rij("Afgelegd (leefniveau)", `${p.kmLeefniveau} km / 24u`) +
     rij("Afgelegd (op hoogte)", `${p.kmOphoogte} km / 24u`) +
-    `<p class="noot">Een cluster is één brandhaard, niet één brand per detectie. FRP zegt niets over het verbrande oppervlak.</p>` +
+    `<p class="noot">Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is geen bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden en vaste industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet het verbrande oppervlak.</p>` +
     `</div>`
   );
 }
@@ -1054,14 +1101,16 @@ function verplaats(lat: number, lon: number, koersGraden: number, km: number): [
 
 function statusTekst(data: Antwoord | null): string {
   if (!data) return "Gegevens laden…";
-  if (!data.beschikbaar) return data.opmerking ?? "De pluimen zijn tijdelijk niet beschikbaar.";
-  if (data.pluimen.length === 0) return data.opmerking ?? "Er zijn geen pluimen om te tekenen.";
+  if (!data.beschikbaar)
+    return data.opmerking ?? "De berekende windbanen zijn tijdelijk niet beschikbaar.";
+  if (data.pluimen.length === 0)
+    return data.opmerking ?? "Er zijn geen berekende windbanen om te tekenen.";
   if (!data.windBeschikbaar)
     return (
       data.opmerking ?? "De hittebronnen worden getoond; de windbanen zijn tijdelijk niet beschikbaar."
     );
   const n = data.pluimen.length;
-  return `${n} ${n === 1 ? "pluim" : "pluimen"} berekend vanaf de grootste gedetecteerde hittebronnen. Een groot brandcomplex krijgt meerdere oorsprongen langs de vuurlijn.`;
+  return `${n} ${n === 1 ? "windbaan" : "windbanen"} berekend vanaf de sterkste gemeten warmtebronnen. Eén uitgestrekte brand levert meerdere oorsprongen op; industriële warmtebronnen worden niet uitgesloten.`;
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
