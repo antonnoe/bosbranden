@@ -122,6 +122,16 @@
   cursor: grabbing;
 }
 
+/* Zoomkader (shift-slepen): rechthoek die het te vergroten gebied toont. */
+.zoomKader {
+  position: absolute;
+  z-index: 14;
+  pointer-events: none;
+  border: 1.5px dashed #800000;
+  background: rgba(128, 0, 0, 0.1);
+  border-radius: 2px;
+}
+
 .zoomBediening {
   position: absolute;
   z-index: 15;

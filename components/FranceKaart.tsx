@@ -120,6 +120,11 @@ export default function FranceKaart({
   }>({ laatsteMidden: null, laatsteAfstand: null });
   const wasDraggingRef = useRef(false);
   const startPuntRef = useRef<SchermPunt | null>(null);
+  // Zoomkader (shift-slepen met de muis): startpunt en het getekende kader.
+  const boxZoomRef = useRef<SchermPunt | null>(null);
+  const [zoomKader, setZoomKader] = useState<
+    { left: number; top: number; breedte: number; hoogte: number } | null
+  >(null);
 
   // Deep-link: pas de beginlaag toe zodra de ouder hem (na mount) doorgeeft.
   // Alleen de laag zelf; het vinkje wordt door de ouder gestuurd (de intentie
@@ -434,6 +439,35 @@ export default function FranceKaart({
     });
   }
 
+  // Zoom naar een met shift-slepen getekend kader (in pixels t.o.v. het svg-vlak).
+  function zoomNaarKader(
+    bx0: number,
+    by0: number,
+    bw: number,
+    bh: number,
+    rect: DOMRect
+  ) {
+    if (bw <= 0 || bh <= 0) return;
+    setClusterSelectie(null);
+    setGekozenMeldingId(null);
+    setCamera((huidig) => {
+      const zbBreedte = kaartBreedte / huidig.zoom;
+      const zbHoogte = kaartHoogte / huidig.zoom;
+      const mw = (bw / rect.width) * zbBreedte;
+      const mh = (bh / rect.height) * zbHoogte;
+      const mcx = huidig.x + ((bx0 + bw / 2) / rect.width) * zbBreedte;
+      const mcy = huidig.y + ((by0 + bh / 2) / rect.height) * zbHoogte;
+      const zoom = begrens(
+        Math.min(kaartBreedte / mw, kaartHoogte / mh),
+        MIN_ZOOM,
+        MAX_ZOOM
+      );
+      const nb = kaartBreedte / zoom;
+      const nh = kaartHoogte / zoom;
+      return begrensCamera({ zoom, x: mcx - nb / 2, y: mcy - nh / 2 });
+    });
+  }
+
   function opClusterGeklikt(cluster: ClusterMarker) {
     // Eén klik opent direct de lijst met metingen — geen automatische zoom, geen
     // camerasprong. Zoomen blijft handmatig via de knoppen en slepen.
@@ -601,6 +635,16 @@ export default function FranceKaart({
             }}
             onPointerDown={(e) => {
               if (e.button !== 0 && e.pointerType === "mouse") return;
+              // Shift-slepen met de muis opent een zoomkader; de gewone pan/pinch
+              // loopt dan niet mee (deze pointer komt niet in pointersRef).
+              if (e.pointerType === "mouse" && e.shiftKey) {
+                e.preventDefault();
+                boxZoomRef.current = { x: e.clientX, y: e.clientY };
+                setZoomKader(null);
+                wasDraggingRef.current = false;
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+                return;
+              }
               const punt = { x: e.clientX, y: e.clientY };
               pointersRef.current.set(e.pointerId, punt);
               startPuntRef.current = punt;
@@ -608,6 +652,19 @@ export default function FranceKaart({
               registreerPointers();
             }}
             onPointerMove={(e) => {
+              // Bezig met een zoomkader: teken het en sla de pan-logica over.
+              if (boxZoomRef.current) {
+                const rect = svgRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                const s = boxZoomRef.current;
+                setZoomKader({
+                  left: Math.min(s.x, e.clientX) - rect.left,
+                  top: Math.min(s.y, e.clientY) - rect.top,
+                  breedte: Math.abs(e.clientX - s.x),
+                  hoogte: Math.abs(e.clientY - s.y),
+                });
+                return;
+              }
               if (!pointersRef.current.has(e.pointerId)) return;
               const vorige = pointersRef.current.get(e.pointerId);
               const huidigPunt = { x: e.clientX, y: e.clientY };
@@ -694,6 +751,27 @@ export default function FranceKaart({
               }
             }}
             onPointerUp={(e) => {
+              // Zoomkader afronden: naar het getekende gebied zoomen.
+              if (boxZoomRef.current) {
+                const start = boxZoomRef.current;
+                boxZoomRef.current = null;
+                setZoomKader(null);
+                e.currentTarget.releasePointerCapture?.(e.pointerId);
+                const rect = svgRef.current?.getBoundingClientRect();
+                if (rect) {
+                  const bx0 = Math.min(start.x, e.clientX) - rect.left;
+                  const by0 = Math.min(start.y, e.clientY) - rect.top;
+                  const bw = Math.abs(e.clientX - start.x);
+                  const bh = Math.abs(e.clientY - start.y);
+                  // Minimale sleepafstand, anders is het eerder een klik.
+                  if (bw > 12 && bh > 12) {
+                    // Voorkom dat de navolgende click de popup sluit.
+                    wasDraggingRef.current = true;
+                    zoomNaarKader(bx0, by0, bw, bh, rect);
+                  }
+                }
+                return;
+              }
               pointersRef.current.delete(e.pointerId);
               startPuntRef.current = null;
               registreerPointers();
@@ -704,6 +782,12 @@ export default function FranceKaart({
               registreerPointers();
             }}
             onPointerCancel={(e) => {
+              if (boxZoomRef.current) {
+                boxZoomRef.current = null;
+                setZoomKader(null);
+                e.currentTarget.releasePointerCapture?.(e.pointerId);
+                return;
+              }
               pointersRef.current.delete(e.pointerId);
               startPuntRef.current = null;
               registreerPointers();
@@ -870,6 +954,19 @@ export default function FranceKaart({
                 );
               })}
           </svg>
+
+          {zoomKader && zoomKader.breedte > 2 && zoomKader.hoogte > 2 && (
+            <div
+              className={styles.zoomKader}
+              style={{
+                left: `${zoomKader.left}px`,
+                top: `${zoomKader.top}px`,
+                width: `${zoomKader.breedte}px`,
+                height: `${zoomKader.hoogte}px`,
+              }}
+              aria-hidden="true"
+            />
+          )}
 
           {(satellietUit || geenHittebronnen || geenClusters || geenMeldingen) && (
             <div className={styles.laagMelding} role="status">
@@ -1169,7 +1266,8 @@ export default function FranceKaart({
 
         <p className={styles.zoomUitleg}>
           Klik op een genummerde cirkel voor de lijst met metingen in dat gebied. Zoomen doet u
-          zelf met de plus- en minknop of door te slepen; de kaart blijft binnen het kader.
+          zelf met de plus- en minknop, met dubbelklik, of door met shift een zoomkader te slepen;
+          pannen door te slepen. De kaart blijft binnen het kader.
         </p>
 
         <details className={clusterStyles.viirsUitleg}>

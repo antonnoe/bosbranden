@@ -69,6 +69,12 @@ export interface Pluim {
   laatsteDetectie: string;
   bronDepartement: string | null;
   bronDepartementCode: string | null;
+  // Uuroffset van het EERSTE padpunt t.o.v. nu (≤ 0): het moment waarop deze
+  // hittebron werd waargenomen. Padpunt i hoort bij nu + (beginOffset + i) uur.
+  // Het "nu"-punt (offset 0) staat dus op index −beginOffset. De client tekent
+  // het deel vóór nu doorgetrokken (gemeten wind) en het deel ná nu gestippeld
+  // (verwachte wind), en toont een bron pas als beginOffset ≤ schuifstand.
+  beginOffset: number;
   leefniveau: Array<[number, number]>; // [lon, lat] per uur
   ophoogte: Array<[number, number]>;
   kmLeefniveau: number;
@@ -138,6 +144,11 @@ async function haalWindveldOp(): Promise<Windveld> {
     "hourly",
     "wind_speed_10m,wind_direction_10m,wind_speed_850hPa,wind_direction_850hPa"
   );
+  // past_days=1 haalt óók het reeds verstreken etmaal op (de geanalyseerde/
+  // gemeten wind), zodat een detectie van maximaal 24 uur oud vanaf haar eigen
+  // waarnemingstijd kan worden nagerekend en de tijdschuif tot −12 uur terug kan.
+  // forecast_days=2 geeft de vooruitblik tot +24 uur vanaf nu.
+  url.searchParams.set("past_days", "1");
   url.searchParams.set("forecast_days", "2");
   url.searchParams.set("timezone", "UTC");
   url.searchParams.set("cell_selection", "nearest");
@@ -254,20 +265,27 @@ function monsterWind(veld: Windveld, lat: number, lon: number, h: number): WindM
 
 // ---- Trajectintegratie (voorwaartse Euler, 1-uursstappen) ----
 
+// Integreert het luchttraject van uurindex `vanIndex` (de waarnemingstijd van de
+// bron) tot uurindex `totIndex` (nu + 24 uur). Padpunt 0 ligt op de bron; elk
+// volgend punt is één uur later. Zo ontstaat één doorlopende baan die zowel het
+// reeds verstreken deel (gemeten/geanalyseerde wind, vóór nu) als de vooruitblik
+// (verwachte wind, ná nu) bevat — de client knipt en kleurt op het "nu"-punt.
 function integreerTraject(
   startLat: number,
   startLon: number,
   veld: Windveld,
-  startIndex: number,
+  vanIndex: number,
+  totIndex: number,
   opHoogte: boolean
 ): Array<[number, number]> {
   const pad: Array<[number, number]> = [[rond(startLon), rond(startLat)]];
   let lat = startLat;
   let lon = startLon;
 
-  for (let stap = 0; stap < STAPPEN; stap += 1) {
-    const t = stap; // uren sinds vrijkomen
-    const w = monsterWind(veld, lat, lon, startIndex + stap);
+  const eind = Math.min(totIndex, veld.tijden.length - 1);
+  for (let idx = vanIndex; idx < eind; idx += 1) {
+    const t = idx - vanIndex; // uren sinds vrijkomen bij de bron
+    const w = monsterWind(veld, lat, lon, idx);
 
     let u = w.u10;
     let v = w.v10;
@@ -285,6 +303,19 @@ function integreerTraject(
   }
 
   return pad;
+}
+
+// Uurindex in het windveld van de waarnemingstijd van een cluster, afgekapt op
+// het venster en nooit ná nu (een detectie ligt altijd in het verleden).
+function detectieIndex(veld: Windveld, isoTijd: string, startIndex: number): number {
+  const d = new Date(isoTijd);
+  if (Number.isNaN(d.getTime())) return startIndex;
+  d.setUTCMinutes(0, 0, 0);
+  const sleutel = d.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:00"
+  const idx = veld.tijden.indexOf(sleutel);
+  // Ouder dan het venster (of niet gevonden): begin ten hoogste 24 uur terug.
+  if (idx < 0) return Math.max(0, startIndex - STAPPEN);
+  return Math.min(Math.max(idx, startIndex - STAPPEN), startIndex);
 }
 
 function padLengteKm(pad: Array<[number, number]>): number {
@@ -589,18 +620,27 @@ export async function berekenPluimen(): Promise<PluimenResultaat> {
   }
 
   const startIndex = Math.max(0, veld.tijden.indexOf(startuur.slice(0, 16)));
+  const totIndex = startIndex + STAPPEN; // nu + 24 uur
 
   const pluimen: Pluim[] = clusters.map((c, index) => {
     const basis = bronPluimen[index];
-    const leef = integreerTraject(c.lat, c.lon, veld, startIndex, false);
-    const hoog = integreerTraject(c.lat, c.lon, veld, startIndex, true);
+    const vanIndex = detectieIndex(veld, c.laatsteDetectie, startIndex);
+    const beginOffset = vanIndex - startIndex; // ≤ 0
+    const nuIndex = -beginOffset; // index van het "nu"-punt in de baan
+    const leef = integreerTraject(c.lat, c.lon, veld, vanIndex, totIndex, false);
+    const hoog = integreerTraject(c.lat, c.lon, veld, vanIndex, totIndex, true);
+    // km en driftrichting meten we over het toekomstige deel (nu → +24 uur),
+    // zodat "… km in 24 uur" en de richting op de verwachting slaan.
+    const leefToekomst = leef.slice(nuIndex);
+    const hoogToekomst = hoog.slice(nuIndex);
     return {
       ...basis,
+      beginOffset,
       leefniveau: leef,
       ophoogte: hoog,
-      kmLeefniveau: padLengteKm(leef),
-      kmOphoogte: padLengteKm(hoog),
-      richting: kompasRichting(leef),
+      kmLeefniveau: padLengteKm(leefToekomst),
+      kmOphoogte: padLengteKm(hoogToekomst),
+      richting: kompasRichting(leefToekomst),
     };
   });
 
@@ -624,6 +664,7 @@ function maakBasisPluim(c: Cluster): Pluim {
     laatsteDetectie: c.laatsteDetectie,
     bronDepartementCode: code,
     bronDepartement: code ? DEP_BY_CODE[code]?.naam ?? null : null,
+    beginOffset: 0,
     leefniveau: [],
     ophoogte: [],
     kmLeefniveau: 0,
@@ -675,11 +716,15 @@ export function bepaalPostcodeAntwoord(
 
   let beste: { uur: number; pluim: Pluim; modus: Windmodus } | null = null;
 
+  // De postcode-check is vooruitkijkend ("in de komende 24 uur"): we lopen
+  // alleen het toekomstige deel van elke baan af, vanaf het "nu"-punt.
   for (const pluim of metPad) {
+    const nuIndex = -pluim.beginOffset;
     for (const modus of WINDMODUS) {
       const pad = pluim[modus];
-      for (let uur = 0; uur < pad.length; uur += 1) {
-        const [lon, lat] = pad[uur];
+      for (let i = Math.max(0, nuIndex); i < pad.length; i += 1) {
+        const uur = i - nuIndex; // uren vanaf nu
+        const [lon, lat] = pad[i];
         const code = vindDepartementCode(lat, lon);
         if (code && codes.has(code)) {
           if (!beste || uur < beste.uur) beste = { uur, pluim, modus };
@@ -752,8 +797,11 @@ function minAfstandTotDepartementKm(pluimen: Pluim[], codes: Set<string>): numbe
 
   let min = Infinity;
   for (const pluim of pluimen) {
+    const nuIndex = Math.max(0, -pluim.beginOffset);
     for (const modus of WINDMODUS) {
-      for (const [lon, lat] of pluim[modus]) {
+      const pad = pluim[modus];
+      for (let i = nuIndex; i < pad.length; i += 1) {
+        const [lon, lat] = pad[i];
         for (const doel of doelen) {
           const d = haversineKm(lat, lon, doel.lat, doel.lon);
           if (d < min) min = d;

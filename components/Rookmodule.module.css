@@ -46,11 +46,29 @@
    Leaflet-eigen bediening (zoom/attributie) en onder popups/sheet. */
 .datumBalk,
 .laagPaneel,
-.legenda,
-.tijdBalk {
+.onderBalk {
   position: absolute;
   z-index: 640;
   font-family: "Mulish", sans-serif;
+}
+
+/* ---- Onderrij: legenda (links) + tijdschuif (rechts), nooit overlappend ----
+   Links/rechts ingespannen, onderaan verankerd. Op smalle vensters breekt de
+   rij af zodat de schuif ónder de legenda valt; de tijdschuif krijgt een
+   max-breedte die de bediening (zijladerail/attributie) rechtsonder vrijhoudt. */
+.onderBalk {
+  left: 8px;
+  right: 8px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  pointer-events: none;
+}
+
+.onderBalk > * {
+  pointer-events: auto;
 }
 
 /* ---- Datumbanner (klein, linksboven, náást de zoomknoppen) ---- */
@@ -220,10 +238,9 @@
   color: var(--primair-80);
 }
 
-/* ---- Legenda (linksonder) ---- */
+/* ---- Legenda (linksonder, in de onderrij) ---- */
 .legenda {
-  bottom: 24px;
-  left: 8px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -265,23 +282,38 @@
   border: 1px solid rgba(108, 34, 132, 0.5);
 }
 
-/* ---- Tijdschuif (balk onderin, over de kaart) ---- */
+/* Gemeten wind: doorgetrokken lijn. Verwachte wind: gestippelde lijn. */
+.legGemeten {
+  height: 0 !important;
+  border-radius: 0 !important;
+  border-top: 3px solid #800000;
+}
+
+.legVerwacht {
+  height: 0 !important;
+  border-radius: 0 !important;
+  border-top: 3px dashed #800000;
+  opacity: 0.7;
+}
+
+/* ---- Tijdschuif (balk in de onderrij, rechts van de legenda) ---- */
 .tijdBalk {
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(440px, calc(100% - 130px));
+  flex: 1 1 260px;
+  /* laat rechtsonder ruimte voor de attributie/zijladerail, ook als de rij
+     afbreekt en de schuif op een eigen regel valt */
+  max-width: min(440px, calc(100% - 120px));
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 14px;
-  border-radius: 999px;
+  padding: 6px 16px 8px;
+  border-radius: 20px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 2px 10px rgba(128, 0, 0, 0.18);
 }
 
 .tijdLabel {
   flex: 0 0 auto;
+  min-width: 3.4em;
   font-family: "Poppins", sans-serif;
   font-size: 0.78rem;
   font-weight: 600;
@@ -289,10 +321,46 @@
   white-space: nowrap;
 }
 
-.tijdBalk input[type="range"] {
+.schuifWrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding-top: 13px; /* ruimte voor het "nu"-merk boven de track */
+}
+
+.schuifWrap input[type="range"] {
   flex: 1;
   width: 100%;
+  margin: 0;
   accent-color: var(--primair);
+}
+
+/* "nu"-markering op zijn eigen positie op de balk (het bereik is niet
+   symmetrisch, dus geen middenpositie). */
+.nuMerk {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  font-family: "Poppins", sans-serif;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--primair);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.nuMerk::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 9px;
+  transform: translateX(-50%);
+  background: var(--primair);
+  opacity: 0.65;
 }
 
 /* ====================================================================

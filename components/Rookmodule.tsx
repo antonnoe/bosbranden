@@ -19,6 +19,11 @@ import styles from "@/components/Rookmodule.module.css";
 const DEG = Math.PI / 180;
 const AARDE_KM = 6371;
 
+// Tijdschuif: −12 uur (terugblik) t/m +24 uur (vooruitblik). De grens tussen
+// gemeten en verwachte wind ligt altijd bij nu (0), waar de schuif ook staat.
+const SCHUIF_MIN = -12;
+const SCHUIF_MAX = 24;
+
 const LAAD_FASEN = [
   "Satellietwaarnemingen ophalen bij NASA FIRMS…",
   "Windveld ophalen bij Open-Meteo…",
@@ -67,6 +72,7 @@ interface Pluim {
   laatsteDetectie: string;
   bronDepartement: string | null;
   bronDepartementCode: string | null;
+  beginOffset: number; // uuroffset van het eerste padpunt t.o.v. nu (≤ 0)
   leefniveau: Array<[number, number]>;
   ophoogte: Array<[number, number]>;
   kmLeefniveau: number;
@@ -110,7 +116,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
 
-  const [uur, setUur] = useState(24); // begin op +24u (een baan op t=0 heeft lengte nul); schuif loopt van 0 (nu) t/m 24
+  const [uur, setUur] = useState(24); // schuif loopt van −12 (12 u geleden) t/m +24 u; begint op +24u (de volle vooruitblik blijft behouden)
   const [modus, setModus] = useState<Windmodus>("leefniveau");
   const [gekozenId, setGekozenId] = useState<string | null>(null);
   const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);
@@ -132,7 +138,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [geoLaden, setGeoLaden] = useState(false);
   const [geoFout, setGeoFout] = useState(false);
 
-  const [dekking, setDekking] = useState(70);
+  const [dekking, setDekking] = useState(40); // standaard lager, zodat de onderliggende kaart zichtbaar blijft; schuif loopt tot 100
   const [lagenOpen, setLagenOpen] = useState(!embed);
   const [smal, setSmal] = useState(false);
 
@@ -275,7 +281,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     setKaart({ map, L });
   }, []);
 
-  // ---- Pluimen (polylijn) + onzekerheidskegel (polygoon) ----
+  // ---- Pluimen: gemeten deel (doorgetrokken) + verwacht deel (gestippeld,
+  // met onzekerheidskegel). De grens ligt altijd bij nu, waar de schuif ook staat.
   useEffect(() => {
     if (!kaart) return;
     const { map, L } = kaart;
@@ -285,23 +292,45 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         const geo = bouwPluimGeo(pluim, modus, uur);
         if (!geo) continue;
         const isGekozen = pluim.id === gekozenId;
-        L.polygon(geo.kegel, {
-          pane: "kegels",
-          color: "rgba(128,0,0,0.28)",
-          weight: 1,
-          fillColor: "#800000",
-          fillOpacity: isGekozen ? 0.18 : 0.1,
-          interactive: false,
-        }).addTo(groep);
-        const lijn = L.polyline(geo.latlngs, {
-          pane: "pluimen",
-          color: "#800000",
-          weight: isGekozen ? 3 : 2,
-          opacity: isGekozen ? 1 : 0.75,
-          dashArray: isGekozen ? undefined : "5 6",
-        });
-        lijn.on("click", (e: LT.LeafletMouseEvent) => kies(pluim.id, [e.latlng.lat, e.latlng.lng]));
-        lijn.addTo(groep);
+        const klik = (e: LT.LeafletMouseEvent) => kies(pluim.id, [e.latlng.lat, e.latlng.lng]);
+
+        // Onzekerheidskegel: alleen over het verwachte (toekomstige) deel.
+        if (geo.kegel.length >= 3) {
+          L.polygon(geo.kegel, {
+            pane: "kegels",
+            color: "rgba(128,0,0,0.28)",
+            weight: 1,
+            fillColor: "#800000",
+            fillOpacity: isGekozen ? 0.18 : 0.1,
+            interactive: false,
+          }).addTo(groep);
+        }
+
+        // Gemeten wind (vóór nu): doorgetrokken lijn.
+        if (geo.solid.length >= 2) {
+          const lijn = L.polyline(geo.solid, {
+            pane: "pluimen",
+            color: "#800000",
+            weight: isGekozen ? 3.5 : 2.5,
+            opacity: isGekozen ? 1 : 0.85,
+          });
+          lijn.on("click", klik);
+          lijn.addTo(groep);
+        }
+
+        // Verwachte wind (ná nu): gestippeld en lichter.
+        if (geo.dashed && geo.dashed.length >= 2) {
+          const lijn = L.polyline(geo.dashed, {
+            pane: "pluimen",
+            color: "#800000",
+            weight: isGekozen ? 3 : 2,
+            opacity: isGekozen ? 0.9 : 0.6,
+            dashArray: "5 6",
+          });
+          lijn.on("click", klik);
+          lijn.addTo(groep);
+        }
+
         L.circleMarker(geo.eind, {
           pane: "pluimen",
           radius: 4,
@@ -324,6 +353,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     const { map, L } = kaart;
     const groep = L.layerGroup().addTo(map);
     for (const pluim of pluimen) {
+      // Een bron bestaat pas zodra hij is waargenomen: toon hem alleen als de
+      // schuifstand op of ná zijn waarnemingstijd ligt (beginOffset ≤ uur).
+      if (data?.windBeschikbaar && uur < pluim.beginOffset) continue;
       const isGekozen = pluim.id === gekozenId;
       const label = `Hittebron${pluim.bronDepartement ? ` in ${pluim.bronDepartement}` : ""}, ${pluim.detecties} detecties — klik voor details`;
       const icon = L.divIcon({
@@ -350,7 +382,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     return () => {
       map.removeLayer(groep);
     };
-  }, [kaart, pluimen, gekozenId, kies]);
+  }, [kaart, pluimen, gekozenId, kies, uur, data]);
 
   // ---- Fijnstoflaag ----
   useEffect(() => {
@@ -358,7 +390,10 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     const { map, L } = kaart;
     const groep = L.layerGroup().addTo(map);
     for (const punt of fijnstof.grid) {
-      const waarde = punt.pm25[Math.min(uur, punt.pm25.length - 1)];
+      // Fijnstof is een CAMS-vooruitblik vanaf nu; voor schuifstanden in het
+      // verleden (uur < 0) tonen we de waarde van nu.
+      const idx = Math.min(Math.max(uur, 0), punt.pm25.length - 1);
+      const waarde = punt.pm25[idx];
       if (waarde == null) continue;
       const klasse = pm25KlasseIndex(waarde);
       if (klasse < 0) continue;
@@ -677,9 +712,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             {data?.windBeschikbaar && (
               <p className={styles.horizon} aria-live="polite">
                 <span aria-hidden="true" className={styles.horizonPunt} />
-                {uur === 0
-                  ? "Toont: nu — de bronnen, nog geen windbaan"
-                  : `Toont: verwachte positie over ${uur} uur`}
+                {horizonTekst(uur)}
                 {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
               </p>
             )}
@@ -835,39 +868,61 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 )}
               </div>
 
-              {/* Legenda linksonder */}
-              <div className={styles.legenda}>
-                <span>
-                  <i className={styles.legKegel} /> onzekerheid richting
-                </span>
-                <span>
-                  <i className={styles.legBron} /> hittebron
-                </span>
-                {toonFijnstof && (
+              {/* Onderrij: legenda + tijdschuif in één rij, zodat ze elkaar
+                  nooit bedekken en de zijladerail/attributie vrij blijven. */}
+              <div className={styles.onderBalk}>
+                <div className={styles.legenda}>
+                  {data?.windBeschikbaar && (
+                    <>
+                      <span>
+                        <i className={styles.legGemeten} /> gemeten wind
+                      </span>
+                      <span>
+                        <i className={styles.legVerwacht} /> verwachte wind
+                      </span>
+                    </>
+                  )}
                   <span>
-                    <i className={styles.legFijnstof} /> PM2.5
+                    <i className={styles.legKegel} /> onzekerheid richting
                   </span>
+                  <span>
+                    <i className={styles.legBron} /> hittebron
+                  </span>
+                  {toonFijnstof && (
+                    <span>
+                      <i className={styles.legFijnstof} /> PM2.5
+                    </span>
+                  )}
+                </div>
+
+                {/* Tijdschuif: −12 (verleden) t/m +24 (vooruitblik), nu gemarkeerd */}
+                {data?.windBeschikbaar && (
+                  <div className={styles.tijdBalk}>
+                    <span className={styles.tijdLabel}>
+                      {tijdLabel(uur)}
+                      {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
+                    </span>
+                    <div className={styles.schuifWrap}>
+                      <span
+                        className={styles.nuMerk}
+                        style={{ left: `${((0 - SCHUIF_MIN) / (SCHUIF_MAX - SCHUIF_MIN)) * 100}%` }}
+                        aria-hidden="true"
+                      >
+                        nu
+                      </span>
+                      <input
+                        type="range"
+                        min={SCHUIF_MIN}
+                        max={SCHUIF_MAX}
+                        step={1}
+                        value={uur}
+                        onChange={(e) => setUur(Number(e.target.value))}
+                        aria-label="Tijdstip: van 12 uur geleden tot 24 uur vooruit"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
-
-              {/* Tijdschuif als balk onderin */}
-              {data?.windBeschikbaar && (
-                <div className={styles.tijdBalk}>
-                  <span className={styles.tijdLabel}>
-                    {uur === 0 ? "nu" : `+${uur} u`}
-                    {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
-                  </span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={24}
-                    step={1}
-                    value={uur}
-                    onChange={(e) => setUur(Number(e.target.value))}
-                    aria-label="Aantal uren dat de berekende windbanen doorgroeien"
-                  />
-                </div>
-              )}
 
               {/* In-kaart-melding wanneer de geostationaire laag geen beeld levert */}
               {toonGeo && (geoFout || geoGeenBeeld) && (
@@ -920,8 +975,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             </div>
 
             <p className={styles.kaartHint}>
-              Tip: klik of tik op een hittebron of een berekende windbaan voor de details. Zoomen en pannen met de
-              knoppen, slepen of het toetsenbord{embed ? " (klik eerst op de kaart)" : ""}.
+              Tip: klik of tik op een hittebron of een berekende windbaan voor de details. Zoomen met de knoppen,
+              dubbelklik, of shift-slepen voor een zoomkader; pannen door te slepen of met het toetsenbord
+              {embed ? " (klik eerst op de kaart)" : ""}.
             </p>
 
             {toonGeo && geoTijden && (
@@ -1126,28 +1182,73 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
 
 // ---- Pluimgeometrie in geografische ruimte ----
 
+// Bouwt de geometrie voor schuifstand `uur` (−12..+24). Eén doorlopend model,
+// twee richtingen: het deel van de baan vóór nu is "gemeten" (doorgetrokken),
+// het deel ná nu "verwacht" (gestippeld, met onzekerheidskegel). Een baan is pas
+// zichtbaar als de bron op of vóór (nu + uur) is waargenomen (beginOffset ≤ uur).
 function bouwPluimGeo(
   pluim: Pluim,
   modus: Windmodus,
   uur: number
-): { latlngs: Array<[number, number]>; kegel: Array<[number, number]>; eind: [number, number] } | null {
+): {
+  solid: Array<[number, number]>;
+  dashed: Array<[number, number]> | null;
+  kegel: Array<[number, number]>;
+  eind: [number, number];
+} | null {
   const volledig = pluim[modus];
-  const n = Math.min(uur, volledig.length - 1) + 1;
-  const gesneden = volledig.slice(0, n);
-  if (gesneden.length < 2) return null;
+  if (volledig.length < 2) return null;
 
-  const latlngs = gesneden.map(([lon, lat]) => [lat, lon] as [number, number]);
+  const beginOffset = pluim.beginOffset; // ≤ 0
+  if (uur < beginOffset) return null; // nog niet waargenomen op dit moment
+  const nuIndex = -beginOffset; // index van het "nu"-punt in de baan
+  const eindIndex = Math.min(volledig.length - 1, uur - beginOffset);
+  if (eindIndex < 1) return null; // alleen het bronpunt: niets te tekenen
 
-  const halveBreedtes: number[] = [];
-  let cumKm = 0;
-  for (let i = 0; i < gesneden.length; i += 1) {
-    if (i > 0) {
-      cumKm += haversineKm(gesneden[i - 1][1], gesneden[i - 1][0], gesneden[i][1], gesneden[i][0]);
+  const naarLatLng = (van: number, tot: number): Array<[number, number]> =>
+    volledig.slice(van, tot + 1).map(([lon, lat]) => [lat, lon] as [number, number]);
+
+  // Gemeten deel: van de bron tot nu (of tot de schuifstand, als die vóór nu ligt).
+  const solidTot = Math.min(nuIndex, eindIndex);
+  const solid = naarLatLng(0, solidTot);
+
+  // Verwacht deel: van nu tot de schuifstand — alleen als die ná nu ligt.
+  let dashed: Array<[number, number]> | null = null;
+  let kegel: Array<[number, number]> = [];
+  if (eindIndex > nuIndex) {
+    const van = Math.max(0, nuIndex);
+    dashed = naarLatLng(van, eindIndex);
+    const halveBreedtes: number[] = [];
+    let cumKm = 0;
+    const toekomst = volledig.slice(van, eindIndex + 1);
+    for (let i = 0; i < toekomst.length; i += 1) {
+      if (i > 0) {
+        cumKm += haversineKm(
+          toekomst[i - 1][1],
+          toekomst[i - 1][0],
+          toekomst[i][1],
+          toekomst[i][0]
+        );
+      }
+      halveBreedtes.push(Math.max(8, 0.15 * cumKm));
     }
-    halveBreedtes.push(Math.max(8, 0.15 * cumKm));
+    kegel = bouwKegelGeo(dashed, halveBreedtes);
   }
 
-  return { latlngs, kegel: bouwKegelGeo(latlngs, halveBreedtes), eind: latlngs[latlngs.length - 1] };
+  const [lonE, latE] = volledig[eindIndex];
+  return { solid, dashed, kegel, eind: [latE, lonE] };
+}
+
+function tijdLabel(uur: number): string {
+  if (uur === 0) return "nu";
+  if (uur < 0) return `−${-uur} u`;
+  return `+${uur} u`;
+}
+
+function horizonTekst(uur: number): string {
+  if (uur === 0) return "Toont: nu";
+  if (uur < 0) return `Toont: ${-uur} uur geleden`;
+  return `Toont: verwachte positie over ${uur} uur`;
 }
 
 function bouwKegelGeo(

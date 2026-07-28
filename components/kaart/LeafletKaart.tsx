@@ -71,6 +71,10 @@ export default function LeafletKaart({ className, ariaLabel, coöperatief, onKaa
         zoomSnap: 0.5,
         zoomDelta: 0.5,
         wheelPxPerZoomLevel: 120,
+        // Dubbelklik zoomt in; shift-slepen opent een zoomkader. Een enkele klik
+        // blijft popups sluiten en pins selecteren (die logica zit in de ouder).
+        doubleClickZoom: true,
+        boxZoom: true,
         // Coöperatief in embed: wiel uit tot klik; op mobiel slepen uit tot tik.
         scrollWheelZoom: !coöp,
         dragging: !(coöp && mobiel),

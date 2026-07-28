@@ -13,6 +13,11 @@ const TOEGESTANE_LAGEN = new Set(["mtg_fd:rgb_dust", "mtg_fd:frp", "mtg_fd:rgb_f
 const STANDAARD_LAAG = "mtg_fd:rgb_dust";
 const STAP_MS = 10 * 60 * 1000; // tien minuten
 const AANTAL_FRAMES = 12; // twee uur
+// Geostationaire feeds lopen achter op hun eigen catalogus: het nieuwste
+// geadverteerde frame is vaak nog maar deels gepubliceerd (lappendeken van
+// tegels die wél/niet laden). We schuiven daarom het hele venster twee stappen
+// (20 min) terug, zodat het getoonde "laatste" frame doorgaans volledig is.
+const CATALOGUS_ACHTERSTAND_STAPPEN = 2;
 
 export async function GET(request: Request) {
   const gevraagd = new URL(request.url).searchParams.get("laag") ?? STANDAARD_LAAG;
@@ -30,17 +35,30 @@ export async function GET(request: Request) {
     const extent = leesTijdExtent(xml, laag);
     if (!extent) throw new Error("tijd-extent niet gevonden");
 
-    const laatste = bepaalLaatste(extent);
-    if (!laatste) throw new Error("laatste tijdstip niet af te leiden");
+    const catalogusLaatste = bepaalLaatste(extent);
+    if (!catalogusLaatste) throw new Error("laatste tijdstip niet af te leiden");
 
-    // Twaalf frames terug vanaf het laatst beschikbare tijdstip, oplopend in tijd.
+    // Schuif het venster terug op het (mogelijk nog niet volledig gepubliceerde)
+    // nieuwste catalogusframe, zodat de gaten in het beeld dichtgaan.
+    const laatste = new Date(
+      catalogusLaatste.getTime() - CATALOGUS_ACHTERSTAND_STAPPEN * STAP_MS
+    );
+
+    // Twaalf frames terug vanaf het gekozen tijdstip, oplopend in tijd.
     const reeks: string[] = [];
     for (let i = AANTAL_FRAMES - 1; i >= 0; i -= 1) {
       reeks.push(new Date(laatste.getTime() - i * STAP_MS).toISOString());
     }
 
     return Response.json(
-      { beschikbaar: true, laag, stapSeconden: STAP_MS / 1000, laatste: laatste.toISOString(), reeks },
+      {
+        beschikbaar: true,
+        laag,
+        stapSeconden: STAP_MS / 1000,
+        laatste: laatste.toISOString(),
+        catalogusLaatste: catalogusLaatste.toISOString(),
+        reeks,
+      },
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } }
     );
   } catch (err) {
