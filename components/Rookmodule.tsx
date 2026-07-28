@@ -110,7 +110,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
 
-  const [uur, setUur] = useState(0); // begin op "nu"; de schuif loopt door tot +24 u
+  const [uur, setUur] = useState(24); // begin op +24u (een baan op t=0 heeft lengte nul); schuif loopt van 0 (nu) t/m 24
   const [modus, setModus] = useState<Windmodus>("leefniveau");
   const [gekozenId, setGekozenId] = useState<string | null>(null);
   const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);
@@ -146,7 +146,11 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const gibsRef = useRef<LT.TileLayer | null>(null);
   const geoActiefRef = useRef<LT.TileLayer.WMS | null>(null);
   const geoVolgendRef = useRef<LT.TileLayer.WMS | null>(null);
-  const popupProgrammatischRef = useRef(false);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const bronKlikRef = useRef(0);
+
+  // Geostationaire laag: geen tegels? Dan zichtbaar melden i.p.v. leeg vlak.
+  const [geoGeenBeeld, setGeoGeenBeeld] = useState(false);
 
   // Smalle schermen (<600px): geen popup maar een schuifpaneel van onderen.
   useEffect(() => {
@@ -254,6 +258,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const gekozen = pluimen.find((p) => p.id === gekozenId) ?? null;
 
   const kies = useCallback((id: string, latlng: [number, number]) => {
+    bronKlikRef.current = performance.now(); // zodat de kaartklik-sluiter deze bronklik niet meteen sluit
     setKlikPunt(latlng);
     setGekozenId((h) => (h === id ? null : id));
   }, []);
@@ -413,7 +418,25 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     const volgend = maak(start, 0).addTo(map);
     geoActiefRef.current = actief;
     geoVolgendRef.current = volgend;
+
+    // Zichtbaar melden wanneer er voor dit tijdstip geen tegels terugkomen
+    // (bijv. een frame dat de bron nog niet publiceerde, of een projectie/
+    // -antwoord dat geen beeld oplevert). Nooit een stil leeg vlak.
+    setGeoGeenBeeld(false);
+    let gotTile = false;
+    const opLoad = () => {
+      gotTile = true;
+      setGeoGeenBeeld(false);
+    };
+    const opError = () => {
+      if (!gotTile) setGeoGeenBeeld(true);
+    };
+    actief.on("tileload", opLoad);
+    actief.on("tileerror", opError);
+
     return () => {
+      actief.off("tileload", opLoad);
+      actief.off("tileerror", opError);
       map.removeLayer(actief);
       map.removeLayer(volgend);
       geoActiefRef.current = null;
@@ -445,30 +468,64 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   }, [geoSpeelt, toonGeo, geoTijden]);
 
   // ---- Popup bij klik (breed scherm); smal scherm gebruikt het schuifpaneel ----
+  // Eigen HTML-overlay (geen Leaflet-popup): zo klemmen we hem — net als op de
+  // SVG-kaart — op zijn eigen afmetingen binnen het kaartvlak, houden we de
+  // zoomknoppen vrij, en stylen we label/waarde betrouwbaar met CSS-modules.
   useEffect(() => {
     if (!kaart || smal || !gekozen || !klikPunt) return;
-    const { map, L } = kaart;
-    const popup = L.popup({ maxWidth: 300, minWidth: 216, className: styles.pluimPopup, autoPanPadding: [26, 26] })
-      .setLatLng(klikPunt)
-      .setContent(bouwPopupHtml(gekozen))
-      .openOn(map);
-    const opClose = () => {
-      if (popupProgrammatischRef.current) return;
-      setGekozenId(null);
+    const { map } = kaart;
+    const el = popupRef.current;
+    if (!el) return;
+
+    const plaats = () => {
+      const houder = map.getContainer();
+      const cw = houder.clientWidth;
+      const ch = houder.clientHeight;
+      const pt = map.latLngToContainerPoint(klikPunt as unknown as LT.LatLngExpression);
+      const pw = el.offsetWidth;
+      const ph = el.offsetHeight;
+      const m = 10;
+      let left = pt.x - pw / 2;
+      let top = pt.y - ph - 16; // boven het punt…
+      if (top < m) top = pt.y + 16; // …anders eronder
+      left = Math.min(Math.max(left, m), Math.max(m, cw - pw - m));
+      top = Math.min(Math.max(top, m), Math.max(m, ch - ph - m));
+      // Zoomknoppen linksboven altijd vrijhouden.
+      const zoom = houder.querySelector(".leaflet-control-zoom");
+      if (zoom) {
+        const zr = zoom.getBoundingClientRect();
+        const hr = houder.getBoundingClientRect();
+        const zRight = zr.right - hr.left + m;
+        const zBottom = zr.bottom - hr.top + m;
+        if (left < zRight && top < zBottom) {
+          if (zRight + pw <= cw - m) left = zRight;
+          else top = Math.min(Math.max(zBottom, m), Math.max(m, ch - ph - m));
+        }
+      }
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+      el.style.visibility = "visible";
     };
-    map.on("popupclose", opClose);
-    // Escape sluit de popup, ook als de kaart niet de focus heeft (Leaflet's
-    // eigen closeOnEscapeKey werkt alleen bij focus op de kaart).
+
+    plaats();
+    map.on("move zoom resize viewreset zoomanim", plaats);
+    window.addEventListener("resize", plaats);
+
     const opEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") setGekozenId(null);
     };
+    // Klik náást de popup (op de kaartachtergrond) sluit; een bronklik niet.
+    const opKaartKlik = () => {
+      if (performance.now() - bronKlikRef.current < 120) return;
+      setGekozenId(null);
+    };
     window.addEventListener("keydown", opEscape);
+    map.on("click", opKaartKlik);
     return () => {
+      map.off("move zoom resize viewreset zoomanim", plaats);
+      map.off("click", opKaartKlik);
+      window.removeEventListener("resize", plaats);
       window.removeEventListener("keydown", opEscape);
-      map.off("popupclose", opClose);
-      popupProgrammatischRef.current = true;
-      if (map.hasLayer(popup)) map.closePopup(popup);
-      popupProgrammatischRef.current = false;
     };
   }, [kaart, gekozen, klikPunt, smal]);
 
@@ -617,6 +674,16 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               {statusTekst(data)}
             </p>
 
+            {data?.windBeschikbaar && (
+              <p className={styles.horizon} aria-live="polite">
+                <span aria-hidden="true" className={styles.horizonPunt} />
+                {uur === 0
+                  ? "Toont: nu — de bronnen, nog geen windbaan"
+                  : `Toont: verwachte positie over ${uur} uur`}
+                {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
+              </p>
+            )}
+
             {/* ---- Volvlak-kaart met zwevende bediening ---- */}
             <div className={styles.kaartVlak}>
               <LeafletKaart
@@ -697,7 +764,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                         if (toonGeo) setGeoSpeelt(false);
                       }}
                     >
-                      Geostationair — 10 min{toonGeo && geoLaden ? " …" : ""}
+                      Geostationair{toonGeo && geoLaden ? " …" : ""}
                     </button>
                     {toonSatelliet && satellietFout && (
                       <span className={styles.laagFout}>satelliet nu niet beschikbaar</span>
@@ -799,6 +866,50 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     onChange={(e) => setUur(Number(e.target.value))}
                     aria-label="Aantal uren dat de berekende windbanen doorgroeien"
                   />
+                </div>
+              )}
+
+              {/* In-kaart-melding wanneer de geostationaire laag geen beeld levert */}
+              {toonGeo && (geoFout || geoGeenBeeld) && (
+                <div className={styles.kaartMelding} role="status">
+                  {geoFout
+                    ? "Geostationair beeld is nu niet bereikbaar."
+                    : "Geen geostationair beeld voor dit tijdstip. Kies een ander frame met de tijdlus."}
+                </div>
+              )}
+
+              {/* Popup (breed scherm): eigen overlay, geklemd binnen het kaartvlak */}
+              {!smal && gekozen && klikPunt && (
+                <div
+                  ref={popupRef}
+                  className={styles.pluimPopup}
+                  style={{ visibility: "hidden" }}
+                  role="dialog"
+                  aria-label={`Details berekende windbaan vanaf ${gekozen.bronDepartement ?? "een hittebron"}`}
+                >
+                  <button
+                    type="button"
+                    className={styles.popupSluitKruis}
+                    aria-label="Sluiten"
+                    onClick={() => setGekozenId(null)}
+                  >
+                    ×
+                  </button>
+                  <h3 className={styles.popupKop}>
+                    Berekende windbaan vanaf {gekozen.bronDepartement ?? "een hittebron"}{" "}
+                    {gekozen.bronDepartementCode ? (
+                      <span className={styles.code}>{gekozen.bronDepartementCode}</span>
+                    ) : null}
+                  </h3>
+                  <PluimDetails pluim={gekozen} />
+                  <p className={styles.paneelNoot}>{PLUIM_NOOT}</p>
+                  <button
+                    type="button"
+                    className={styles.popupSluitOnder}
+                    onClick={() => setGekozenId(null)}
+                  >
+                    Sluiten
+                  </button>
                 </div>
               )}
 
@@ -939,6 +1050,36 @@ function postcodeUitspraak(
   return `${aanhef}${afstandZin} Let op: dit is een satellietmeting van een warmtebron, geen door de autoriteiten bevestigde brand. Industriële warmtebronnen zoals raffinaderijen en staalfabrieken worden niet uitgesloten.`;
 }
 
+// ---- Gedeelde detailinhoud (popup breed + schuifpaneel smal) ----
+
+const PLUIM_NOOT =
+  "Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is geen " +
+  "bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden en vaste " +
+  "industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet het verbrande oppervlak.";
+
+function PluimDetails({ pluim }: { pluim: Pluim }) {
+  return (
+    <div className={styles.detailGrid}>
+      <span className={styles.detailLabel}>Detecties</span>
+      <span>{pluim.detecties} VIIRS-detecties in dit cluster</span>
+      {pluim.frp != null && (
+        <>
+          <span className={styles.detailLabel}>FRP (som)</span>
+          <span>{formatteerGetal(pluim.frp)} MW</span>
+        </>
+      )}
+      <span className={styles.detailLabel}>Laatste detectie</span>
+      <span>{volledigeDatum(pluim.laatsteDetectie)}</span>
+      <span className={styles.detailLabel}>Driftrichting</span>
+      <span>{pluim.richting || "onbekend"}</span>
+      <span className={styles.detailLabel}>Afgelegd (leefniveau)</span>
+      <span>{pluim.kmLeefniveau} km in 24 uur</span>
+      <span className={styles.detailLabel}>Afgelegd (op hoogte)</span>
+      <span>{pluim.kmOphoogte} km in 24 uur</span>
+    </div>
+  );
+}
+
 // ---- Schuifpaneel van onderen (smalle schermen) ----
 
 function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
@@ -976,60 +1117,10 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
             ×
           </button>
         </div>
-        <div className={styles.detailGrid}>
-          <span className={styles.detailLabel}>Detecties</span>
-          <span>{pluim.detecties} VIIRS-detecties in dit cluster</span>
-          {pluim.frp != null && (
-            <>
-              <span className={styles.detailLabel}>FRP (som)</span>
-              <span>{formatteerGetal(pluim.frp)} MW</span>
-            </>
-          )}
-          <span className={styles.detailLabel}>Laatste detectie</span>
-          <span>{volledigeDatum(pluim.laatsteDetectie)}</span>
-          <span className={styles.detailLabel}>Driftrichting</span>
-          <span>{pluim.richting || "onbekend"}</span>
-          <span className={styles.detailLabel}>Afgelegd (leefniveau)</span>
-          <span>{pluim.kmLeefniveau} km in 24 uur</span>
-          <span className={styles.detailLabel}>Afgelegd (op hoogte)</span>
-          <span>{pluim.kmOphoogte} km in 24 uur</span>
-        </div>
-        <p className={styles.paneelNoot}>
-          Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is
-          geen bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden
-          en vaste industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet
-          het verbrande oppervlak.
-        </p>
+        <PluimDetails pluim={pluim} />
+        <p className={styles.paneelNoot}>{PLUIM_NOOT}</p>
       </div>
     </div>
-  );
-}
-
-// ---- Popup-inhoud (breed scherm) ----
-
-function bouwPopupHtml(p: Pluim): string {
-  const rij = (label: string, waarde: string) =>
-    `<div class="rij"><span class="label">${escapeHtml(label)}</span><span>${escapeHtml(waarde)}</span></div>`;
-  const kop = `Berekende windbaan vanaf ${p.bronDepartement ?? "een hittebron"}${
-    p.bronDepartementCode ? ` <span class="code">${escapeHtml(p.bronDepartementCode)}</span>` : ""
-  }`;
-  return (
-    `<div class="pluimPopupInhoud">` +
-    `<h3>${kop}</h3>` +
-    rij("Detecties", `${p.detecties} VIIRS-detecties`) +
-    (p.frp != null ? rij("FRP (som)", `${formatteerGetal(p.frp)} MW`) : "") +
-    rij("Laatste detectie", volledigeDatum(p.laatsteDetectie)) +
-    rij("Driftrichting", p.richting || "onbekend") +
-    rij("Afgelegd (leefniveau)", `${p.kmLeefniveau} km / 24u`) +
-    rij("Afgelegd (op hoogte)", `${p.kmOphoogte} km / 24u`) +
-    `<p class="noot">Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is geen bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden en vaste industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet het verbrande oppervlak.</p>` +
-    `</div>`
-  );
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) =>
-    c === "&" ? "&amp;" : c === "<" ? "&lt;" : c === ">" ? "&gt;" : c === '"' ? "&quot;" : "&#39;"
   );
 }
 

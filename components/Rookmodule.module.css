@@ -296,52 +296,117 @@
 }
 
 /* ====================================================================
-   Popup (breed scherm)
+   Popup (breed scherm): eigen HTML-overlay, geklemd binnen het kaartvlak
    ==================================================================== */
-.kaartVlak :global(.leaflet-popup-content-wrapper) {
+.pluimPopup {
+  position: absolute;
+  z-index: 900;
+  width: min(300px, calc(100% - 20px));
+  max-height: calc(100% - 20px);
+  overflow: auto;
+  padding: 12px 14px;
   border-radius: 10px;
-}
-
-.kaartVlak :global(.leaflet-popup-content) {
-  margin: 12px 14px;
+  background: #fff;
+  color: var(--tekst);
+  box-shadow: 0 8px 24px rgba(45, 25, 25, 0.24);
   font-family: "Mulish", sans-serif;
-  line-height: 1.6;
+  line-height: 1.55;
+  text-align: left;
 }
 
-.kaartVlak :global(.leaflet-popup-content) h3 {
-  margin: 0 0 8px;
+.popupKop {
+  margin: 0 40px 6px 0;
   font-family: "Poppins", sans-serif;
   font-size: 1rem;
   font-weight: 600;
   color: var(--primair);
 }
 
-.kaartVlak :global(.leaflet-popup-content) .code {
-  font-size: 0.78rem;
-  color: var(--primair-80);
-  font-weight: 600;
+/* Kruis rechtsboven (≥44px klikdoel) */
+.popupSluitKruis {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--primair);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.kaartVlak :global(.leaflet-popup-content) .rij {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-  font-size: 0.85rem;
-  padding: 1px 0;
+.popupSluitKruis:hover,
+.popupSluitKruis:focus-visible {
+  background: var(--primair-08);
+  outline: none;
 }
 
-.kaartVlak :global(.leaflet-popup-content) .label {
+/* Gelabelde sluitknop linksonder (≥44px), naast Escape en klik-ernaast */
+.popupSluitOnder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 18px;
+  border: 1.5px solid var(--primair-30);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primair);
   font-family: "Poppins", sans-serif;
-  font-size: 0.76rem;
   font-weight: 600;
-  color: var(--primair-80);
+  cursor: pointer;
 }
 
-.kaartVlak :global(.leaflet-popup-content) .noot {
-  margin: 8px 0 0;
-  font-size: 0.77rem;
-  color: var(--primair-80);
-  line-height: 1.5;
+.popupSluitOnder:hover,
+.popupSluitOnder:focus-visible {
+  background: var(--primair-08);
+  outline: none;
+}
+
+/* In-kaart-melding (bijv. geen geostationair beeld): nooit een stil leeg vlak */
+.kaartMelding {
+  position: absolute;
+  z-index: 660;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(320px, calc(100% - 24px));
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 10px rgba(128, 0, 0, 0.18);
+  font-family: "Mulish", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--primair);
+  text-align: center;
+}
+
+/* Horizonregel boven de kaart, beweegt mee met de tijdschuif */
+.horizon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primair);
+}
+
+.horizonPunt {
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--primair);
 }
 
 /* ====================================================================

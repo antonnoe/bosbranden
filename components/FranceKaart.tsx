@@ -20,7 +20,7 @@ const MIN_ZOOM = 1;
 const MAX_ZOOM = 5;
 const SLEEPDREMPEL = 6;
 
-type Weergave = "alle" | "waarschijnlijk" | "officieel";
+type Weergave = "alle" | "geclusterd" | "officieel";
 
 interface Camera {
   x: number;
@@ -82,6 +82,8 @@ export default function FranceKaart({
   toonWaarnemingen,
   gekozenWaarneming,
   onKiesWaarneming,
+  beginWeergave,
+  onVraagWaarnemingen,
 }: {
   niveaus: Niveaus;
   echeance: "j1" | "j2";
@@ -91,11 +93,15 @@ export default function FranceKaart({
   toonWaarnemingen: boolean;
   gekozenWaarneming: string | null;
   onKiesWaarneming: (id: string) => void;
+  // Beginlaag (uit de deep-link), expliciet op laagsleutel i.p.v. DOM-klik.
+  beginWeergave?: Weergave;
+  // Vraag de ouder de satellietwaarnemingen aan te zetten (checkbox volgt de laag).
+  onVraagWaarnemingen?: () => void;
 }) {
   const [kaartX, kaartY, kaartBreedte, kaartHoogte] = KAART_VIEWBOX.split(" ").map(Number);
   const [camera, setCamera] = useState<Camera>({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
   const [clusterSelectie, setClusterSelectie] = useState<ClusterSelectie | null>(null);
-  const [weergave, setWeergave] = useState<Weergave>("alle");
+  const [weergave, setWeergave] = useState<Weergave>(beginWeergave ?? "alle");
   const [frAlert, setFrAlert] = useState<FrAlertAntwoord | null>(null);
   const [frAlertLaden, setFrAlertLaden] = useState(false);
   const [gekozenMeldingId, setGekozenMeldingId] = useState<string | null>(null);
@@ -114,6 +120,25 @@ export default function FranceKaart({
   }>({ laatsteMidden: null, laatsteAfstand: null });
   const wasDraggingRef = useRef(false);
   const startPuntRef = useRef<SchermPunt | null>(null);
+
+  // Deep-link: pas de beginlaag toe zodra de ouder hem (na mount) doorgeeft.
+  // Alleen de laag zelf; het vinkje wordt door de ouder gestuurd (de intentie
+  // bepaalt of de satellietwaarnemingen aan of uit staan).
+  const beginToegepastRef = useRef(false);
+  useEffect(() => {
+    if (beginToegepastRef.current || !beginWeergave) return;
+    beginToegepastRef.current = true;
+    setWeergave(beginWeergave);
+  }, [beginWeergave]);
+
+  // Sluit de open kaartpopup. Werkt voor cluster, waarneming, melding én
+  // departement — de ouder toggelt de laatste twee via onKiesWaarneming/onKies.
+  const sluitPopups = () => {
+    setClusterSelectie(null);
+    setGekozenMeldingId(null);
+    if (gekozenWaarneming) onKiesWaarneming(gekozenWaarneming);
+    if (gekozen) onKies(gekozen);
+  };
 
   useEffect(() => {
     if (weergave !== "officieel" || frAlert) return;
@@ -155,7 +180,7 @@ export default function FranceKaart({
   );
   const gefilterdeWaarnemingen = useMemo(() => {
     if (weergave === "officieel") return [];
-    if (weergave === "waarschijnlijk") {
+    if (weergave === "geclusterd") {
       return waarnemingen.filter((waarneming) => waarneming.waarschijnlijkNatuurbrand);
     }
     return waarnemingen;
@@ -335,6 +360,17 @@ export default function FranceKaart({
       let top = pinY + 18;
       if (top + ph > vpRect.height - marge) top = pinY - 18 - ph;
       top = Math.min(Math.max(top, marge), Math.max(marge, vpRect.height - ph - marge));
+      // Zoomknoppen (linksboven in het kaartvlak) altijd vrijhouden.
+      const zoom = vp.querySelector('[aria-label="Kaart in- en uitzoomen"]');
+      if (zoom) {
+        const zr = zoom.getBoundingClientRect();
+        const zRight = zr.right - vpRect.left + marge;
+        const zBottom = zr.bottom - vpRect.top + marge;
+        if (left < zRight && top < zBottom) {
+          if (zRight + pw <= linksMax) left = zRight;
+          else top = Math.min(Math.max(zBottom, marge), Math.max(marge, vpRect.height - ph - marge));
+        }
+      }
       setPopupPos({ left, top });
     };
     plaats();
@@ -347,6 +383,18 @@ export default function FranceKaart({
     top: popupPos ? `${popupPos.top}px` : 0,
     visibility: popupPos ? "visible" : "hidden",
   };
+
+  // Escape sluit de open popup (klik-ernaast gaat via de SVG-achtergrond, onder).
+  const popupOpen = !!(clusterSelectie || gekozenMelding || gekozenPunt || gekozenDepInfo);
+  useEffect(() => {
+    if (!popupOpen) return;
+    const opEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") sluitPopups();
+    };
+    window.addEventListener("keydown", opEsc);
+    return () => window.removeEventListener("keydown", opEsc);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [popupOpen]);
 
   function begrensCamera(volgende: Camera): Camera {
     const zoom = begrens(volgende.zoom, MIN_ZOOM, MAX_ZOOM);
@@ -411,6 +459,9 @@ export default function FranceKaart({
     setClusterSelectie(null);
     setGekozenMeldingId(null);
     if (gekozenWaarneming) onKiesWaarneming(gekozenWaarneming);
+    // De checkbox volgt de laagkeuze: een satellietlaag zet de waarnemingen aan,
+    // zodat er nooit een actieve-maar-lege laag zonder uitleg ontstaat.
+    if (volgende !== "officieel") onVraagWaarnemingen?.();
     setCamera({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
   }
 
@@ -421,11 +472,26 @@ export default function FranceKaart({
   const filterUitleg =
     weergave === "alle"
       ? `${formatteerAantal(waarnemingen.length)} thermische VIIRS-waarnemingen; dit zijn niet automatisch branden.`
-      : weergave === "waarschijnlijk"
+      : weergave === "geclusterd"
         ? `${formatteerAantal(waarschijnlijkeAantal)} van ${formatteerAantal(
             waarnemingen.length
           )} metingen vormen een ruimtelijk en in tijd samenhangend cluster. Industriële warmtebronnen worden niet uitgesloten.`
         : "Recente officiële FR-Alert-meldingen. FR-Alert wordt alleen bij ernstige situaties ingezet en is geen volledige brandenlijst.";
+
+  // In-kaart-melding zodat geen enkele laag stil leeg blijft (D2).
+  const satellietUit = weergave !== "officieel" && !toonWaarnemingen;
+  const geenHittebronnen =
+    weergave !== "officieel" && toonWaarnemingen && waarnemingen.length === 0;
+  const geenClusters =
+    weergave === "geclusterd" &&
+    toonWaarnemingen &&
+    waarnemingen.length > 0 &&
+    gefilterdeWaarnemingen.length === 0;
+  const geenMeldingen =
+    weergave === "officieel" &&
+    !frAlertLaden &&
+    !!frAlert?.beschikbaar &&
+    laatsteMeldingen.length === 0;
 
   return (
     <div className={styles.kaartEnNieuws}>
@@ -442,8 +508,8 @@ export default function FranceKaart({
             </button>
             <button
               type="button"
-              aria-pressed={weergave === "waarschijnlijk"}
-              onClick={() => kiesWeergave("waarschijnlijk")}
+              aria-pressed={weergave === "geclusterd"}
+              onClick={() => kiesWeergave("geclusterd")}
             >
               Geclusterde hittebronnen
             </button>
@@ -520,6 +586,11 @@ export default function FranceKaart({
             viewBox={`${camera.x} ${camera.y} ${zichtbareBreedte} ${zichtbareHoogte}`}
             role="group"
             aria-label={`Kaart van Frankrijk met bosbrandgevaar per departement en kaartlaag ${weergave}`}
+            onClick={(e) => {
+              // Klik náást een departement/pin (op de lege SVG-achtergrond) sluit
+              // een open popup; een klik op een pad/pin heeft e.target ≠ de svg.
+              if (e.target === e.currentTarget && !wasDraggingRef.current) sluitPopups();
+            }}
             onWheel={(e) => {
               e.preventDefault();
               zoomNaar(camera.zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX, e.clientY);
@@ -799,6 +870,28 @@ export default function FranceKaart({
                 );
               })}
           </svg>
+
+          {(satellietUit || geenHittebronnen || geenClusters || geenMeldingen) && (
+            <div className={styles.laagMelding} role="status">
+              {satellietUit ? (
+                <>
+                  <span>Satellietwaarnemingen staan uit voor deze laag.</span>
+                  <button type="button" onClick={() => onVraagWaarnemingen?.()}>
+                    Aanzetten
+                  </button>
+                </>
+              ) : geenHittebronnen ? (
+                <span>Geen satellietdetecties boven Frankrijk in de afgelopen 24 uur.</span>
+              ) : geenClusters ? (
+                <span>
+                  Geen geclusterde hittebronnen; wel {formatteerAantal(waarnemingen.length)} losse
+                  detecties. Kies ‘Alle hittebronnen’ om ze te zien.
+                </span>
+              ) : (
+                <span>Geen officiële FR-Alert-meldingen op dit moment.</span>
+              )}
+            </div>
+          )}
 
           {clusterSelectie && (
             <div

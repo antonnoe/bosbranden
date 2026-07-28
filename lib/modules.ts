@@ -16,7 +16,7 @@ export const MODULES: Module[] = [
     titel: "Brandgevaar",
     functie:
       "De verwachting of er morgen en overmorgen makkelijk nieuwe branden kunnen ontstaan — het officiële gevaarniveau per departement, nog geen brand.",
-    pad: "/?laag=natuurbranden",
+    pad: "/?laag=gevaar",
     actief: true,
   },
   {

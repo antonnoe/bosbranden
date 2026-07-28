@@ -15,6 +15,20 @@ import styles from "@/components/Waarnemingen.module.css";
 
 export type Niveaus = Record<string, { j1: number | null; j2: number | null }>;
 
+// Kaartlaag-sleutel (gedeeld met FranceKaart's Weergave). Deep-linkwaarden uit de
+// /start-tegels koppelen expliciet aan een laag + of de satellietwaarnemingen aan
+// staan — zodat de Brandgevaar-tegel op de gevaarniveaus landt, niet op een
+// satellietlaag, en een onbekende waarde op de standaard terugvalt.
+export type KaartWeergave = "alle" | "geclusterd" | "officieel";
+
+const KAART_INTENTIES: Record<string, { weergave: KaartWeergave; satelliet: boolean }> = {
+  gevaar: { weergave: "alle", satelliet: false }, // Brandgevaar: alleen de departementkleuren
+  hittebronnen: { weergave: "alle", satelliet: true },
+  alle: { weergave: "alle", satelliet: true },
+  geclusterd: { weergave: "geclusterd", satelliet: true },
+  officieel: { weergave: "officieel", satelliet: true },
+};
+
 interface DangerAntwoord {
   niveaus: Niveaus;
   bijgewerkt: string | null;
@@ -71,6 +85,7 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [echeance, setEcheance] = useState<"j1" | "j2">("j1");
   const [gekozenDep, setGekozenDep] = useState<string | null>(null);
+  const [beginWeergave, setBeginWeergave] = useState<KaartWeergave | undefined>(undefined);
 
   useEffect(() => {
     if (embed) document.documentElement.classList.add("embed");
@@ -132,21 +147,15 @@ export default function Tool({ embed }: { embed: boolean }) {
     };
   }, []);
 
-  // Additief: leest ?laag= om de beginstand van de kaartlaag te kiezen. Zonder
-  // parameter verandert er niets. FranceKaart blijft ongewijzigd; we activeren
-  // hier alleen de bestaande laag-knop via de DOM.
+  // Deep-link ?laag=: expliciete koppeling op laagsleutel (geen DOM-geklik meer).
+  // Een onbekende waarde valt terug op de standaardlaag i.p.v. op niets.
   useEffect(() => {
     const laag = new URLSearchParams(window.location.search).get("laag");
-    const index =
-      laag === "alle" ? 0 : laag === "natuurbranden" ? 1 : laag === "officieel" ? 2 : -1;
-    if (index < 0) return;
-
-    const frame = requestAnimationFrame(() => {
-      const groep = document.querySelector('[aria-label="Kies de kaartlaag"]');
-      const knop = groep?.querySelectorAll("button")[index] as HTMLButtonElement | undefined;
-      if (knop && knop.getAttribute("aria-pressed") !== "true") knop.click();
-    });
-    return () => cancelAnimationFrame(frame);
+    if (!laag) return;
+    const intentie = KAART_INTENTIES[laag];
+    if (!intentie) return; // onbekend → standaard (geen wijziging)
+    setBeginWeergave(intentie.weergave);
+    setToonWaarnemingen(intentie.satelliet);
   }, []);
 
   // Additief: leest ?postcode= bij het opstarten, vult het veld voor en toont
@@ -364,6 +373,8 @@ export default function Tool({ embed }: { embed: boolean }) {
             setGekozenDep(null);
             setGekozenWaarnemingId((huidig) => (huidig === id ? null : id));
           }}
+          beginWeergave={beginWeergave}
+          onVraagWaarnemingen={() => setToonWaarnemingen(true)}
         />
 
         <div className="legenda" aria-hidden="true">
