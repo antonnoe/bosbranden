@@ -33,11 +33,17 @@ const LAAD_FASEN = [
 ];
 
 const PANE_Z: Record<string, number> = {
-  satelliet: 300,
   kegels: 450,
   pluimen: 460,
   bronnen: 550,
 };
+
+// De NASA-tegellaag ligt in de STANDAARD tegel-pane, net boven de basiskaart.
+// Een eigen pane leek de laag te laten verdwijnen (hij zat er wél, maar buiten
+// .leaflet-tile-pane, dus onvindbaar bij inspectie); de standaard tegel-pane is
+// robuuster en onmiskenbaar zichtbaar. zIndex houdt hem boven de basiskaart en —
+// omdat de pane zelf onder de overlay-panes ligt — onder de windbanen en pins.
+const GIBS_TEGEL_ZINDEX = 10;
 
 const GIBS_SJABLOON =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{TIME}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg";
@@ -300,7 +306,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     if (!kaart || !toonSatelliet || !satelliet) return;
     const { map, L } = kaart;
     const laag = L.tileLayer(GIBS_SJABLOON.replace("{TIME}", satelliet.datum), {
-      pane: "satelliet",
+      // Standaard tegel-pane (geen eigen pane), boven de basiskaart.
+      zIndex: GIBS_TEGEL_ZINDEX,
       maxNativeZoom: 9,
       maxZoom: 11,
       opacity: dekking / 100,
