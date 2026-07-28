@@ -289,7 +289,14 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     const groep = L.layerGroup().addTo(map);
     if (data?.windBeschikbaar) {
       for (const pluim of pluimen) {
-        const geo = bouwPluimGeo(pluim, modus, uur);
+        // Eén onbruikbare pluim mag nooit de hele kaartlaag (en daarmee de
+        // pagina) meeslepen: vang een geometriefout per pluim af en sla hem over.
+        let geo: ReturnType<typeof bouwPluimGeo> = null;
+        try {
+          geo = bouwPluimGeo(pluim, modus, uur);
+        } catch {
+          geo = null;
+        }
         if (!geo) continue;
         const isGekozen = pluim.id === gekozenId;
         const klik = (e: LT.LeafletMouseEvent) => kies(pluim.id, [e.latlng.lat, e.latlng.lng]);
@@ -355,7 +362,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     for (const pluim of pluimen) {
       // Een bron bestaat pas zodra hij is waargenomen: toon hem alleen als de
       // schuifstand op of ná zijn waarnemingstijd ligt (beginOffset ≤ uur).
-      if (data?.windBeschikbaar && uur < pluim.beginOffset) continue;
+      const bo = Number.isFinite(pluim.beginOffset) ? Math.min(0, pluim.beginOffset) : 0;
+      if (data?.windBeschikbaar && uur < bo) continue;
       const isGekozen = pluim.id === gekozenId;
       const label = `Hittebron${pluim.bronDepartement ? ` in ${pluim.bronDepartement}` : ""}, ${pluim.detecties} detecties — klik voor details`;
       const icon = L.divIcon({
@@ -1072,7 +1080,21 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 // altijd een GEMETEN WARMTEBRON en een BEREKENDE WINDBAAN — geen bevestigde brand —
 // en industriële warmtebronnen worden expliciet niet uitgesloten. Het afstandsgetal
 // meet de dichtstbijzijnde berekende windbaan (zie minAfstandTotDepartementKm).
+// Wikkel de formulering zo dat een onverwachte fout hier nooit de render (en
+// daarmee de kaart) meesleept: bij een uitzondering tonen we een nette melding.
 function postcodeUitspraak(
+  antwoord: PostcodeAntwoord,
+  gezochtePostcode: string,
+  aantalWindbanen: number
+): string {
+  try {
+    return postcodeUitspraakOnveilig(antwoord, gezochtePostcode, aantalWindbanen);
+  } catch {
+    return "De uitkomst voor deze postcode kon niet worden getoond. Probeer het opnieuw.";
+  }
+}
+
+function postcodeUitspraakOnveilig(
   antwoord: PostcodeAntwoord,
   gezochtePostcode: string,
   aantalWindbanen: number
@@ -1197,13 +1219,23 @@ function bouwPluimGeo(
   eind: [number, number];
 } | null {
   const volledig = pluim[modus];
-  if (volledig.length < 2) return null;
+  if (!Array.isArray(volledig) || volledig.length < 2) return null;
 
-  const beginOffset = pluim.beginOffset; // ≤ 0
+  // beginOffset móét een eindig getal ≤ 0 zijn. Ontbreekt het of is het NaN
+  // (bijv. een verouderde/afwijkende API-respons van vóór de tijdschuif), val
+  // dan terug op 0 in plaats van NaN te laten doorlekken — anders wordt eindIndex
+  // NaN en gooit volledig[NaN] verderop een fout die de hele kaart meesleept.
+  const beginOffset = Number.isFinite(pluim.beginOffset)
+    ? Math.min(0, pluim.beginOffset)
+    : 0;
   if (uur < beginOffset) return null; // nog niet waargenomen op dit moment
   const nuIndex = -beginOffset; // index van het "nu"-punt in de baan
   const eindIndex = Math.min(volledig.length - 1, uur - beginOffset);
-  if (eindIndex < 1) return null; // alleen het bronpunt: niets te tekenen
+  if (!Number.isInteger(eindIndex) || eindIndex < 1) return null;
+
+  // Extra vangnet: het eindpunt moet echt bestaan en twee getallen bevatten.
+  const eindPunt = volledig[eindIndex];
+  if (!Array.isArray(eindPunt) || eindPunt.length < 2) return null;
 
   const naarLatLng = (van: number, tot: number): Array<[number, number]> =>
     volledig.slice(van, tot + 1).map(([lon, lat]) => [lat, lon] as [number, number]);
@@ -1235,7 +1267,7 @@ function bouwPluimGeo(
     kegel = bouwKegelGeo(dashed, halveBreedtes);
   }
 
-  const [lonE, latE] = volledig[eindIndex];
+  const [lonE, latE] = eindPunt;
   return { solid, dashed, kegel, eind: [latE, lonE] };
 }
 

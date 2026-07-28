@@ -15,7 +15,20 @@ export async function GET(request: NextRequest) {
   const postcode = request.nextUrl.searchParams.get("postcode")?.trim() || null;
   const metFijnstof = request.nextUrl.searchParams.get("fijnstof") === "1";
 
-  const resultaat = await berekenPluimen();
+  let resultaat: Awaited<ReturnType<typeof berekenPluimen>>;
+  try {
+    resultaat = await berekenPluimen();
+  } catch {
+    resultaat = {
+      beschikbaar: false,
+      windBeschikbaar: false,
+      bijgewerkt: null,
+      startuur: new Date().toISOString().replace(/\.\d+Z$/, "Z"),
+      opmerking:
+        "De berekende windbanen zijn tijdelijk niet beschikbaar. Probeer het over enkele minuten opnieuw.",
+      pluimen: [],
+    };
+  }
 
   let fijnstof: Fijnstof | undefined;
   if (metFijnstof) {
@@ -28,7 +41,17 @@ export async function GET(request: NextRequest) {
 
   let postcodeAntwoord: PostcodeAntwoord | undefined;
   if (postcode) {
-    postcodeAntwoord = bepaalPostcodeAntwoord(resultaat.pluimen, postcode, resultaat.startuur);
+    // Een fout in de postcodeberekening mag de route nooit laten omvallen (500):
+    // de kaart en de rest van het antwoord moeten blijven werken.
+    try {
+      postcodeAntwoord = bepaalPostcodeAntwoord(resultaat.pluimen, postcode, resultaat.startuur);
+    } catch {
+      postcodeAntwoord = {
+        status: "onbekend",
+        tekst:
+          "De uitkomst voor deze postcode kon nu niet worden berekend. Probeer het over enkele minuten opnieuw.",
+      };
+    }
   }
 
   return NextResponse.json(
