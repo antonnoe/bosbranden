@@ -10,6 +10,7 @@ import {
   type NieuwsAntwoord,
   type NieuwsItem,
 } from "@/lib/nieuws-filter";
+import { haalSamenvatting } from "@/lib/nieuws-samenvatting";
 
 export const revalidate = 900; // 15 minuten
 
@@ -38,6 +39,13 @@ export async function GET() {
     resultaten.filter((r) => r.bron.soort === "pers").flatMap((r) => r.items)
   ).slice(0, MAX_PER_GROEP);
 
+  // Nederlandse samenvattingen ophalen (H): server-side, per artikel gecachet.
+  // Alleen de getoonde items, zodat de kosten met wat zichtbaar is meeschalen.
+  const [officieelNl, persNl] = await Promise.all([
+    verrijkMetSamenvatting(officieel),
+    verrijkMetSamenvatting(pers),
+  ]);
+
   // Per-bron status. `aantal` telt de items die deze bron in de GETOONDE
   // (afgekapte) groepen bijdraagt, zodat de statusregel klopt met wat je ziet.
   const getoond = new Set([...officieel, ...pers]);
@@ -54,8 +62,8 @@ export async function GET() {
   const eenGeslaagd = resultaten.some((r) => r.ok);
 
   const antwoord: NieuwsAntwoord = {
-    officieel,
-    pers,
+    officieel: officieelNl,
+    pers: persNl,
     bronnen,
     bijgewerkt: nuIso,
     laatstGeslaagd: eenGeslaagd ? nuIso : null,
@@ -66,6 +74,25 @@ export async function GET() {
       "Cache-Control": "public, s-maxage=900, stale-while-revalidate=900",
     },
   });
+}
+
+async function verrijkMetSamenvatting(items: NieuwsItem[]): Promise<NieuwsItem[]> {
+  return Promise.all(
+    items.map(async (item) => {
+      const sv = await haalSamenvatting(item.url, item.titel);
+      if (!sv.ok) {
+        // H5: falen moet zichtbaar zijn; de Franse kop blijft, met een mededeling.
+        return { ...item, vertaling: "mislukt" as const };
+      }
+      return {
+        ...item,
+        titelNl: sv.titelNl,
+        samenvatting: sv.samenvatting,
+        ecosystemLinks: sv.ecosystemLinks,
+        vertaling: "ok" as const,
+      };
+    })
+  );
 }
 
 async function haalBron(

@@ -230,3 +230,196 @@
 .wrap[data-thema="donker"] .waarschuwing {
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* ---- Klikbaar item (Nederlandse kop opent de samenvatting, H3) ---- */
+.itemKnop {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  border: 0;
+  background: none;
+  font-family: "Mulish", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wrap[data-thema="donker"] .itemKnop {
+  color: #ffffff;
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
+.wrap[data-thema="licht"] .itemKnop {
+  color: #800000;
+}
+
+.itemKnop:hover,
+.itemKnop:focus-visible {
+  text-decoration-thickness: 2px;
+}
+
+.wrap[data-thema="donker"] .itemKnop:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.vertaalMislukt {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.74rem;
+  font-style: italic;
+}
+
+.wrap[data-thema="donker"] .vertaalMislukt {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.wrap[data-thema="licht"] .vertaalMislukt {
+  color: rgba(51, 39, 39, 0.65);
+}
+
+/* ---- Vertaalnoot onderaan de kolom (H6) ---- */
+.vertaalNoot {
+  margin: 12px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.wrap[data-thema="donker"] .vertaalNoot {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.wrap[data-thema="licht"] .vertaalNoot {
+  color: rgba(51, 39, 39, 0.65);
+}
+
+/* ---- Detailweergave: volledige Nederlandse samenvatting ---- */
+.detailTerug {
+  display: inline-block;
+  margin-bottom: 10px;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid currentColor;
+  background: none;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.wrap[data-thema="donker"] .detailTerug {
+  color: #ffffff;
+}
+
+.wrap[data-thema="licht"] .detailTerug {
+  color: #800000;
+}
+
+.detailTerug:hover {
+  text-decoration: underline;
+}
+
+.detailKop {
+  margin: 0 0 8px;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.detailBody {
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.detailBody p {
+  margin: 0 0 8px;
+}
+
+.detailSubkop {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 0.92rem;
+  margin: 12px 0 6px !important;
+}
+
+.detailLijst {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.detailLijst li {
+  margin-bottom: 4px;
+}
+
+.detailBody a,
+.detailLink,
+.eco a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.wrap[data-thema="donker"] .detailKop,
+.wrap[data-thema="donker"] .detailBody,
+.wrap[data-thema="donker"] .detailBody a,
+.wrap[data-thema="donker"] .detailLink,
+.wrap[data-thema="donker"] .detailBron,
+.wrap[data-thema="donker"] .ecoKop,
+.wrap[data-thema="donker"] .eco a {
+  color: #ffffff;
+}
+
+.wrap[data-thema="licht"] .detailKop,
+.wrap[data-thema="licht"] .detailBody {
+  color: #332727;
+}
+
+.wrap[data-thema="licht"] .detailBody a,
+.wrap[data-thema="licht"] .detailLink,
+.wrap[data-thema="licht"] .detailKop,
+.wrap[data-thema="licht"] .ecoKop,
+.wrap[data-thema="licht"] .eco a {
+  color: #800000;
+}
+
+.detailBron {
+  margin: 10px 0 2px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.detailLink {
+  display: inline-block;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.eco {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid currentColor;
+}
+
+.ecoKop {
+  margin: 0 0 4px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.ecoLijst {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.84rem;
+}

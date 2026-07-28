@@ -5,13 +5,23 @@
 import type { BronSoort, Nieuwsbron } from "@/data/nieuwsbronnen";
 
 // ---- Gedeeld antwoordmodel (server → client) -------------------------------
+export interface EcosystemLink {
+  label: string;
+  url: string;
+}
+
 export interface NieuwsItem {
-  titel: string;
+  titel: string; // oorspronkelijke (Franse) kop
   url: string;
   bron: string; // naam van de bron uit het bronnenbestand
   soort: BronSoort;
   paywall: boolean;
   gepubliceerdOp: string; // ISO; items zonder bruikbare datum bestaan niet
+  // Nederlandse vertaling (H). Server-side ingevuld via de samenvatdienst.
+  titelNl?: string | null; // Nederlandse kop, afgeleid uit de samenvatting
+  samenvatting?: string | null; // volledige Nederlandse samenvatting (markdown)
+  ecosystemLinks?: EcosystemLink[]; // gerelateerde links van de dienst
+  vertaling?: "ok" | "mislukt"; // of de samenvatting lukte (H5)
 }
 
 export interface BronStatus {
