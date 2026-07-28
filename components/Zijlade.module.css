@@ -8,7 +8,10 @@
 
 .schil {
   --rail: 46px;
-  --paneel-breedte: 322px;
+  /* Ruim paneel: hier gaan straks Nederlandse samenvattingen in. Op schermen
+     breder dan 700px twee keer zo breed als voorheen (322 → 644). Onder 700px
+     wordt het paneel schermbreed (zie de media-query onderaan). */
+  --paneel-breedte: 644px;
   position: fixed;
   top: 0;
   right: 0;
@@ -20,6 +23,22 @@
   z-index: 1000;
 }
 
+/* Klik-vanger over de hele viewport (alleen zichtbaar/actief als de lade open
+   is). Transparant, geen eigen uiterlijk; vangt de klik zodat de kaart eronder
+   niet reageert. position:fixed → telt niet mee in de body-hoogte (A3). */
+.overlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 /* ---- Paneel: links van de rail, schuift uit ---- */
 .paneel {
   position: absolute;
@@ -29,12 +48,13 @@
   width: var(--paneel-breedte);
   max-width: calc(100% - var(--rail));
   pointer-events: auto;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
   background: #800000;
   color: #ffffff;
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: -8px 0 28px rgba(0, 0, 0, 0.3);
-  padding: 18px;
   transform: translateX(calc(100% + var(--rail)));
   transition: transform 0.28s ease;
 }
@@ -47,38 +67,57 @@
   outline: none;
 }
 
-/* Expliciete sluitknop aan de linker- (pagina-)rand van het uitgeschoven paneel.
-   Blijft in beeld bij scrollen. Wit op #800000 (contrast 10.95:1), min. 44px. */
-.paneelSluit {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  display: inline-flex;
+/* De inhoud scrollt; de sluitrand blijft daardoor over de volle hoogte staan. */
+.paneelInhoud {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding: 18px;
+}
+
+/* Sluitzone over de VOLLE hoogte aan de linker- (pagina-)rand van het paneel
+   (A2). Eén beweging sluit, waar de hand ook is. Minstens 44px breed, wit op
+   #800000 (contrast 10.95:1). Een smalle strook met een sluitteken. */
+.sluitRand {
+  flex: 0 0 46px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin-bottom: 12px;
-  padding: 0 14px;
-  border: 1.5px solid #ffffff;
-  border-radius: 8px;
-  background: #800000;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 4px;
+  border: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(0, 0, 0, 0.12);
   color: #ffffff;
-  font-family: "Poppins", sans-serif;
-  font-size: 1.3rem;
-  font-weight: 600;
-  line-height: 1;
   cursor: pointer;
 }
 
-.paneelSluit:hover,
-.paneelSluit:focus-visible {
-  background: #9a1f1f;
+.sluitRand:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.sluitRand:focus-visible {
   outline: 3px solid #ffffff;
   outline-offset: -6px;
 }
 
-.paneelSluitLabel {
-  font-size: 0.9rem;
+.sluitRandTeken {
+  font-family: "Poppins", sans-serif;
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.sluitRandLabel {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 /* ---- Rail: altijd zichtbaar aan de rechterrand, verticaal gecentreerd ---- */
@@ -224,10 +263,10 @@
   display: none;
 }
 
-/* ---- Mobiel: schermbreed paneel; compacte rail (< 1/3 vensterhoogte) ----
-   Onder 600px draaien de tabbladen naar horizontale tekst met korte labels,
-   zodat vier gestapelde tabbladen laag blijven in plaats van hoog. */
-@media (max-width: 599px) {
+/* ---- Onder 700px: schermbreed paneel; compacte rail (< 1/3 vensterhoogte) ----
+   De tabbladen draaien naar horizontale tekst met korte labels, zodat vier
+   gestapelde tabbladen laag blijven in plaats van hoog. */
+@media (max-width: 700px) {
   .schil {
     --rail: 78px;
     width: 100%;

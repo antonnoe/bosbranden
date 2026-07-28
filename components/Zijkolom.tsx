@@ -40,7 +40,7 @@ const VERANTWOORDING: Verantwoording[] = [
     grenzen: [
       "Een satellietdetectie is een gemeten warmte-afwijking, geen door de autoriteiten bevestigde brand.",
       "Geen detectie betekent niet dat een brand uit is: de satellieten komen maar een paar keer per etmaal over.",
-      "De laag ‘Geclusterde hittebronnen’ selecteert op ruimtelijke en temporele samenhang en op signaalsterkte, maar maakt geen onderscheid tussen vegetatiebranden en vaste industriële warmtebronnen (raffinaderijen, stortplaatsen, staalfabrieken, gasaffakkeling). Een cluster is daarom geen bevestigde natuurbrand.",
+      "De laag ‘Warmtebronnen’ toont alle metingen en geeft per meting aan of ze een ruimtelijk en in tijd samenhangend cluster vormt. Zo'n cluster maakt geen onderscheid tussen vegetatiebranden en vaste industriële warmtebronnen (raffinaderijen, stortplaatsen, staalfabrieken, gasaffakkeling) en is daarom geen bevestigde natuurbrand.",
     ],
   },
   {

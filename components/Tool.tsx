@@ -21,13 +21,17 @@ export type Niveaus = Record<string, { j1: number | null; j2: number | null }>;
 // /start-tegels koppelen expliciet aan een laag + of de satellietwaarnemingen aan
 // staan — zodat de Brandgevaar-tegel op de gevaarniveaus landt, niet op een
 // satellietlaag, en een onbekende waarde op de standaard terugvalt.
-export type KaartWeergave = "alle" | "geclusterd" | "officieel";
+export type KaartWeergave = "warmte" | "officieel";
 
+// De vroegere lagen "alle" en "geclusterd" zijn samengevoegd tot één laag
+// "warmte" (Warmtebronnen). Oude deep-linkwaarden blijven werken en landen op
+// die ene laag, zodat bestaande gedeelde links niet breken.
 const KAART_INTENTIES: Record<string, { weergave: KaartWeergave; satelliet: boolean }> = {
-  gevaar: { weergave: "alle", satelliet: false }, // Brandgevaar: alleen de departementkleuren
-  hittebronnen: { weergave: "alle", satelliet: true },
-  alle: { weergave: "alle", satelliet: true },
-  geclusterd: { weergave: "geclusterd", satelliet: true },
+  gevaar: { weergave: "warmte", satelliet: false }, // Brandgevaar: alleen de departementkleuren
+  hittebronnen: { weergave: "warmte", satelliet: true },
+  warmte: { weergave: "warmte", satelliet: true },
+  alle: { weergave: "warmte", satelliet: true },
+  geclusterd: { weergave: "warmte", satelliet: true },
   officieel: { weergave: "officieel", satelliet: true },
 };
 
@@ -88,6 +92,9 @@ export default function Tool({ embed }: { embed: boolean }) {
   const [echeance, setEcheance] = useState<"j1" | "j2">("j1");
   const [gekozenDep, setGekozenDep] = useState<string | null>(null);
   const [beginWeergave, setBeginWeergave] = useState<KaartWeergave | undefined>(undefined);
+  // Departementcode(s) waar de kaart naartoe zoomt na een geslaagde postcode-zoek
+  // (C2). Verse array-referentie per zoekopdracht triggert FranceKaart opnieuw.
+  const [zoomDeps, setZoomDeps] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (embed) document.documentElement.classList.add("embed");
@@ -174,6 +181,23 @@ export default function Tool({ embed }: { embed: boolean }) {
     () => (gezocht === null ? null : departementVoorPostcode(gezocht)),
     [gezocht]
   );
+
+  // C1 + C2: bij een geslaagde postcode-zoek schrijven we de postcode in de URL
+  // (replaceState — geen nieuwe geschiedenis-entry) zodat hij navigatie én
+  // verversen overleeft en de link deelbaar is, en zoomen we de kaart naar het
+  // bijbehorende departement. Loopt ook bij het laden vanuit ?postcode=.
+  useEffect(() => {
+    if (zoekresultaat?.type !== "ok" || !gezocht) return;
+    setZoomDeps(zoekresultaat.departementen.map((d) => d.code));
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("postcode", gezocht);
+      const qs = params.toString();
+      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    } catch {
+      /* history kan in een sandbox geblokkeerd zijn; dan blijft alleen de zoom */
+    }
+  }, [zoekresultaat, gezocht]);
 
   const startHref = (() => {
     const params = new URLSearchParams();
@@ -346,8 +370,8 @@ export default function Tool({ embed }: { embed: boolean }) {
             Satellietwaarnemingen tonen
           </label>
           <p id="waarnemingen-toelichting" className={styles.checkboxToelichting}>
-            Nodig voor ‘Alle hittebronnen’ en ‘Geclusterde hittebronnen’. ‘Officieel
-            gemeld’ werkt zonder dit vinkje.
+            Nodig voor de laag ‘Warmtebronnen’. ‘Laatste officiële meldingen’ werkt zonder
+            dit vinkje.
           </p>
           <p className={styles.status} aria-live="polite">
             {waarnemingenLaden
@@ -377,6 +401,7 @@ export default function Tool({ embed }: { embed: boolean }) {
           }}
           beginWeergave={beginWeergave}
           onVraagWaarnemingen={() => setToonWaarnemingen(true)}
+          zoomNaarDeps={zoomDeps}
         />
 
         {/* Onderscheid tussen de twee kaartlagen expliciet maken: de
@@ -480,6 +505,13 @@ export default function Tool({ embed }: { embed: boolean }) {
               rel="noopener noreferrer"
             >
               NASA FIRMS
+            </a>
+          </p>
+        )}
+        {!embed && (
+          <p style={{ margin: "8px 0 0" }}>
+            <a href="https://www.nederlanders.fr/page/bosbranden">
+              Terug naar de pagina op Nederlanders.fr
             </a>
           </p>
         )}

@@ -23,6 +23,30 @@
   font-weight: 600;
 }
 
+/* Zichtbare weg terug naar heel Frankrijk na een postcode-zoom (C2). */
+.heelFrankrijk {
+  margin-top: 10px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 500;
+  padding: 7px 14px;
+  border: 1.5px solid var(--primair-30);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--primair);
+  cursor: pointer;
+}
+
+.heelFrankrijk:hover {
+  background: var(--primair-04);
+  border-color: var(--primair-55);
+}
+
+.heelFrankrijk:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
+}
+
 /* ====================================================================
    Volvlak-kaart
    ==================================================================== */

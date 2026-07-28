@@ -12,6 +12,7 @@ import LeafletKaart, {
 } from "@/components/kaart/LeafletKaart";
 import type * as LT from "leaflet";
 import { departementVoorPostcode } from "@/lib/departements";
+import { geoBoundsVoorCodes } from "@/lib/departement-bbox";
 import Voortgang from "@/components/Voortgang";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import styles from "@/components/Rookmodule.module.css";
@@ -380,6 +381,39 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     };
   }, [kaart, gekozen, klikPunt, smal]);
 
+  // C2: zoom de Leaflet-kaart naar de omhullende van het (de) departement(en).
+  // fitBounds vecht niet met de elastische Frankrijk-begrenzing: een departement
+  // ligt altijd binnen Frankrijk. maxZoom houdt het rustig; padding geeft lucht.
+  function zoomNaarDepartement(codes: string[]) {
+    if (!kaart) return;
+    const grenzen = geoBoundsVoorCodes(codes);
+    if (!grenzen) return;
+    kaart.map.fitBounds(grenzen, { maxZoom: 9, padding: [24, 24] });
+  }
+
+  // Zichtbare weg terug naar heel Frankrijk (C2). Zelfde kader als de
+  // beginweergave van de kaart.
+  function toonHeelFrankrijk() {
+    if (!kaart) return;
+    kaart.map.fitBounds([
+      [41.33, -5.15],
+      [51.09, 9.56],
+    ]);
+  }
+
+  // C1: schrijf de postcode in de URL (replaceState, geen geschiedenis-entry),
+  // met behoud van embed. Zo overleeft hij navigatie én verversen.
+  function schrijfPostcodeInUrl(pc: string) {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("postcode", pc);
+      const qs = params.toString();
+      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+    } catch {
+      /* history kan geblokkeerd zijn; dan blijft alleen de zoom */
+    }
+  }
+
   async function zoekPostcode(e: React.FormEvent) {
     e.preventDefault();
     // Valideer vóór het ophalen: precies vijf cijfers, geen stille afwijzing.
@@ -392,6 +426,13 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       return;
     }
     setGezochtePostcode(cijfers);
+    // C1/C2: URL bijwerken en naar het departement zoomen zodra de invoer geldig
+    // is — zichtbaar dat de klik iets deed, ook als er geen pluim in de buurt is.
+    const res = departementVoorPostcode(cijfers);
+    if (res.type === "ok") {
+      schrijfPostcodeInUrl(cijfers);
+      zoomNaarDepartement(res.departementen.map((d) => d.code));
+    }
     setPostcodeLaden(true);
     setPostcodeAntwoord(null);
     try {
@@ -444,6 +485,16 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       actief = false;
     };
   }, []);
+
+  // C2: zodra de (async ladende) kaart klaar is én er een geldige postcode is
+  // gezocht — ook via ?postcode= bij het opstarten — springt de kaart naar het
+  // departement. Draait één keer per (kaart, postcode)-paar.
+  useEffect(() => {
+    if (!kaart || !gezochtePostcode) return;
+    const res = departementVoorPostcode(gezochtePostcode);
+    if (res.type === "ok") zoomNaarDepartement(res.departementen.map((d) => d.code));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kaart, gezochtePostcode]);
 
   const startHref = (() => {
     const params = new URLSearchParams();
@@ -514,6 +565,15 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               >
                 {postcodeUitspraak(postcodeAntwoord, gezochtePostcode, pluimen.length)}
               </p>
+            )}
+            {postcodeAntwoord?.status === "ok" && (
+              <button
+                type="button"
+                className={styles.heelFrankrijk}
+                onClick={toonHeelFrankrijk}
+              >
+                ↔ Toon weer heel Frankrijk
+              </button>
             )}
           </section>
 
@@ -757,6 +817,13 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             <p style={{ margin: 0 }}>
               <a href={embed ? "/?embed=1" : "/"}>← Terug naar Brandrisico Frankrijk</a>
             </p>
+            {!embed && (
+              <p style={{ margin: "8px 0 0" }}>
+                <a href="https://www.nederlanders.fr/page/bosbranden">
+                  Terug naar de pagina op Nederlanders.fr
+                </a>
+              </p>
+            )}
           </footer>
         </>
       )}

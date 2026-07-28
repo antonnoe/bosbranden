@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperti
 import { DEP_BY_CODE } from "@/lib/departements";
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
+import { kaartBboxVoorCodes } from "@/lib/departement-bbox";
 import { niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
 import { isNuActueel, type FrAlertAntwoord, type FrAlertMelding } from "@/lib/fr-alert";
 import type { Waarneming } from "@/lib/waarnemingen";
@@ -11,7 +12,6 @@ import type { Niveaus } from "@/components/Tool";
 import NiveauBlok from "@/components/NiveauBlok";
 import InfoKnop from "@/components/InfoKnop";
 import { UITLEG } from "@/data/uitleg";
-import { useNieuws, Nieuwsgroepen } from "@/components/Nieuws";
 import styles from "@/components/Waarnemingen.module.css";
 import clusterStyles from "@/components/KaartClusters.module.css";
 import laagStyles from "@/components/BrandLagen.module.css";
@@ -21,8 +21,15 @@ const MIN_ZOOM = 1;
 // diep ingezoomd. Drie handmatige zoomstappen (×1,7) volstaan: 1 → 1,7 → 2,9 → 5.
 const MAX_ZOOM = 5;
 const SLEEPDREMPEL = 6;
+// Extra tekenruimte rond de kaartvormen (in kaarteenheden), zodat de genummerde
+// bollen en druppelpins op de uiterste noord-, zuid-, oost- en westrand volledig
+// zichtbaar blijven — de grootste marker (clusterhalo r=25) plus wat lucht.
+const KAART_MARGE = 34;
+// Wielzoom-demping: één muiswieltik (deltaY≈100) geeft ongeveer ×1,05; kleine
+// trackpad-stapjes tellen vanzelf multiplicatief op tot een vloeiende beweging.
+const WIEL_DEMPING = 0.000488;
 
-type Weergave = "alle" | "geclusterd" | "officieel";
+type Weergave = "warmte" | "officieel";
 
 interface Camera {
   x: number;
@@ -86,6 +93,7 @@ export default function FranceKaart({
   onKiesWaarneming,
   beginWeergave,
   onVraagWaarnemingen,
+  zoomNaarDeps,
 }: {
   niveaus: Niveaus;
   echeance: "j1" | "j2";
@@ -99,17 +107,28 @@ export default function FranceKaart({
   beginWeergave?: Weergave;
   // Vraag de ouder de satellietwaarnemingen aan te zetten (checkbox volgt de laag).
   onVraagWaarnemingen?: () => void;
+  // Departementcode(s) waar de camera na een geslaagde postcode-zoek naartoe
+  // springt (C2). Elke nieuwe zoekopdracht krijgt een verse array-referentie,
+  // ook bij dezelfde code, zodat opnieuw zoeken opnieuw inzoomt.
+  zoomNaarDeps?: string[] | null;
 }) {
-  const [kaartX, kaartY, kaartBreedte, kaartHoogte] = KAART_VIEWBOX.split(" ").map(Number);
+  const [rawX, rawY, rawBreedte, rawHoogte] = KAART_VIEWBOX.split(" ").map(Number);
+  // De camerawereld is de kaart plús een marge rondom (E): zo valt geen enkele
+  // markering op de buitenrand weg, ook niet na inzoomen (begrensCamera klemt
+  // binnen deze ruimere grenzen).
+  const kaartX = rawX - KAART_MARGE;
+  const kaartY = rawY - KAART_MARGE;
+  const kaartBreedte = rawBreedte + 2 * KAART_MARGE;
+  const kaartHoogte = rawHoogte + 2 * KAART_MARGE;
   const [camera, setCamera] = useState<Camera>({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
   const [clusterSelectie, setClusterSelectie] = useState<ClusterSelectie | null>(null);
-  const [weergave, setWeergave] = useState<Weergave>(beginWeergave ?? "alle");
+  const [weergave, setWeergave] = useState<Weergave>(beginWeergave ?? "warmte");
+  // Wielzoom is pas actief nadat de bezoeker de kaart heeft aangeklikt (D2), en
+  // gaat weer uit zodra de muis de kaart verlaat. Ctrl/Cmd omzeilt dit (D3).
+  const [zoomActief, setZoomActief] = useState(false);
   const [frAlert, setFrAlert] = useState<FrAlertAntwoord | null>(null);
   const [frAlertLaden, setFrAlertLaden] = useState(false);
   const [gekozenMeldingId, setGekozenMeldingId] = useState<string | null>(null);
-  const [nieuwsOpen, setNieuwsOpen] = useState(false);
-  // Nieuws wordt pas opgehaald (en ververst zich pas) zodra het blok open is.
-  const nieuws = useNieuws(nieuwsOpen);
 
   const svgRef = useRef<SVGSVGElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -137,6 +156,30 @@ export default function FranceKaart({
     beginToegepastRef.current = true;
     setWeergave(beginWeergave);
   }, [beginWeergave]);
+
+  // C2: spring naar de omhullende van het (de) gezochte departement(en). Elke
+  // nieuwe zoekopdracht levert een verse array, dus dezelfde postcode zoomt
+  // opnieuw in; "Heel Frankrijk" (de resetknop) is de zichtbare weg terug.
+  useEffect(() => {
+    if (!zoomNaarDeps || zoomNaarDeps.length === 0) return;
+    const b = kaartBboxVoorCodes(zoomNaarDeps);
+    if (!b) return;
+    setClusterSelectie(null);
+    setGekozenMeldingId(null);
+    const bw = b.maxX - b.minX + KAART_MARGE * 2;
+    const bh = b.maxY - b.minY + KAART_MARGE * 2;
+    const zoom = begrens(Math.min(kaartBreedte / bw, kaartHoogte / bh), MIN_ZOOM, MAX_ZOOM);
+    const cx = (b.minX + b.maxX) / 2;
+    const cy = (b.minY + b.maxY) / 2;
+    setCamera(
+      begrensCamera({
+        zoom,
+        x: cx - kaartBreedte / zoom / 2,
+        y: cy - kaartHoogte / zoom / 2,
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomNaarDeps]);
 
   // Sluit de open kaartpopup. Werkt voor cluster, waarneming, melding én
   // departement — de ouder toggelt de laatste twee via onKiesWaarneming/onKies.
@@ -187,9 +230,8 @@ export default function FranceKaart({
   );
   const gefilterdeWaarnemingen = useMemo(() => {
     if (weergave === "officieel") return [];
-    if (weergave === "geclusterd") {
-      return waarnemingen.filter((waarneming) => waarneming.waarschijnlijkNatuurbrand);
-    }
+    // Warmtebronnen toont álle metingen; het clusterdeel is alleen nog een
+    // aanduiding (B), niet meer een aparte, filterende laag.
     return waarnemingen;
   }, [waarnemingen, weergave]);
 
@@ -357,7 +399,7 @@ export default function FranceKaart({
       const marge = 8;
       // De vaste zijladerail (rechts, buiten de kaart) mag de popup nooit bedekken.
       // Op smalle vensters is de rail breder; onder 560px staat de popup statisch.
-      const railBreedte = window.innerWidth <= 599 ? 78 : 46;
+      const railBreedte = window.innerWidth <= 700 ? 78 : 46;
       const linksMaxDoorRail =
         window.innerWidth - railBreedte - marge - pw - vpRect.left;
       const linksMax = Math.max(marge, Math.min(vpRect.width - pw - marge, linksMaxDoorRail));
@@ -441,6 +483,34 @@ export default function FranceKaart({
     });
   }
 
+  // Verse verwijzingen voor de native wielhandler (die één keer bij mount wordt
+  // gehecht en anders met verouderde waarden zou werken).
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
+  const zoomActiefRef = useRef(zoomActief);
+  zoomActiefRef.current = zoomActief;
+  const zoomNaarRef = useRef<(z: number, x?: number, y?: number) => void>(() => {});
+  zoomNaarRef.current = zoomNaar; // zoomNaar is een gehoiste functiedeclaratie
+
+  // Wielgedrag als in de rookmodule (D): standaard scrolt het wiel de PAGINA.
+  // Zoomen gebeurt alleen ná een klik op de kaart, of meteen met Ctrl/Cmd. De
+  // stap is gedempt en telt multiplicatief op, zodat een trackpad-veeg niet
+  // springt. Een eigen niet-passieve listener is nodig omdat React onWheel
+  // passief hecht (preventDefault zou dan genegeerd worden).
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const opWiel = (e: WheelEvent) => {
+      const forceer = e.ctrlKey || e.metaKey;
+      if (!forceer && !zoomActiefRef.current) return; // pagina scrollt (D1)
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * WIEL_DEMPING);
+      zoomNaarRef.current(cameraRef.current.zoom * factor, e.clientX, e.clientY);
+    };
+    svg.addEventListener("wheel", opWiel, { passive: false });
+    return () => svg.removeEventListener("wheel", opWiel);
+  }, []);
+
   // Zoom naar een met shift-slepen getekend kader (in pixels t.o.v. het svg-vlak).
   function zoomNaarKader(
     bx0: number,
@@ -501,28 +571,20 @@ export default function FranceKaart({
     setCamera({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
   }
 
-  function wisselNieuws() {
-    setNieuwsOpen((huidig) => !huidig);
-  }
-
+  // Warmtebronnen toont álle metingen; op de tweede regel staat hoeveel ervan
+  // een samenhangend cluster vormen, met de eerlijke formulering over
+  // industriële bronnen (B2).
   const filterUitleg =
-    weergave === "alle"
-      ? `${formatteerAantal(waarnemingen.length)} thermische VIIRS-waarnemingen; dit zijn niet automatisch branden.`
-      : weergave === "geclusterd"
-        ? `${formatteerAantal(waarschijnlijkeAantal)} van ${formatteerAantal(
-            waarnemingen.length
-          )} metingen vormen een ruimtelijk en in tijd samenhangend cluster. Industriële warmtebronnen worden niet uitgesloten.`
-        : "Recente officiële FR-Alert-meldingen. FR-Alert wordt alleen bij ernstige situaties ingezet en is geen volledige brandenlijst.";
+    weergave === "warmte"
+      ? `${formatteerAantal(waarnemingen.length)} thermische VIIRS-warmtemetingen; dit zijn niet automatisch branden. Daarvan vormen er ${formatteerAantal(
+          waarschijnlijkeAantal
+        )} een ruimtelijk en in tijd samenhangend cluster — industriële warmtebronnen worden daarbij niet uitgesloten. Per meting staat in de popup of ze bij een cluster hoort.`
+      : "Recente officiële FR-Alert-meldingen. FR-Alert wordt alleen bij ernstige situaties ingezet en is geen volledige brandenlijst.";
 
   // In-kaart-melding zodat geen enkele laag stil leeg blijft (D2).
   const satellietUit = weergave !== "officieel" && !toonWaarnemingen;
   const geenHittebronnen =
     weergave !== "officieel" && toonWaarnemingen && waarnemingen.length === 0;
-  const geenClusters =
-    weergave === "geclusterd" &&
-    toonWaarnemingen &&
-    waarnemingen.length > 0 &&
-    gefilterdeWaarnemingen.length === 0;
   const geenMeldingen =
     weergave === "officieel" &&
     !frAlertLaden &&
@@ -537,17 +599,10 @@ export default function FranceKaart({
           <div className={laagStyles.lagenKnoppen} role="group" aria-label="Kies de kaartlaag">
             <button
               type="button"
-              aria-pressed={weergave === "alle"}
-              onClick={() => kiesWeergave("alle")}
+              aria-pressed={weergave === "warmte"}
+              onClick={() => kiesWeergave("warmte")}
             >
-              Alle hittebronnen
-            </button>
-            <button
-              type="button"
-              aria-pressed={weergave === "geclusterd"}
-              onClick={() => kiesWeergave("geclusterd")}
-            >
-              Geclusterde hittebronnen
+              Warmtebronnen
             </button>
             <button
               type="button"
@@ -584,7 +639,11 @@ export default function FranceKaart({
           </>
         )}
 
-        <div className={styles.kaartViewport} ref={viewportRef}>
+        <div
+          className={styles.kaartViewport}
+          ref={viewportRef}
+          onMouseLeave={() => setZoomActief(false)}
+        >
           <div className={styles.zoomBediening} role="group" aria-label="Kaart in- en uitzoomen">
             <button
               type="button"
@@ -623,13 +682,11 @@ export default function FranceKaart({
             role="group"
             aria-label={`Kaart van Frankrijk met bosbrandgevaar per departement en kaartlaag ${weergave}`}
             onClick={(e) => {
+              // Een klik op de kaart zet wielzoom aan (D2).
+              setZoomActief(true);
               // Klik náást een departement/pin (op de lege SVG-achtergrond) sluit
               // een open popup; een klik op een pad/pin heeft e.target ≠ de svg.
               if (e.target === e.currentTarget && !wasDraggingRef.current) sluitPopups();
-            }}
-            onWheel={(e) => {
-              e.preventDefault();
-              zoomNaar(camera.zoom * (e.deltaY < 0 ? 1.2 : 1 / 1.2), e.clientX, e.clientY);
             }}
             onDoubleClick={(e) => {
               e.preventDefault();
@@ -970,7 +1027,7 @@ export default function FranceKaart({
             />
           )}
 
-          {(satellietUit || geenHittebronnen || geenClusters || geenMeldingen) && (
+          {(satellietUit || geenHittebronnen || geenMeldingen) && (
             <div className={styles.laagMelding} role="status">
               {satellietUit ? (
                 <>
@@ -981,11 +1038,6 @@ export default function FranceKaart({
                 </>
               ) : geenHittebronnen ? (
                 <span>Geen satellietdetecties boven Frankrijk in de afgelopen 24 uur.</span>
-              ) : geenClusters ? (
-                <span>
-                  Geen geclusterde hittebronnen; wel {formatteerAantal(waarnemingen.length)} losse
-                  detecties. Kies ‘Alle hittebronnen’ om ze te zien.
-                </span>
               ) : (
                 <span>Geen officiële FR-Alert-meldingen op dit moment.</span>
               )}
@@ -1301,9 +1353,10 @@ export default function FranceKaart({
         </div>
 
         <p className={styles.zoomUitleg}>
-          Klik op een genummerde cirkel voor de lijst met metingen in dat gebied. Zoomen doet u
-          zelf met de plus- en minknop, met dubbelklik, of door met shift een zoomkader te slepen;
-          pannen door te slepen. De kaart blijft binnen het kader.
+          Klik op een genummerde cirkel voor de lijst met metingen in dat gebied. Het muiswiel
+          scrolt gewoon de pagina; pas ná een klik op de kaart zoomt het wiel in en uit (of houd
+          Ctrl/Cmd ingedrukt). Zoomen kan ook met de plus- en minknop, met dubbelklik, of door met
+          shift een zoomkader te slepen; pannen door te slepen. De kaart blijft binnen het kader.
         </p>
 
         <details className={clusterStyles.viirsUitleg}>
@@ -1321,10 +1374,10 @@ export default function FranceKaart({
           <p>
             Dezelfde brand kan tijdens verschillende satellietpassages meermaals worden gemeten.
             Ook landbouwvuren, industrie, hete rook of een andere warmtebron kunnen een detectie
-            veroorzaken. De stand “Geclusterde hittebronnen” selecteert op samenhang en
-            signaalsterkte, maar maakt geen onderscheid tussen vegetatiebranden en vaste
-            industriële warmtebronnen. Een cluster is dus geen bevestigde natuurbrand, maar een
-            technische inschatting.
+            veroorzaken. Metingen die op samenhang en signaalsterkte een cluster vormen, worden
+            per meting in de popup aangegeven, maar zo'n cluster maakt geen onderscheid tussen
+            vegetatiebranden en vaste industriële warmtebronnen. Een cluster is dus geen
+            bevestigde natuurbrand, maar een technische inschatting.
           </p>
           <p>
             Bron:{" "}
@@ -1338,44 +1391,6 @@ export default function FranceKaart({
           </p>
         </details>
       </div>
-
-      <section
-        className={`${styles.nieuwsBlok} ${clusterStyles.nieuwsCompact}`}
-        aria-labelledby="actueel-nieuws-titel"
-      >
-        <div className={clusterStyles.nieuwsSamenvatting}>
-          <div>
-            <h3 id="actueel-nieuws-titel">Actueel nieuws over natuurbranden</h3>
-            <p>Wordt pas geladen wanneer u het nieuwsblok opent.</p>
-          </div>
-          <button
-            type="button"
-            className={clusterStyles.nieuwsToggle}
-            aria-expanded={nieuwsOpen}
-            onClick={wisselNieuws}
-          >
-            {nieuwsOpen ? "Nieuws sluiten" : "Laatste nieuws tonen"}
-          </button>
-        </div>
-
-        {nieuwsOpen && (
-          <div className={clusterStyles.nieuwsInhoud}>
-            <a
-              className={styles.officieleLink}
-              href="https://fr-alert.gouv.fr/les-alertes"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Officiële FR-Alert-waarschuwingen
-            </a>
-            <Nieuwsgroepen haal={nieuws} thema="licht" />
-            <p className={styles.nieuwsNoot}>
-              Nieuwsberichten zijn geen officiële veiligheidswaarschuwingen. Volg bij gevaar
-              FR-Alert, de prefectuur en de hulpdiensten.
-            </p>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

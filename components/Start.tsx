@@ -187,6 +187,13 @@ export default function Start({ embed }: { embed: boolean }) {
           Officiële informatie bij gevaar: bel 18 of 112 (doven en slechthorenden: 114). Volg
           altijd FR-Alert en de instructies van prefectuur en mairie.
         </p>
+        {!embed && (
+          <p style={{ margin: "8px 0 0" }}>
+            <a href="https://www.nederlanders.fr/page/bosbranden">
+              Terug naar de pagina op Nederlanders.fr
+            </a>
+          </p>
+        )}
       </footer>
     </div>
   );

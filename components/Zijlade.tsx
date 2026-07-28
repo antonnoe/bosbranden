@@ -48,7 +48,10 @@ export default function Zijlade() {
     setQuery(typeof window !== "undefined" ? window.location.search : "");
   }, [pathname]);
 
-  // Stand bewaren, Escape-sluiten en focus naar het paneel bij openen.
+  // Stand bewaren, Escape-sluiten en focus naar het paneel bij openen. Klikken
+  // náást het paneel gaat via de overlay (onder), niet meer via een
+  // document-listener: zo sluit één klik op de kaart de lade zónder tegelijk een
+  // pin te selecteren of in te zoomen (A2).
   useEffect(() => {
     try {
       sessionStorage.setItem(SLEUTEL, paneel ?? "dicht");
@@ -60,25 +63,30 @@ export default function Zijlade() {
     const opToets = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPaneel(null);
     };
-    // Klik buiten paneel én rail sluit de lade. De schil (paneel + rail) heeft
-    // pointer-events:none op zichzelf, dus een klik op de kaart komt hier terecht
-    // met een doel buiten schilRef; een klik op tab of paneel valt er binnen.
-    const opKlikBuiten = (e: PointerEvent) => {
-      const doel = e.target as Node | null;
-      if (doel && schilRef.current && !schilRef.current.contains(doel)) {
-        setPaneel(null);
-      }
-    };
     window.addEventListener("keydown", opToets);
-    document.addEventListener("pointerdown", opKlikBuiten);
-    return () => {
-      window.removeEventListener("keydown", opToets);
-      document.removeEventListener("pointerdown", opKlikBuiten);
-    };
+    return () => window.removeEventListener("keydown", opToets);
   }, [paneel]);
 
   function wissel(soort: PaneelSoort) {
     setPaneel((huidig) => (huidig === soort ? null : soort));
+  }
+
+  // Naar rechts vegen sluit het paneel (A2, aanraakschermen). We meten alleen de
+  // horizontale verplaatsing en negeren verticaal scrollen.
+  const veegRef = useRef<{ x: number; y: number } | null>(null);
+  function opVeegStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    veegRef.current = t ? { x: t.clientX, y: t.clientY } : null;
+  }
+  function opVeegEind(e: React.TouchEvent) {
+    const start = veegRef.current;
+    veegRef.current = null;
+    if (!start) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (dx > 60 && Math.abs(dx) > Math.abs(dy)) setPaneel(null);
   }
 
   function navHref(pad: string): string {
@@ -95,7 +103,22 @@ export default function Zijlade() {
 
   return (
     <div className={styles.schil} ref={schilRef}>
-      {/* Paneel (schuift uit); links van de rail. */}
+      {/* Klik-vanger die de hele viewport bedekt zodra de lade open is: een klik
+          ernaast (ook op de kaart) sluit de lade en bereikt de kaart niet, dus
+          er wordt geen pin geselecteerd of ingezoomd (A2). Ligt vóór de kaart
+          maar áchter paneel en rail (DOM-volgorde), die hun eigen klikken houden. */}
+      {open && (
+        <button
+          type="button"
+          className={styles.overlay}
+          aria-label="Zijlade sluiten"
+          tabIndex={-1}
+          onClick={() => setPaneel(null)}
+        />
+      )}
+
+      {/* Paneel (schuift uit); links van de rail. Het paneel zelf scrollt niet:
+          een vaste sluitrand links + een scrollende inhoudskolom. */}
       <div
         id="app-zijkolom"
         className={`${styles.paneel} ${open ? styles.paneelOpen : ""}`}
@@ -104,20 +127,28 @@ export default function Zijlade() {
         role="region"
         aria-label={paneel === "verantwoording" ? "Technische verantwoording" : "Nieuws"}
         aria-hidden={!open}
+        onTouchStart={opVeegStart}
+        onTouchEnd={opVeegEind}
       >
         {open && (
           <button
             type="button"
-            className={styles.paneelSluit}
+            className={styles.sluitRand}
             aria-label="Zijlade sluiten"
             onClick={() => setPaneel(null)}
           >
-            <span aria-hidden="true">×</span>
-            <span className={styles.paneelSluitLabel}>Sluiten</span>
+            <span className={styles.sluitRandTeken} aria-hidden="true">
+              ×
+            </span>
+            <span className={styles.sluitRandLabel} aria-hidden="true">
+              Sluiten
+            </span>
           </button>
         )}
-        {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
-        {paneel === "verantwoording" && <ZijkolomVerantwoording />}
+        <div className={styles.paneelInhoud}>
+          {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
+          {paneel === "verantwoording" && <ZijkolomVerantwoording />}
+        </div>
       </div>
 
       {/* Rail met tabbladen (altijd zichtbaar, aan de rechterrand). */}
