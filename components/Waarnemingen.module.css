@@ -186,40 +186,27 @@
 
 .pinPopup h3 {
   margin: 0;
-  padding-right: 25px;
+  padding-right: 48px;
   font-size: 0.98rem;
   line-height: 1.4;
 }
 
-.popupRechtsOnder {
-  transform: translate(18px, 18px);
-}
-
-.popupLinksOnder {
-  transform: translate(calc(-100% - 18px), 18px);
-}
-
-.popupRechtsBoven {
-  transform: translate(18px, calc(-100% - 18px));
-}
-
-.popupLinksBoven {
-  transform: translate(calc(-100% - 18px), calc(-100% - 18px));
-}
-
 .popupSluit {
   position: absolute;
-  top: 7px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
+  top: 4px;
+  right: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 0;
   border-radius: 6px;
   background: transparent;
   color: #800000;
   font: inherit;
-  font-size: 1.35rem;
+  font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
 }
@@ -230,13 +217,34 @@
   outline: none;
 }
 
+/* Expliciete, gelabelde sluitknop linksonder in elke popup (min. 44px klikdoel),
+   naast Escape en klik-ernaast. */
+.popupSluitOnder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 18px;
+  border: 1px solid rgba(128, 0, 0, 0.32);
+  border-radius: 8px;
+  background: #fff;
+  color: #800000;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.popupSluitOnder:hover,
+.popupSluitOnder:focus-visible {
+  background: rgba(128, 0, 0, 0.08);
+  outline: none;
+}
+
 .popupBron {
   margin: 0;
   font-size: 0.82rem;
-}
-
-.waarnemingPaneel {
-  display: none;
 }
 
 .detailGrid {

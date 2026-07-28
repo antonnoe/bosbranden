@@ -32,6 +32,12 @@ const KM_PER_GRAAD = 111.32;
 const W850_MAX = 0.7; // maximale weging van het 850hPa-transportveld
 const W850_TIJDSCHAAL = 8; // uren; w850 = min(0.70, t / 8)
 
+// Cachetermijnen van de twee databronnen achter de rookberekening. De
+// verantwoording leidt haar termijn hiervandaan af en noemt de traagste
+// component (fijnstof), zodat de tekst niet sneller belooft dan de data ververst.
+export const WIND_REVALIDATE_SECONDEN = 1800; // Open-Meteo windveld: 30 minuten
+export const FIJNSTOF_REVALIDATE_SECONDEN = 3600; // Open-Meteo CAMS-fijnstof: 60 minuten
+
 const DEG = Math.PI / 180;
 
 const WINDMODUS = ["leefniveau", "ophoogte"] as const;
@@ -138,7 +144,7 @@ async function haalWindveldOp(): Promise<Windveld> {
 
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
-    next: { revalidate: 1800 }, // 30 minuten
+    next: { revalidate: WIND_REVALIDATE_SECONDEN }, // 30 minuten
   });
 
   if (!res.ok) {
@@ -787,7 +793,7 @@ export async function haalFijnstofOp(startuur: string): Promise<Fijnstof> {
 
   const res = await fetch(url, {
     headers: { Accept: "application/json" },
-    next: { revalidate: 3600 }, // 60 minuten
+    next: { revalidate: FIJNSTOF_REVALIDATE_SECONDEN }, // 60 minuten
   });
   if (!res.ok) throw new Error(`Open-Meteo air-quality antwoordde met status ${res.status}.`);
 

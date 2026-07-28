@@ -13,6 +13,10 @@ export interface ModuleStatus {
   ernst: Ernst;
   samenvatting: string;
   beschikbaar: boolean;
+  // Optioneel, feitelijk merk voor de tegel. Zonder dit valt de tegel bij een
+  // hoog gevaarniveau terug op "nu verhoogd"; met dit veld kan een module een
+  // neutrale formulering geven (bijv. een teller) i.p.v. een alarmtoon.
+  merk?: string;
 }
 
 // Elke module leest zijn eigen bestaande interne route. Faalt er één, dan geeft
@@ -67,7 +71,7 @@ async function statusBrandgevaar(origin: string): Promise<ModuleStatus> {
   if (!json || !json.niveaus || Object.keys(json.niveaus).length === 0) {
     return nietBeschikbaar(
       "brandgevaar",
-      "Het gevaarniveau is nu niet beschikbaar. Buiten het seizoen (juni t/m september) publiceert Météo-France geen dagelijkse kaart."
+      "Het gevaarniveau is nu niet beschikbaar. De dagelijkse Météo des forêts-kaart verschijnt alleen tijdens het seizoen (1 juni t/m 30 september); buiten die periode publiceert Météo-France geen kaart."
     );
   }
 
@@ -133,6 +137,8 @@ async function statusHittebronnen(origin: string): Promise<ModuleStatus> {
   return {
     id: "hittebronnen",
     ernst,
+    // Feitelijk merk op de teller, geen alarmtoon: een detectie is geen brand.
+    merk: aantal > 50 ? "veel detecties" : undefined,
     samenvatting: `${aantal} detecties in 24 uur${naam ? `, zwaarst getroffen: ${naam}` : ""}.`,
     beschikbaar: true,
   };

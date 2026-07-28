@@ -6,6 +6,11 @@ const PERIODE_UREN = 24;
 const API_DAGEN = 2;
 const GRID_GRAAD = 0.06;
 
+// Cachetermijn van de FIRMS-fetch. Dit ís de effectieve versheid van de
+// hittebronnen (deze fetch-revalidate wint van de route-revalidate). De
+// verantwoording leidt haar "ververst elke …" hiervandaan af (lib/cache.ts).
+export const FIRMS_REVALIDATE_SECONDEN = 300;
+
 const BRONNEN = [
   { code: "VIIRS_NOAA20_NRT", naam: "NOAA-20" },
   { code: "VIIRS_NOAA21_NRT", naam: "NOAA-21" },
@@ -37,7 +42,7 @@ export async function haalFirmsWaarnemingenOp(mapKey: string): Promise<FirmsResu
         `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${encodeURIComponent(mapKey)}/` +
         `${bron.code}/${FIRMS_BBOX}/${API_DAGEN}`;
 
-      const res = await fetch(url, { next: { revalidate: 300 } });
+      const res = await fetch(url, { next: { revalidate: FIRMS_REVALIDATE_SECONDEN } });
       const body = await res.text();
 
       if (!res.ok) {

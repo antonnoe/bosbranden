@@ -4,9 +4,9 @@
 // bronvermelding, updatedatum en disclaimers voor Météo-France en NASA FIRMS.
 
 import { useEffect, useMemo, useState } from "react";
-import { DEP_BY_CODE, departementVoorPostcode, type Departement } from "@/lib/departements";
+import { departementVoorPostcode, type Departement } from "@/lib/departements";
 import { NIVEAUS, niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
-import type { Waarneming, WaarnemingenAntwoord } from "@/lib/waarnemingen";
+import type { WaarnemingenAntwoord } from "@/lib/waarnemingen";
 import Voortgang from "@/components/Voortgang";
 import NiveauBlok from "@/components/NiveauBlok";
 import FranceKaart from "@/components/FranceKaart";
@@ -53,10 +53,6 @@ function formatteerDatum(iso: string): string {
     timeStyle: "short",
     timeZone: "Europe/Paris",
   }).format(d);
-}
-
-function formatteerGetal(waarde: number): string {
-  return new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(waarde);
 }
 
 export default function Tool({ embed }: { embed: boolean }) {
@@ -178,8 +174,6 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const niveaus = data?.niveaus ?? {};
   const waarnemingen = waarnemingenData?.waarnemingen ?? [];
-  const gekozenWaarneming =
-    waarnemingen.find((waarneming) => waarneming.id === gekozenWaarnemingId) ?? null;
 
   return (
     <div className="omhulsel">
@@ -289,8 +283,6 @@ export default function Tool({ embed }: { embed: boolean }) {
                 laadFout={laadFout}
               />
             ))}
-            <Bronvermelding bijgewerkt={data?.bijgewerkt ?? null} />
-            <Disclaimer />
           </>
         )}
       </section>
@@ -390,45 +382,8 @@ export default function Tool({ embed }: { embed: boolean }) {
           )}
         </div>
 
-        {gekozenWaarneming && (
-          <WaarnemingPaneel
-            waarneming={gekozenWaarneming}
-            onSluit={() => setGekozenWaarnemingId(null)}
-          />
-        )}
-
-        {gekozenDep && DEP_BY_CODE[gekozenDep] && (
-          <div className="dep-paneel" aria-live="polite">
-            <div className="paneel-kop">
-              <h3>
-                {DEP_BY_CODE[gekozenDep].naam}{" "}
-                <span className="dep-code">{gekozenDep}</span>
-              </h3>
-              <button
-                type="button"
-                className="paneel-sluit"
-                aria-label="Paneel sluiten"
-                onClick={() => setGekozenDep(null)}
-              >
-                ×
-              </button>
-            </div>
-            <div className="niveau-rij">
-              <NiveauBlok dag="Morgen (J+1)" waarde={niveaus[gekozenDep]?.j1 ?? null} />
-              <NiveauBlok dag="Overmorgen (J+2)" waarde={niveaus[gekozenDep]?.j2 ?? null} />
-            </div>
-            <ToelichtingVoor waarde={niveaus[gekozenDep]?.[echeance] ?? null} />
-            <p style={{ margin: 0 }}>
-              <a
-                href={DEP_BY_CODE[gekozenDep].prefectuurUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Naar de prefectuur van {DEP_BY_CODE[gekozenDep].naam}
-              </a>
-            </p>
-          </div>
-        )}
+        {/* De uitkomst van zowel een pin- als een departementklik verschijnt nu
+            als kaartpopup binnen FranceKaart, niet meer onder de kaart. */}
 
         <Bronvermelding bijgewerkt={data?.bijgewerkt ?? null} />
         <Disclaimer />
@@ -480,80 +435,6 @@ export default function Tool({ embed }: { embed: boolean }) {
           </p>
         )}
       </footer>
-    </div>
-  );
-}
-
-function WaarnemingPaneel({
-  waarneming,
-  onSluit,
-}: {
-  waarneming: Waarneming;
-  onSluit: () => void;
-}) {
-  const departement = DEP_BY_CODE[waarneming.departementCode];
-
-  return (
-    <div className={styles.waarnemingPaneel} aria-live="polite">
-      <div className="paneel-kop">
-        <h3>
-          Satellietwaarneming{" "}
-          {departement ? (
-            <span className="dep-code">{waarneming.departementCode}</span>
-          ) : null}
-        </h3>
-        <button
-          type="button"
-          className="paneel-sluit"
-          aria-label="Paneel sluiten"
-          onClick={onSluit}
-        >
-          ×
-        </button>
-      </div>
-
-      <div className={styles.detailGrid}>
-        <span className={styles.detailLabel}>Locatie</span>
-        <span>
-          {departement?.naam ?? `departement ${waarneming.departementCode}`} ·{" "}
-          {waarneming.latitude.toFixed(4)}, {waarneming.longitude.toFixed(4)}
-        </span>
-
-        <span className={styles.detailLabel}>Waargenomen</span>
-        <span>{formatteerDatum(waarneming.waargenomenOp)}</span>
-
-        <span className={styles.detailLabel}>Sensor</span>
-        <span>
-          {waarneming.instrument} · {waarneming.satelliet}
-          {waarneming.dagNacht ? ` · ${waarneming.dagNacht}` : ""}
-        </span>
-
-        <span className={styles.detailLabel}>Betrouwbaarheid</span>
-        <span>{waarneming.betrouwbaarheid}</span>
-
-        {waarneming.frp !== null && (
-          <>
-            <span className={styles.detailLabel}>FRP</span>
-            <span>{formatteerGetal(waarneming.frp)} MW</span>
-          </>
-        )}
-      </div>
-
-      <p style={{ margin: 0, fontSize: "0.88rem" }}>
-        Bron:{" "}
-        <a
-          href="https://firms.modaps.eosdis.nasa.gov/"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          NASA FIRMS — VIIRS
-        </a>
-      </p>
-      <p className={styles.caveat}>
-        Dit is een door een satelliet gemeten hittebron. Het is niet automatisch een door
-        de Franse autoriteiten bevestigde natuurbrand. FRP is het geschatte uitgestraalde
-        vermogen en zegt niet hoeveel hectare is verbrand.
-      </p>
     </div>
   );
 }

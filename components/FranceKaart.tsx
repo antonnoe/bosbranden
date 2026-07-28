@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { DEP_BY_CODE } from "@/lib/departements";
 import { KAART_PADEN, KAART_VIEWBOX } from "@/lib/kaart-paths";
 import { projecteerCoordinaat } from "@/lib/kaart-projectie";
@@ -8,6 +8,7 @@ import { niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
 import { isNuActueel, type FrAlertAntwoord, type FrAlertMelding } from "@/lib/fr-alert";
 import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
+import NiveauBlok from "@/components/NiveauBlok";
 import { useNieuws, Nieuwsgroepen } from "@/components/Nieuws";
 import styles from "@/components/Waarnemingen.module.css";
 import clusterStyles from "@/components/KaartClusters.module.css";
@@ -103,6 +104,9 @@ export default function FranceKaart({
   const nieuws = useNieuws(nieuwsOpen);
 
   const svgRef = useRef<SVGSVGElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [popupPos, setPopupPos] = useState<{ left: number; top: number } | null>(null);
   const pointersRef = useRef(new Map<number, SchermPunt>());
   const gestureRef = useRef<{
     laatsteMidden: SchermPunt | null;
@@ -273,24 +277,76 @@ export default function FranceKaart({
       ? geprojecteerdeMeldingen.find((punt) => punt.melding.id === gekozenMeldingId) ?? null
       : null;
 
+  // Zwaartepunt van het gekozen departement in kaartcoördinaten; anker voor de
+  // departement-popup (werkt ook bij toetsenbordselectie, zonder klikpositie).
+  const depCentroid = useMemo(() => {
+    if (!gekozen) return null;
+    const pad = KAART_PADEN.find((p) => p.code === gekozen);
+    return pad ? zwaartepuntVanPad(pad.d) : null;
+  }, [gekozen]);
+
   const popupCoordinaat = gekozenPunt ? { x: gekozenPunt.x, y: gekozenPunt.y } : null;
   const meldingCoordinaat = gekozenMelding ? { x: gekozenMelding.x, y: gekozenMelding.y } : null;
-  const actievePopupCoordinaat = clusterSelectie ?? meldingCoordinaat ?? popupCoordinaat;
-  const popupSchermX = actievePopupCoordinaat
-    ? ((actievePopupCoordinaat.x - camera.x) / zichtbareBreedte) * 100
-    : 0;
-  const popupSchermY = actievePopupCoordinaat
-    ? ((actievePopupCoordinaat.y - camera.y) / zichtbareHoogte) * 100
-    : 0;
+  const gekozenDepInfo = gekozen ? DEP_BY_CODE[gekozen] ?? null : null;
+  const depCoordinaat = gekozenDepInfo && depCentroid ? depCentroid : null;
+  const actievePopupCoordinaat =
+    clusterSelectie ?? meldingCoordinaat ?? popupCoordinaat ?? depCoordinaat;
 
-  let popupPositieKlasse = styles.popupRechtsOnder;
-  if (actievePopupCoordinaat) {
-    const linksVanPin = popupSchermX > 62;
-    const bovenPin = popupSchermY > 62;
-    if (linksVanPin && bovenPin) popupPositieKlasse = styles.popupLinksBoven;
-    else if (linksVanPin) popupPositieKlasse = styles.popupLinksOnder;
-    else if (bovenPin) popupPositieKlasse = styles.popupRechtsBoven;
-  }
+  // Sleutel die verandert zodra er een andere popup (of andere inhoud) opent, zodat
+  // de plaatsing opnieuw wordt gemeten wanneer de afmetingen kunnen wijzigen.
+  const popupSleutel = clusterSelectie
+    ? `cluster-${clusterSelectie.punten.length}-${clusterSelectie.x.toFixed(1)}`
+    : gekozenMelding
+      ? `melding-${gekozenMelding.melding.id}`
+      : gekozenPunt
+        ? `pin-${gekozenPunt.waarneming.id}`
+        : depCoordinaat
+          ? `dep-${gekozen}`
+          : null;
+  const coordX = actievePopupCoordinaat?.x ?? null;
+  const coordY = actievePopupCoordinaat?.y ?? null;
+
+  // Plaats de popup in pixels en klem op de EIGEN afmetingen, zodat hij altijd
+  // volledig binnen het kaartvlak blijft en nooit onder de vaste zijladerail
+  // schuift. Meten gebeurt vóór de paint (useLayoutEffect), dus zonder flikkering.
+  useLayoutEffect(() => {
+    const vp = viewportRef.current;
+    const pop = popupRef.current;
+    if (!vp || !pop || coordX === null || coordY === null) {
+      setPopupPos(null);
+      return;
+    }
+    const plaats = () => {
+      const vpRect = vp.getBoundingClientRect();
+      const pinX = ((coordX - camera.x) / zichtbareBreedte) * vpRect.width;
+      const pinY = ((coordY - camera.y) / zichtbareHoogte) * vpRect.height;
+      const pw = pop.offsetWidth;
+      const ph = pop.offsetHeight;
+      const marge = 8;
+      // De vaste zijladerail (rechts, buiten de kaart) mag de popup nooit bedekken.
+      // Op smalle vensters is de rail breder; onder 560px staat de popup statisch.
+      const railBreedte = window.innerWidth <= 599 ? 78 : 46;
+      const linksMaxDoorRail =
+        window.innerWidth - railBreedte - marge - pw - vpRect.left;
+      const linksMax = Math.max(marge, Math.min(vpRect.width - pw - marge, linksMaxDoorRail));
+      let left = pinX + 18;
+      if (left + pw > linksMax) left = pinX - 18 - pw;
+      left = Math.min(Math.max(left, marge), linksMax);
+      let top = pinY + 18;
+      if (top + ph > vpRect.height - marge) top = pinY - 18 - ph;
+      top = Math.min(Math.max(top, marge), Math.max(marge, vpRect.height - ph - marge));
+      setPopupPos({ left, top });
+    };
+    plaats();
+    window.addEventListener("resize", plaats);
+    return () => window.removeEventListener("resize", plaats);
+  }, [popupSleutel, coordX, coordY, camera.x, camera.y, zichtbareBreedte, zichtbareHoogte]);
+
+  const popupStijl: CSSProperties = {
+    left: popupPos ? `${popupPos.left}px` : 0,
+    top: popupPos ? `${popupPos.top}px` : 0,
+    visibility: popupPos ? "visible" : "hidden",
+  };
 
   function begrensCamera(volgende: Camera): Camera {
     const zoom = begrens(volgende.zoom, MIN_ZOOM, MAX_ZOOM);
@@ -426,7 +482,7 @@ export default function FranceKaart({
           </>
         )}
 
-        <div className={styles.kaartViewport}>
+        <div className={styles.kaartViewport} ref={viewportRef}>
           <div className={styles.zoomBediening} role="group" aria-label="Kaart in- en uitzoomen">
             <button
               type="button"
@@ -600,11 +656,16 @@ export default function FranceKaart({
                   aria-label={label}
                   aria-pressed={gekozen === pad.code}
                   onClick={() => {
-                    if (!wasDraggingRef.current) onKies(pad.code);
+                    if (wasDraggingRef.current) return;
+                    setClusterSelectie(null);
+                    setGekozenMeldingId(null);
+                    onKies(pad.code);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
+                      setClusterSelectie(null);
+                      setGekozenMeldingId(null);
                       onKies(pad.code);
                     }
                   }}
@@ -741,11 +802,9 @@ export default function FranceKaart({
 
           {clusterSelectie && (
             <div
-              className={`${styles.pinPopup} ${popupPositieKlasse} ${clusterStyles.clusterPopup}`}
-              style={{
-                left: `${begrens(popupSchermX, 0, 100)}%`,
-                top: `${begrens(popupSchermY, 0, 100)}%`,
-              }}
+              ref={popupRef}
+              className={`${styles.pinPopup} ${clusterStyles.clusterPopup}`}
+              style={popupStijl}
               role="dialog"
               aria-modal="false"
               aria-labelledby="cluster-popup-titel"
@@ -799,16 +858,21 @@ export default function FranceKaart({
                   De acht meest recente metingen worden getoond.
                 </p>
               )}
+              <button
+                type="button"
+                className={styles.popupSluitOnder}
+                onClick={() => setClusterSelectie(null)}
+              >
+                Sluiten
+              </button>
             </div>
           )}
 
           {!clusterSelectie && gekozenPunt && popupCoordinaat && (
             <div
-              className={`${styles.pinPopup} ${popupPositieKlasse}`}
-              style={{
-                left: `${begrens(popupSchermX, 0, 100)}%`,
-                top: `${begrens(popupSchermY, 0, 100)}%`,
-              }}
+              ref={popupRef}
+              className={styles.pinPopup}
+              style={popupStijl}
               role="dialog"
               aria-modal="false"
               aria-labelledby="satelliet-popup-titel"
@@ -878,16 +942,21 @@ export default function FranceKaart({
                 tussen vegetatiebranden en vaste industriële warmtebronnen. FRP is het
                 geschatte uitgestraalde vermogen, niet het verbrande oppervlak.
               </p>
+              <button
+                type="button"
+                className={styles.popupSluitOnder}
+                onClick={() => onKiesWaarneming(gekozenPunt.waarneming.id)}
+              >
+                Sluiten
+              </button>
             </div>
           )}
 
           {!clusterSelectie && gekozenMelding && meldingCoordinaat && (
             <div
-              className={`${styles.pinPopup} ${popupPositieKlasse} ${laagStyles.officieelPopup}`}
-              style={{
-                left: `${begrens(popupSchermX, 0, 100)}%`,
-                top: `${begrens(popupSchermY, 0, 100)}%`,
-              }}
+              ref={popupRef}
+              className={`${styles.pinPopup} ${laagStyles.officieelPopup}`}
+              style={popupStijl}
               role="dialog"
               aria-modal="false"
               aria-labelledby="officieel-popup-titel"
@@ -946,6 +1015,61 @@ export default function FranceKaart({
                 FR-Alert wordt alleen bij ernstige situaties ingezet. Geen marker betekent dus niet
                 dat er in dat gebied geen natuurbrand is.
               </p>
+              <button
+                type="button"
+                className={styles.popupSluitOnder}
+                onClick={() => setGekozenMeldingId(null)}
+              >
+                Sluiten
+              </button>
+            </div>
+          )}
+
+          {!clusterSelectie && !gekozenPunt && !gekozenMelding && gekozenDepInfo && (
+            <div
+              ref={popupRef}
+              className={styles.pinPopup}
+              style={popupStijl}
+              role="dialog"
+              aria-modal="false"
+              aria-labelledby="dep-popup-titel"
+            >
+              <button
+                type="button"
+                className={styles.popupSluit}
+                aria-label="Kaartje sluiten"
+                onClick={() => onKies(gekozenDepInfo.code)}
+              >
+                ×
+              </button>
+              <h3 id="dep-popup-titel">
+                {gekozenDepInfo.naam}{" "}
+                <span className="dep-code">{gekozenDepInfo.code}</span>
+              </h3>
+              <div className="niveau-rij">
+                <NiveauBlok dag="Morgen (J+1)" waarde={niveaus[gekozenDepInfo.code]?.j1 ?? null} />
+                <NiveauBlok
+                  dag="Overmorgen (J+2)"
+                  waarde={niveaus[gekozenDepInfo.code]?.j2 ?? null}
+                />
+              </div>
+              {niveauVoor(niveaus[gekozenDepInfo.code]?.[echeance] ?? null) && (
+                <p className="niveau-toelichting">
+                  {niveauVoor(niveaus[gekozenDepInfo.code]?.[echeance] ?? null)?.toelichting}
+                </p>
+              )}
+              <p className={styles.popupBron}>
+                <a href={gekozenDepInfo.prefectuurUrl} target="_blank" rel="noopener noreferrer">
+                  Naar de prefectuur van {gekozenDepInfo.naam}
+                </a>
+              </p>
+              <button
+                type="button"
+                className={styles.popupSluitOnder}
+                onClick={() => onKies(gekozenDepInfo.code)}
+              >
+                Sluiten
+              </button>
             </div>
           )}
         </div>
@@ -1031,6 +1155,22 @@ export default function FranceKaart({
 
 function begrens(waarde: number, minimum: number, maximum: number): number {
   return Math.min(maximum, Math.max(minimum, waarde));
+}
+
+// Zwaartepunt (gemiddelde van de padpunten) in kaartcoördinaten. De paden gebruiken
+// alleen M/L/Z met absolute x y-paren, exact de viewBox-ruimte van de camera.
+function zwaartepuntVanPad(d: string): { x: number; y: number } | null {
+  const getallen = d.match(/-?\d+(?:\.\d+)?/g);
+  if (!getallen || getallen.length < 2) return null;
+  let somX = 0;
+  let somY = 0;
+  let n = 0;
+  for (let i = 0; i + 1 < getallen.length; i += 2) {
+    somX += Number(getallen[i]);
+    somY += Number(getallen[i + 1]);
+    n += 1;
+  }
+  return n > 0 ? { x: somX / n, y: somY / n } : null;
 }
 
 function afstand(a: SchermPunt, b: SchermPunt): number {

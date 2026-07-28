@@ -52,10 +52,13 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
     regio: "Nouvelle-Aquitaine",
     bevestigd: false,
   },
+  // France 3 en ici.fr (France Bleu) zijn publieke omroepen: journalistiek, geen
+  // autoriteit. Daarom soort 'pers', niet 'officieel'. Alleen préfecture en Atmo
+  // blijven officieel.
   {
     naam: "France 3 Nouvelle-Aquitaine",
     url: "https://france3-regions.francetvinfo.fr/nouvelle-aquitaine/rss.xml",
-    soort: "officieel",
+    soort: "pers",
     paywall: false,
     regio: "Nouvelle-Aquitaine",
     bevestigd: false,
@@ -63,7 +66,7 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
   {
     naam: "ici.fr — landelijk",
     url: "https://www.ici.fr/rss",
-    soort: "officieel",
+    soort: "pers",
     paywall: false,
     regio: "landelijk",
     bevestigd: false,
@@ -71,7 +74,7 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
   {
     naam: "ici.fr — Gironde",
     url: "https://www.ici.fr/gironde/rss",
-    soort: "officieel",
+    soort: "pers",
     paywall: false,
     regio: "Gironde",
     bevestigd: false,
@@ -79,7 +82,7 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
   {
     naam: "ici.fr — Gascogne",
     url: "https://www.ici.fr/gascogne/rss",
-    soort: "officieel",
+    soort: "pers",
     paywall: false,
     regio: "Gascogne",
     bevestigd: false,
@@ -87,7 +90,7 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
   {
     naam: "ici.fr — Pays basque",
     url: "https://www.ici.fr/pays-basque/rss",
-    soort: "officieel",
+    soort: "pers",
     paywall: false,
     regio: "Pays basque",
     bevestigd: false,
@@ -101,7 +104,7 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
     soort: "pers",
     paywall: true,
     regio: "Gironde/Landes",
-    bevestigd: false,
+    bevestigd: true, // levert in productie aantoonbaar items
   },
   {
     naam: "Midi Libre — faits divers",
@@ -109,7 +112,7 @@ export const NIEUWSBRONNEN: Nieuwsbron[] = [
     soort: "pers",
     paywall: true,
     regio: "Occitanie",
-    bevestigd: false,
+    bevestigd: true, // levert in productie aantoonbaar items
   },
   {
     naam: "Le Parisien — Seine-et-Marne",

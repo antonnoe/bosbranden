@@ -9,16 +9,19 @@
 // controleer ze tegen de genoemde route als je een cache-instelling wijzigt.
 
 import { CACHE_SECONDEN as DANGER_SECONDEN } from "@/lib/meteofrance";
+import { FIRMS_REVALIDATE_SECONDEN } from "@/lib/firms";
+import { FIJNSTOF_REVALIDATE_SECONDEN } from "@/lib/rookdrift";
 
 export const VERVERS_SECONDEN = {
   // /api/danger → lib/meteofrance CACHE_SECONDEN (live geïmporteerd)
   brandgevaar: DANGER_SECONDEN,
-  // /api/waarnemingen → export const revalidate = 900
-  hittebronnen: 900,
-  // /api/rookpluimen → export const revalidate = 900 (windveld/fijnstof kennen
-  // langere interne cachewaarden in lib/rookdrift: 1800 resp. 3600 seconden)
-  rook: 900,
-  // /api/fr-alert → Cache-Control s-maxage=120
+  // /api/waarnemingen → de FIRMS-fetch wint (lib/firms), niet de route-revalidate.
+  // Live geïmporteerd, zodat de tekst nooit trager belooft dan de data ververst.
+  hittebronnen: FIRMS_REVALIDATE_SECONDEN,
+  // /api/rookpluimen → windveld (30 min) én CAMS-fijnstof (60 min) in lib/rookdrift.
+  // We noemen de traagste component, zodat de tekst de data niet vooruitloopt.
+  rook: FIJNSTOF_REVALIDATE_SECONDEN,
+  // /api/fr-alert → Cache-Control s-maxage=120 (route-respons)
   waarschuwingen: 120,
   // /api/nieuws → export const revalidate = 900
   nieuws: 900,

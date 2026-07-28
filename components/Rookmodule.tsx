@@ -110,7 +110,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
 
-  const [uur, setUur] = useState(24);
+  const [uur, setUur] = useState(0); // begin op "nu"; de schuif loopt door tot +24 u
   const [modus, setModus] = useState<Windmodus>("leefniveau");
   const [gekozenId, setGekozenId] = useState<string | null>(null);
   const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);

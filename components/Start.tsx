@@ -155,7 +155,13 @@ export default function Start({ embed }: { embed: boolean }) {
               >
                 <div className={styles.tegelKop}>
                   <h2 className={styles.tegelTitel}>{module.titel}</h2>
-                  {ernst >= 3 && <span className={styles.ernstMerk}>nu verhoogd</span>}
+                  {(() => {
+                    // De module levert desgewenst een eigen, feitelijk merk (bijv. een
+                    // teller). Alleen bij een echt gevaarniveau valt het terug op
+                    // "nu verhoogd" — geen alarmtoon op een simpele teller.
+                    const merk = status?.merk ?? (ernst >= 3 ? "nu verhoogd" : null);
+                    return merk ? <span className={styles.ernstMerk}>{merk}</span> : null;
+                  })()}
                 </div>
                 <p className={styles.tegelFunctie}>{module.functie}</p>
                 <p className={styles.tegelStatus} aria-live="polite">

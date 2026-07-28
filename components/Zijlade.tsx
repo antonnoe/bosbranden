@@ -105,6 +105,17 @@ export default function Zijlade() {
         aria-label={paneel === "verantwoording" ? "Technische verantwoording" : "Nieuws"}
         aria-hidden={!open}
       >
+        {open && (
+          <button
+            type="button"
+            className={styles.paneelSluit}
+            aria-label="Zijlade sluiten"
+            onClick={() => setPaneel(null)}
+          >
+            <span aria-hidden="true">×</span>
+            <span className={styles.paneelSluitLabel}>Sluiten</span>
+          </button>
+        )}
         {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
         {paneel === "verantwoording" && <ZijkolomVerantwoording />}
       </div>

@@ -376,7 +376,7 @@ async function geocodeerMetGeopf(
         "User-Agent": BROWSER_USER_AGENT,
         Accept: "application/json",
       },
-      next: { revalidate: 86400 },
+      next: { revalidate: 300 }, // geocoding: coördinaten zijn statisch, maar we houden de cache kort
       signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;
@@ -422,7 +422,7 @@ async function geocodeerGemeente(
         "User-Agent": BROWSER_USER_AGENT,
         Accept: "application/json",
       },
-      next: { revalidate: 86400 },
+      next: { revalidate: 300 }, // geocoding: coördinaten zijn statisch, maar we houden de cache kort
       signal: AbortSignal.timeout(8_000),
     });
     if (!res.ok) return null;

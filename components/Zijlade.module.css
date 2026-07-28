@@ -47,6 +47,40 @@
   outline: none;
 }
 
+/* Expliciete sluitknop aan de linker- (pagina-)rand van het uitgeschoven paneel.
+   Blijft in beeld bij scrollen. Wit op #800000 (contrast 10.95:1), min. 44px. */
+.paneelSluit {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-bottom: 12px;
+  padding: 0 14px;
+  border: 1.5px solid #ffffff;
+  border-radius: 8px;
+  background: #800000;
+  color: #ffffff;
+  font-family: "Poppins", sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.paneelSluit:hover,
+.paneelSluit:focus-visible {
+  background: #9a1f1f;
+  outline: 3px solid #ffffff;
+  outline-offset: -6px;
+}
+
+.paneelSluitLabel {
+  font-size: 0.9rem;
+}
+
 /* ---- Rail: altijd zichtbaar aan de rechterrand, verticaal gecentreerd ---- */
 .rail {
   position: absolute;
