@@ -1,45 +1,76 @@
-// Nederlandse samenvatting van een Frans nieuwsartikel (H). We roepen Antons
-// bestaande dienst SERVER-SIDE aan (H1 — geen CORS in de browser) en bewaren het
-// resultaat per artikel-URL in een module-cache (H4): dezelfde URL wordt binnen
-// een serverinstantie nooit twee keer opgehaald, zodat de kosten met het aantal
-// artikelen schalen, niet met het aantal bezoekers. De dienst zelf cachet ook
-// per URL, dus zelfs na een koude start blijven herhaalde aanvragen goedkoop.
+// Nederlandse samenvatting van een Frans nieuwsartikel (H). De dienst wordt
+// SERVER-SIDE aangeroepen (H1 — geen CORS). De cache is de Next Data Cache via
+// unstable_cache (B1): die overleeft koude starts, want hij wordt buiten de
+// functie-instantie bewaard (op Vercel de durable Data Cache). Gekozen boven
+// Vercel KV/Blob omdat er geen extra infrastructuur, koppeling of secrets voor
+// nodig zijn en de sleutel — de artikel-URL — er natuurlijk in past; een
+// samenvatting per URL is stabiel, dus een lange bewaartermijn kan.
+//
+// Per regeneratie worden hooguit MAX_NIEUW_PER_RONDE nog niet-gecachete
+// samenvattingen opgevraagd (B2): de budget-poort staat in het cache-miss-pad,
+// dus een hit is gratis en telt niet mee. De rest blijft die ronde Frans en komt
+// de volgende ronde binnen. Ophalen gebeurt parallel (B3).
 
+import { unstable_cache } from "next/cache";
 import type { EcosystemLink } from "@/lib/nieuws-filter";
+import { haalAlle, metGate, type Budget } from "@/lib/nieuws-budget";
 
-const DIENST_URL = "https://if-tools-api.vercel.app/api/generate-summary";
+const DIENST_URL =
+  process.env.NIEUWS_SAMENVAT_URL ?? "https://if-tools-api.vercel.app/api/generate-summary";
 const CONTEXT_URL = "https://www.nederlanders.fr/page/bosbranden";
 const CONTEXT_TITLE = "Weer en waarschuwingen Frankrijk";
 const TIMEOUT_MS = 9000;
+
+// Bewaartermijn van een geslaagde samenvatting in de Data Cache: lang, want per
+// URL stabiel. 30 dagen.
+const SAMENVATTING_REVALIDATE = 60 * 60 * 24 * 30;
+
+// Hooguit vier nieuwe (dienst-)aanvragen per regeneratie, zodat de route niet
+// tegen de functietijdslimiet loopt (B2).
+export const MAX_NIEUW_PER_RONDE = 4;
 
 export interface Samenvatting {
   titelNl: string | null;
   samenvatting: string | null; // markdown
   ecosystemLinks: EcosystemLink[];
-  ok: boolean;
 }
 
-// Alleen geslaagde resultaten worden permanent bewaard; een mislukte poging mag
-// later opnieuw (bij een volgende revalidatie), zodat een tijdelijke storing niet
-// blijft plakken — maar binnen één geslaagde ronde nooit dubbel opgevraagd.
-const CACHE = new Map<string, Samenvatting>();
-
-const MISLUKT: Samenvatting = {
-  titelNl: null,
-  samenvatting: null,
-  ecosystemLinks: [],
-  ok: false,
-};
-
-export async function haalSamenvatting(url: string, franseTitel: string): Promise<Samenvatting> {
-  const bestaand = CACHE.get(url);
-  if (bestaand) return bestaand;
-
-  const resultaat = await genereer(url, franseTitel);
-  if (resultaat.ok) CACHE.set(url, resultaat);
-  return resultaat;
+export interface ArtikelSleutel {
+  url: string;
+  titel: string; // Franse kop, gebruikt als terugval-titel
 }
 
+// Durable read-through per URL. De wrapped functie draait ALLEEN bij een
+// cache-miss; dan telt de budget-poort en wordt de dienst gebeld. Op een hit komt
+// de bewaarde samenvatting terug zonder de dienst te bellen en zonder budget te
+// gebruiken. Een fout (dienst mislukt of budget op) gooit, zodat er niets wordt
+// gecachet en de volgende ronde het opnieuw probeert.
+function durableSamenvatting(sleutel: string, budget: Budget): Promise<Samenvatting> {
+  // De titel zit in de closure; hij hoort niet in de cachesleutel (de URL is de
+  // sleutel). unstable_cache identificeert de entry op keyParts + de URL.
+  const titel = titelPerUrl.get(sleutel) ?? "";
+  return unstable_cache(
+    () => metGate(budget, () => genereer(sleutel, titel)),
+    ["nieuws-samenvatting-v1", sleutel],
+    { revalidate: SAMENVATTING_REVALIDATE }
+  )();
+}
+
+// Kleine hulpkaart zodat de Franse terugval-titel beschikbaar is binnen de
+// durable functie zonder in de cachesleutel te belanden.
+const titelPerUrl = new Map<string, string>();
+
+export async function haalSamenvattingen(
+  items: ArtikelSleutel[],
+  maxNieuw: number = MAX_NIEUW_PER_RONDE
+): Promise<Map<string, Samenvatting | null>> {
+  for (const item of items) titelPerUrl.set(item.url, item.titel);
+  const urls = items.map((i) => i.url);
+  return haalAlle<Samenvatting>(urls, maxNieuw, durableSamenvatting);
+}
+
+// Roept de dienst aan en normaliseert het antwoord. GOOIT bij elke fout, zodat
+// er niets mislukts in de durable cache belandt.
 async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenvatting> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -55,18 +86,15 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
       signal: controller.signal,
       cache: "no-store",
     });
-    if (!res.ok) return MISLUKT;
+    if (!res.ok) throw new Error(`dienst antwoordde met status ${res.status}`);
     const json: unknown = await res.json();
     const samenvatting = leesSamenvatting(json);
-    if (!samenvatting) return MISLUKT;
+    if (!samenvatting) throw new Error("geen bruikbare samenvatting");
     return {
       titelNl: leidTitelAf(samenvatting) ?? franseTitel,
       samenvatting,
       ecosystemLinks: normaliseerEcosystem((json as Record<string, unknown>).ecosystem),
-      ok: true,
     };
-  } catch {
-    return MISLUKT;
   } finally {
     clearTimeout(timer);
   }
@@ -88,23 +116,18 @@ function leidTitelAf(markdown: string): string | null {
     : (regels.find((r) => r.length > 0) ?? "");
   const schoon = ontdoeVanOpmaak(ruw);
   if (!schoon) return null;
-  // Eerste zin; bij een lange kop netjes inkorten.
   const eersteZin = schoon.split(/(?<=[.!?])\s/)[0] ?? schoon;
-  const kort = eersteZin.length > 100 ? `${eersteZin.slice(0, 97).trimEnd()}…` : eersteZin;
-  return kort;
+  return eersteZin.length > 100 ? `${eersteZin.slice(0, 97).trimEnd()}…` : eersteZin;
 }
 
 function ontdoeVanOpmaak(tekst: string): string {
   return tekst
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1") // [tekst](url) → tekst
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/[*_`#]+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-// De dienst kan ecosystem-links in verschillende vormen teruggeven; we
-// normaliseren defensief naar een lijst {label, url}. Onbruikbare vormen (bv. een
-// losse string zonder URL) leveren gewoon een lege lijst op.
 function normaliseerEcosystem(ecosystem: unknown): EcosystemLink[] {
   const uit: EcosystemLink[] = [];
   const voegToe = (label: unknown, url: unknown) => {
