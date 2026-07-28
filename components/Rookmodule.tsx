@@ -302,11 +302,17 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   }, [kaart, pluimen, gekozenId, kies, uur, data]);
 
   // ---- GIBS-tegellaag ----
+  // Hangt af van de PRIMITIEVE datum (een stabiele string), niet van het
+  // satelliet-object: zo kan geen enkele objectidentiteit-wisseling de cleanup
+  // (en daarmee removeLayer) ongewild triggeren. De laag wordt daardoor alleen
+  // toegevoegd/verwijderd als de kaart, de aan/uit-stand of de dátum echt
+  // verandert — niet bij een gewone re-render. De laag ligt in de standaard
+  // tegel-pane (geen eigen pane, zie GIBS_TEGEL_ZINDEX).
+  const satellietDatumSleutel = satelliet?.datum ?? null;
   useEffect(() => {
-    if (!kaart || !toonSatelliet || !satelliet) return;
+    if (!kaart || !toonSatelliet || !satellietDatumSleutel) return;
     const { map, L } = kaart;
-    const laag = L.tileLayer(GIBS_SJABLOON.replace("{TIME}", satelliet.datum), {
-      // Standaard tegel-pane (geen eigen pane), boven de basiskaart.
+    const laag = L.tileLayer(GIBS_SJABLOON.replace("{TIME}", satellietDatumSleutel), {
       zIndex: GIBS_TEGEL_ZINDEX,
       maxNativeZoom: 9,
       maxZoom: 11,
@@ -320,7 +326,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       gibsRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kaart, toonSatelliet, satelliet]);
+  }, [kaart, toonSatelliet, satellietDatumSleutel]);
 
   useEffect(() => {
     gibsRef.current?.setOpacity(dekking / 100);
@@ -516,6 +522,13 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   return (
     <div className="omhulsel">
       <EmbedHoogte actief={embed} />
+      {!embed && (
+        <div>
+          <a className="terug-pagina-knop" href="https://nederlanders.fr/page/bosbranden">
+            ← Terug naar de pagina
+          </a>
+        </div>
+      )}
       <a className="terug-overzicht" href={startHref}>
         ← Terug naar overzicht
       </a>
@@ -685,7 +698,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   {data?.windBeschikbaar && (
                     <>
                       <span>
-                        <i className={styles.legGemeten} /> gemeten wind
+                        <i className={styles.legGemeten} /> wind tot nu
                       </span>
                       <span>
                         <i className={styles.legVerwacht} /> verwachte wind

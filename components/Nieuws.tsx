@@ -131,7 +131,8 @@ export function Nieuwsgroepen({
       {!geenItems && (
         <p className={styles.vertaalNoot}>
           De samenvattingen zijn machinaal in het Nederlands vertaald. De originele artikelen
-          kunt u met de rechtermuisknop door uw browser laten vertalen.
+          kunt u met de rechtermuisknop door uw browser laten vertalen. De samenvattingen volgen
+          het Franse nieuws met enige vertraging.
         </p>
       )}
 
@@ -192,7 +193,7 @@ function NieuwsGroep({
                     {item.titel}
                   </a>
                   <span className={styles.vertaalMislukt}>
-                    Nederlandse vertaling nu niet beschikbaar
+                    Nederlandse vertaling nu nog niet beschikbaar
                   </span>
                 </>
               )}

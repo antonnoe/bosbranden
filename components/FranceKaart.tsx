@@ -23,8 +23,13 @@ const MAX_ZOOM = 5;
 const SLEEPDREMPEL = 6;
 // Extra tekenruimte rond de kaartvormen (in kaarteenheden), zodat de genummerde
 // bollen en druppelpins op de uiterste noord-, zuid-, oost- en westrand volledig
-// zichtbaar blijven — de grootste marker (clusterhalo r=25) plus wat lucht.
-const KAART_MARGE = 34;
+// zichtbaar blijven — de grootste marker (clusterhalo r=25) plus ruim lucht.
+// Symmetrisch gehouden met opzet: in de postcode-zoom valt de marge weg
+// (zichtbare breedte = kaartBreedte/zoom = departementbreedte + padding), dus een
+// symmetrische marge verandert die zoom visueel niet; een noord-only marge zou
+// wél kunnen bepalen welke dimensie de fit begrenst. Ruimer dan de eerdere 34,
+// want de bovenste pins rond Duinkerken werden nog net afgeknipt.
+const KAART_MARGE = 52;
 // Wielzoom-demping: één muiswieltik (deltaY≈100) geeft ongeveer ×1,05; kleine
 // trackpad-stapjes tellen vanzelf multiplicatief op tot een vloeiende beweging.
 const WIEL_DEMPING = 0.000488;

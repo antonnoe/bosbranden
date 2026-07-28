@@ -213,6 +213,13 @@ export default function Tool({ embed }: { embed: boolean }) {
   return (
     <div className="omhulsel">
       <EmbedHoogte actief={embed} />
+      {!embed && (
+        <div>
+          <a className="terug-pagina-knop" href="https://nederlanders.fr/page/bosbranden">
+            ← Terug naar de pagina
+          </a>
+        </div>
+      )}
       <a className="terug-overzicht" href={startHref}>
         ← Terug naar overzicht
       </a>

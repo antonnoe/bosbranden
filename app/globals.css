@@ -65,9 +65,43 @@ a:hover {
 }
 
 .omhulsel {
-  max-width: 860px;
+  /* Standalone (Vercel) benut brede schermen; het iframe op nederlanders.fr
+     houdt zijn eigen 750px (zie .embed .omhulsel hieronder). */
+  max-width: 1280px;
   margin: 0 auto;
   padding: 24px 20px 40px;
+}
+
+/* Leesblokken en beide kaarten houden een eigen, comfortabel maximum zodat er
+   op / en /rook niets uitrekt of gaat zweven op 1280px; alleen het tegelraster
+   op /start (buiten .sectie) benut de volle breedte. In embed (750px) bijt deze
+   cap niet. */
+.omhulsel .sectie {
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Grote, duidelijke terugknop naar de NING-pagina — alleen standalone. */
+.terug-pagina-knop {
+  display: inline-block;
+  margin-bottom: 18px;
+  padding: 12px 22px;
+  border-radius: 10px;
+  background: var(--primair);
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.terug-pagina-knop:hover,
+.terug-pagina-knop:focus-visible {
+  background: var(--primair-80);
+  color: #fff;
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
 }
 
 /* Discrete terugverwijzing naar /start; klein en rustig, geen hoofdknop. */

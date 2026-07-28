@@ -91,6 +91,14 @@ export default function Start({ embed }: { embed: boolean }) {
       <EmbedHoogte actief={embed} />
 
       {!embed && (
+        <div>
+          <a className="terug-pagina-knop" href="https://nederlanders.fr/page/bosbranden">
+            ← Terug naar de pagina
+          </a>
+        </div>
+      )}
+
+      {!embed && (
         <header className="site-kop">
           <h1>Weer en waarschuwingen Frankrijk</h1>
           <p>Kies waar u naar wilt kijken. Vul eventueel uw postcode in; die nemen we mee.</p>

@@ -45,9 +45,12 @@
   align-content: start;
 }
 
+/* Vanaf 640px vullen de tegels de beschikbare breedte: twee kolommen op
+   middelbrede schermen, meer op brede (op 1280px staan de vier modules naast
+   elkaar). minmax(260px) voorkomt dat een tegel te smal wordt. */
 @media (min-width: 640px) {
   .tegels {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 }
 
