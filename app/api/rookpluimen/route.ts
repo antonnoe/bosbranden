@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   bepaalPostcodeAntwoord,
   berekenPluimen,
-  haalFijnstofOp,
-  type Fijnstof,
   type PostcodeAntwoord,
 } from "@/lib/rookdrift";
 
@@ -13,7 +11,6 @@ export const revalidate = 900; // pluimen: 15 minuten (gelijk aan FIRMS)
 // Elke bron faalt afzonderlijk; deze route geeft nooit een 500.
 export async function GET(request: NextRequest) {
   const postcode = request.nextUrl.searchParams.get("postcode")?.trim() || null;
-  const metFijnstof = request.nextUrl.searchParams.get("fijnstof") === "1";
 
   let resultaat: Awaited<ReturnType<typeof berekenPluimen>>;
   try {
@@ -28,15 +25,6 @@ export async function GET(request: NextRequest) {
         "De berekende windbanen zijn tijdelijk niet beschikbaar. Probeer het over enkele minuten opnieuw.",
       pluimen: [],
     };
-  }
-
-  let fijnstof: Fijnstof | undefined;
-  if (metFijnstof) {
-    try {
-      fijnstof = await haalFijnstofOp(resultaat.startuur);
-    } catch {
-      fijnstof = undefined;
-    }
   }
 
   let postcodeAntwoord: PostcodeAntwoord | undefined;
@@ -57,7 +45,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       ...resultaat,
-      ...(fijnstof ? { fijnstof } : {}),
       ...(postcodeAntwoord ? { postcode: postcodeAntwoord } : {}),
     },
     {

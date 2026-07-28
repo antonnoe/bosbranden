@@ -86,8 +86,8 @@ is geen limietprobleem, dus `MAX_DETAILPAGINAS` is bewust niet verhoogd.
 - `app/api/waarnemingen` — serverless route voor NASA FIRMS; 15 minuten cache.
   De FIRMS MAP_KEY blijft uitsluitend server-side.
 - `app/api/rookpluimen` — serverless route voor de rookmodule (zie hieronder);
-  pluimen 15 minuten, wind 30 minuten, fijnstof 60 minuten cache. Elke bron
-  faalt afzonderlijk; de route geeft nooit een 500.
+  pluimen 15 minuten, wind 30 minuten cache. Elke bron faalt afzonderlijk; de
+  route geeft nooit een 500.
 - `app/api/debug` — testroute voor de Météo-France-responsstructuur.
 - `lib/firms.ts` — ophalen, CSV-parsing, tijdsfilter en normalisatie van FIRMS.
 - `lib/rookdrift.ts` — alle server-side rekenwerk van de rookmodule: clusteren
@@ -110,9 +110,6 @@ is geen limietprobleem, dus `MAX_DETAILPAGINAS` is bewust niet verhoogd.
   (`L.geoJSON`), buiten de JS-bundle gehouden en per fetch geladen.
 - `app/api/satellietbeeld` — NASA GIBS. `?meta=1` geeft alleen de gekozen datum
   als JSON (voor de Leaflet-tegellaag); zonder parameter nog het gestikte beeld.
-- `app/api/eumetsat-tijden` — leest het tijdvenster van een geostationaire
-  EUMETSAT-laag uit de WMS-GetCapabilities en geeft de laatste twaalf frames
-  (twee uur, stappen van tien minuten) terug voor de tijdlus.
 
 ## Rookmodule (`/rook`)
 
@@ -140,22 +137,12 @@ Het postcode-antwoord toetst per uurstap of het midden van een traject binnen he
 departement van de bezoeker valt en meldt het vroegste uur, de bron en de modus —
 of anders de minimale afstand tot dat departement.
 
-De optionele fijnstoflaag gebruikt CAMS PM2.5 via de Open-Meteo air-quality API
-(domein `cams_europe`). De laag tekent **niets onder de WHO-daggrens van
-15 µg/m³** (schone lucht hoort onzichtbaar te zijn) en gebruikt daarboven
-klassegrenzen (15–35, 35–75, 75–150, ≥150) met oplopende kleurintensiteit, zodat
-een piek boven een brandhaard als onmiskenbare vlek verschijnt in plaats van een
-egale waas. Verplichte attributie bij de laag: *Gegenereerd met Copernicus
-Atmosphere Monitoring Service-informatie 2026*. `aerosol_optical_depth` levert op
-dit domein uitsluitend `null` en wordt niet gebruikt.
-
-### Kaartschil (Leaflet) en satellietlagen
+### Kaartschil (Leaflet) en satellietlaag
 
 De rookmodule tekent sinds taak D op een echte kaartbibliotheek in plaats van een
-handgemaakte SVG-kaart. Pannen, zoomen, tegellagen en een tijdlus zijn opgeloste
-problemen die we niet zelf willen onderhouden, en de geostationaire satellietlaag
-is zonder tegelkaart niet fatsoenlijk te bouwen. De brandkaart (`/`) migreert in
-een latere ronde naar dezelfde schil; tot dan blijft die op de SVG-kaart.
+handgemaakte SVG-kaart. Pannen, zoomen en tegellagen zijn opgeloste problemen die
+we niet zelf willen onderhouden. De brandkaart (`/`) migreert in een latere ronde
+naar dezelfde schil; tot dan blijft die op de SVG-kaart.
 
 **Leaflet is de eerste runtime-dependency buiten React en Next** (`leaflet` 1.9.4,
 `@types/leaflet`). Bewust géén `react-leaflet`: dat koppelt aan React-versies en
@@ -177,31 +164,14 @@ de directe OSM-tegelserver (`tile.openstreetmap.org`), omdat de
 zwaar productiegebruik ontmoedigen. Wisselen naar de OSM-server kan technisch
 (zelfde `{z}/{x}/{y}`-schema), maar alleen bij laag verkeer en met hun attributie.
 
-**Satellietlagen** (twee, apart schakelbaar, allebei onder de departementsgrenzen):
+**Satellietlaag** (optioneel schakelbaar, onder de departementsgrenzen):
 
 - **NASA GIBS** — dagelijks, hoge resolutie, als WMTS-tegellaag
   (`VIIRS_NOAA20_CorrectedReflectance_TrueColor`, matrixset
   `GoogleMapsCompatible_Level9`, volgorde `{z}/{y}/{x}`). De datum komt uit
   `/api/satellietbeeld?meta=1`, met de bestaande terugvalketen (vandaag, anders
   gisteren, tot vier dagen terug). De datum staat zichtbaar bij de kaart.
-  Attributie: *NASA GIBS / EOSDIS*.
-- **EUMETSAT** — geostationair, elke tien minuten, als WMS-laag
-  (`view.eumetsat.int/geoserver/wms`, 1.3.0, `EPSG:3857`). Twee schakelbare
-  lagen: `mtg_fd:rgb_dust` (stof- en rookcompositie, standaard zichtbaar) en
-  `mtg_fd:frp` (brandintensiteit). Attributie: *EUMETSAT*. **Waarom dit ertoe
-  doet:** onze hittebronnenlaag komt van poolsatellieten die maar een paar keer
-  per etmaal overkomen; een brand die 's nachts begint en 's ochtends geblust is
-  kan daar volledig tussenvallen. De geostationaire laag kijkt continu en dicht
-  dat gat. Dit staat ook in de technische verantwoording in de app.
-
-**Tijdlus.** Een schuif over de laatste twee uur (twaalf frames van tien minuten)
-met afspelen/pauze. Het beschikbare tijdvenster komt uit de GetCapabilities
-(`/api/eumetsat-tijden`), niet uit een berekening — het laatst beschikbare frame
-loopt achter op de kloktijd. Frames laden lui: alleen het huidige en het volgende
-frame worden voorgeladen (twee onzichtbaar overlappende WMS-lagen), nooit twaalf
-tegelijk. `setParams({ time })` wisselt het frame zonder de kaart te verplaatsen.
-Elk frame toont het tijdstip in Franse tijd, met de vermelding dat het
-UTC-gebaseerd is.
+  Attributie: *NASA GIBS / EOSDIS*. Een dekkingsschuif regelt de doorzichtigheid.
 
 **Wat er niet in zit:** geen 3D, geen deeltjesanimatie van de wind, geen
 weermodellen. Dat is het terrein van partijen met een team; onze meerwaarde zit in

@@ -3,7 +3,7 @@ import { GEO_BBOX } from "@/lib/kaart-projectie";
 import { KAART_VIEWBOX } from "@/lib/kaart-paths";
 
 export const runtime = "nodejs";
-export const revalidate = 600; // 10 minuten (GIBS/EUMETSAT-bron ververst elke tien minuten)
+export const revalidate = 600; // 10 minuten (GIBS-bron ververst elke tien minuten)
 
 // NASA GIBS — vrij, zonder key. We vragen het beeld op met exact de bbox van de
 // tool en met WIDTH/HEIGHT gelijk aan KAART_VIEWBOX; GIBS honoreert die en rekt

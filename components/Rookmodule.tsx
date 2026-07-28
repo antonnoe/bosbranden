@@ -33,8 +33,6 @@ const LAAD_FASEN = [
 
 const PANE_Z: Record<string, number> = {
   satelliet: 300,
-  geo: 320,
-  fijnstof: 350,
   kegels: 450,
   pluimen: 460,
   bronnen: 550,
@@ -42,26 +40,8 @@ const PANE_Z: Record<string, number> = {
 
 const GIBS_SJABLOON =
   "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{TIME}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg";
-const EUMETSAT_WMS = "https://view.eumetsat.int/geoserver/wms";
-
-const WHO_DAGGRENS_PM25 = 15;
-const PM25_KLASSEN = [
-  { min: 15, kleur: "168, 130, 195", kernAlpha: 0.5, label: "15–35", duiding: "verhoogd" },
-  { min: 35, kleur: "142, 78, 168", kernAlpha: 0.62, label: "35–75", duiding: "hoog" },
-  { min: 75, kleur: "108, 34, 132", kernAlpha: 0.74, label: "75–150", duiding: "zeer hoog" },
-  { min: 150, kleur: "72, 12, 92", kernAlpha: 0.86, label: "≥150", duiding: "extreem" },
-] as const;
-
-function pm25KlasseIndex(waarde: number): number {
-  if (!Number.isFinite(waarde) || waarde < WHO_DAGGRENS_PM25) return -1;
-  for (let i = PM25_KLASSEN.length - 1; i >= 0; i -= 1) {
-    if (waarde >= PM25_KLASSEN[i].min) return i;
-  }
-  return -1;
-}
 
 type Windmodus = "leefniveau" | "ophoogte";
-type GeoLaag = "mtg_fd:rgb_dust" | "mtg_fd:frp";
 
 interface Pluim {
   id: string;
@@ -80,12 +60,6 @@ interface Pluim {
   richting: string;
 }
 
-interface FijnstofGridpunt {
-  lat: number;
-  lon: number;
-  pm25: Array<number | null>;
-}
-
 interface Antwoord {
   beschikbaar: boolean;
   windBeschikbaar: boolean;
@@ -93,7 +67,6 @@ interface Antwoord {
   startuur: string;
   opmerking?: string;
   pluimen: Pluim[];
-  fijnstof?: { grid: FijnstofGridpunt[]; uren: string[] };
 }
 
 interface PostcodeAntwoord {
@@ -102,13 +75,6 @@ interface PostcodeAntwoord {
   bronId?: string;
   modus?: Windmodus;
   vroegsteUur?: number;
-}
-
-interface GeoTijden {
-  beschikbaar: boolean;
-  laag: string;
-  laatste: string;
-  reeks: string[];
 }
 
 export default function Rookmodule({ embed }: { embed: boolean }) {
@@ -121,22 +87,10 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [gekozenId, setGekozenId] = useState<string | null>(null);
   const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);
 
-  const [toonFijnstof, setToonFijnstof] = useState(false);
-  const [fijnstof, setFijnstof] = useState<{ grid: FijnstofGridpunt[]; uren: string[] } | null>(null);
-  const [fijnstofLaden, setFijnstofLaden] = useState(false);
-
   const [toonSatelliet, setToonSatelliet] = useState(false);
   const [satelliet, setSatelliet] = useState<{ datum: string; laag: string } | null>(null);
   const [satellietLaden, setSatellietLaden] = useState(false);
   const [satellietFout, setSatellietFout] = useState(false);
-
-  const [toonGeo, setToonGeo] = useState(false);
-  const [geoLaag, setGeoLaag] = useState<GeoLaag>("mtg_fd:rgb_dust");
-  const [geoTijden, setGeoTijden] = useState<GeoTijden | null>(null);
-  const [geoFrame, setGeoFrame] = useState(0);
-  const [geoSpeelt, setGeoSpeelt] = useState(false);
-  const [geoLaden, setGeoLaden] = useState(false);
-  const [geoFout, setGeoFout] = useState(false);
 
   const [dekking, setDekking] = useState(40); // standaard lager, zodat de onderliggende kaart zichtbaar blijft; schuif loopt tot 100
   const [lagenOpen, setLagenOpen] = useState(!embed);
@@ -150,13 +104,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [kaart, setKaart] = useState<{ map: LeafletKaartInstantie; L: LeafletModule } | null>(null);
 
   const gibsRef = useRef<LT.TileLayer | null>(null);
-  const geoActiefRef = useRef<LT.TileLayer.WMS | null>(null);
-  const geoVolgendRef = useRef<LT.TileLayer.WMS | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const bronKlikRef = useRef(0);
-
-  // Geostationaire laag: geen tegels? Dan zichtbaar melden i.p.v. leeg vlak.
-  const [geoGeenBeeld, setGeoGeenBeeld] = useState(false);
 
   // Smalle schermen (<600px): geen popup maar een schuifpaneel van onderen.
   useEffect(() => {
@@ -191,26 +140,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   }, [embed]);
 
   useEffect(() => {
-    if (!toonFijnstof || fijnstof) return;
-    let actief = true;
-    setFijnstofLaden(true);
-    (async () => {
-      try {
-        const res = await fetch("/api/rookpluimen?fijnstof=1");
-        const json: Antwoord = await res.json();
-        if (actief && json.fijnstof) setFijnstof(json.fijnstof);
-      } catch {
-        /* stil */
-      } finally {
-        if (actief) setFijnstofLaden(false);
-      }
-    })();
-    return () => {
-      actief = false;
-    };
-  }, [toonFijnstof, fijnstof]);
-
-  useEffect(() => {
     if (!toonSatelliet || satelliet) return;
     let actief = true;
     setSatellietLaden(true);
@@ -232,33 +161,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       actief = false;
     };
   }, [toonSatelliet, satelliet]);
-
-  useEffect(() => {
-    if (!toonGeo) return;
-    let actief = true;
-    setGeoLaden(true);
-    setGeoFout(false);
-    (async () => {
-      try {
-        const res = await fetch(`/api/eumetsat-tijden?laag=${encodeURIComponent(geoLaag)}`);
-        if (!res.ok) throw new Error("geen tijden");
-        const j: GeoTijden = await res.json();
-        if (!j.beschikbaar || !Array.isArray(j.reeks) || j.reeks.length === 0)
-          throw new Error("leeg venster");
-        if (actief) {
-          setGeoTijden(j);
-          setGeoFrame(j.reeks.length - 1);
-        }
-      } catch {
-        if (actief) setGeoFout(true);
-      } finally {
-        if (actief) setGeoLaden(false);
-      }
-    })();
-    return () => {
-      actief = false;
-    };
-  }, [toonGeo, geoLaag]);
 
   const pluimen = useMemo(() => data?.pluimen ?? [], [data]);
   const gekozen = pluimen.find((p) => p.id === gekozenId) ?? null;
@@ -392,34 +294,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     };
   }, [kaart, pluimen, gekozenId, kies, uur, data]);
 
-  // ---- Fijnstoflaag ----
-  useEffect(() => {
-    if (!kaart || !toonFijnstof || !fijnstof) return;
-    const { map, L } = kaart;
-    const groep = L.layerGroup().addTo(map);
-    for (const punt of fijnstof.grid) {
-      // Fijnstof is een CAMS-vooruitblik vanaf nu; voor schuifstanden in het
-      // verleden (uur < 0) tonen we de waarde van nu.
-      const idx = Math.min(Math.max(uur, 0), punt.pm25.length - 1);
-      const waarde = punt.pm25[idx];
-      if (waarde == null) continue;
-      const klasse = pm25KlasseIndex(waarde);
-      if (klasse < 0) continue;
-      const kl = PM25_KLASSEN[klasse];
-      L.circle([punt.lat, punt.lon], {
-        pane: "fijnstof",
-        radius: 55_000,
-        stroke: false,
-        fillColor: `rgb(${kl.kleur})`,
-        fillOpacity: kl.kernAlpha * 0.5,
-        interactive: false,
-      }).addTo(groep);
-    }
-    return () => {
-      map.removeLayer(groep);
-    };
-  }, [kaart, toonFijnstof, fijnstof, uur]);
-
   // ---- GIBS-tegellaag ----
   useEffect(() => {
     if (!kaart || !toonSatelliet || !satelliet) return;
@@ -440,75 +314,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kaart, toonSatelliet, satelliet]);
 
-  // ---- EUMETSAT-lagen: actief frame + één frame vooruit voorladen ----
-  useEffect(() => {
-    if (!kaart || !toonGeo || !geoTijden?.reeks?.length) return;
-    const { map, L } = kaart;
-    const start = geoTijden.reeks[geoTijden.reeks.length - 1];
-    const maak = (tijd: string, opac: number) =>
-      L.tileLayer.wms(EUMETSAT_WMS, {
-        layers: geoLaag,
-        format: "image/png",
-        transparent: true,
-        version: "1.3.0",
-        // @ts-expect-error time is een geldige WMS-parameter, niet in de Leaflet-typedef
-        time: tijd,
-        pane: "geo",
-        opacity: opac,
-        attribution: "EUMETSAT",
-      });
-    const actief = maak(start, dekking / 100).addTo(map);
-    const volgend = maak(start, 0).addTo(map);
-    geoActiefRef.current = actief;
-    geoVolgendRef.current = volgend;
-
-    // Zichtbaar melden wanneer er voor dit tijdstip geen tegels terugkomen
-    // (bijv. een frame dat de bron nog niet publiceerde, of een projectie/
-    // -antwoord dat geen beeld oplevert). Nooit een stil leeg vlak.
-    setGeoGeenBeeld(false);
-    let gotTile = false;
-    const opLoad = () => {
-      gotTile = true;
-      setGeoGeenBeeld(false);
-    };
-    const opError = () => {
-      if (!gotTile) setGeoGeenBeeld(true);
-    };
-    actief.on("tileload", opLoad);
-    actief.on("tileerror", opError);
-
-    return () => {
-      actief.off("tileload", opLoad);
-      actief.off("tileerror", opError);
-      map.removeLayer(actief);
-      map.removeLayer(volgend);
-      geoActiefRef.current = null;
-      geoVolgendRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kaart, toonGeo, geoLaag, geoTijden]);
-
-  useEffect(() => {
-    const actief = geoActiefRef.current;
-    const volgend = geoVolgendRef.current;
-    if (!actief || !geoTijden?.reeks?.length) return;
-    const reeks = geoTijden.reeks;
-    actief.setParams({ time: reeks[geoFrame] } as unknown as LT.WMSParams);
-    const volgendeIndex = (geoFrame + 1) % reeks.length;
-    volgend?.setParams({ time: reeks[volgendeIndex] } as unknown as LT.WMSParams);
-  }, [geoFrame, geoTijden]);
-
   useEffect(() => {
     gibsRef.current?.setOpacity(dekking / 100);
-    geoActiefRef.current?.setOpacity(dekking / 100);
   }, [dekking]);
-
-  useEffect(() => {
-    if (!geoSpeelt || !toonGeo || !geoTijden?.reeks?.length) return;
-    const lengte = geoTijden.reeks.length;
-    const id = setInterval(() => setGeoFrame((f) => (f + 1) % lengte), 800);
-    return () => clearInterval(id);
-  }, [geoSpeelt, toonGeo, geoTijden]);
 
   // ---- Popup bij klik (breed scherm); smal scherm gebruikt het schuifpaneel ----
   // Eigen HTML-overlay (geen Leaflet-popup): zo klemmen we hem — net als op de
@@ -645,7 +453,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     return qs ? `/start?${qs}` : "/start";
   })();
 
-  const toonDekking = (toonSatelliet && !!satelliet) || (toonGeo && !!geoTijden);
+  const toonDekking = toonSatelliet && !!satelliet;
 
   return (
     <div className="omhulsel">
@@ -735,16 +543,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               />
 
               {/* Datumbanner (klein, bovenin) */}
-              {((toonSatelliet && satelliet) || (toonGeo && geoTijden)) && (
+              {toonSatelliet && satelliet && (
                 <div className={styles.datumBalk}>
-                  {toonSatelliet && satelliet && (
-                    <span>NASA · {satellietDatum(satelliet.datum)}</span>
-                  )}
-                  {toonGeo && geoTijden && (
-                    <span>
-                      EUMETSAT · {geoFrameTijd(geoTijden.reeks[geoFrame])} (Fr, UTC)
-                    </span>
-                  )}
+                  <span>NASA · {satellietDatum(satelliet.datum)}</span>
                 </div>
               )}
 
@@ -783,79 +584,13 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     <button
                       type="button"
                       className={styles.laagKnop}
-                      aria-pressed={toonFijnstof}
-                      onClick={() => setToonFijnstof((v) => !v)}
-                    >
-                      Fijnstof (PM2.5){toonFijnstof && fijnstofLaden ? " …" : ""}
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.laagKnop}
                       aria-pressed={toonSatelliet}
                       onClick={() => setToonSatelliet((v) => !v)}
                     >
                       Satelliet — dag (NASA){toonSatelliet && satellietLaden ? " …" : ""}
                     </button>
-                    <button
-                      type="button"
-                      className={styles.laagKnop}
-                      aria-pressed={toonGeo}
-                      onClick={() => {
-                        setToonGeo((v) => !v);
-                        if (toonGeo) setGeoSpeelt(false);
-                      }}
-                    >
-                      Geostationair{toonGeo && geoLaden ? " …" : ""}
-                    </button>
                     {toonSatelliet && satellietFout && (
                       <span className={styles.laagFout}>satelliet nu niet beschikbaar</span>
-                    )}
-                    {toonGeo && geoFout && (
-                      <span className={styles.laagFout}>geostationair nu niet beschikbaar</span>
-                    )}
-
-                    {toonGeo && geoTijden && (
-                      <div className={styles.geoExtra}>
-                        <div className={styles.subKnoppen}>
-                          <button
-                            type="button"
-                            aria-pressed={geoLaag === "mtg_fd:rgb_dust"}
-                            onClick={() => setGeoLaag("mtg_fd:rgb_dust")}
-                          >
-                            Stof &amp; rook
-                          </button>
-                          <button
-                            type="button"
-                            aria-pressed={geoLaag === "mtg_fd:frp"}
-                            onClick={() => setGeoLaag("mtg_fd:frp")}
-                          >
-                            Brand
-                          </button>
-                        </div>
-                        <div className={styles.geoLus}>
-                          <button
-                            type="button"
-                            className={styles.speelKnop}
-                            aria-pressed={geoSpeelt}
-                            aria-label={geoSpeelt ? "Pauzeer tijdlus" : "Speel tijdlus af"}
-                            onClick={() => setGeoSpeelt((s) => !s)}
-                          >
-                            {geoSpeelt ? "⏸" : "▶"}
-                          </button>
-                          <input
-                            type="range"
-                            min={0}
-                            max={geoTijden.reeks.length - 1}
-                            step={1}
-                            value={geoFrame}
-                            onChange={(e) => {
-                              setGeoSpeelt(false);
-                              setGeoFrame(Number(e.target.value));
-                            }}
-                            aria-label="Tijdstip geostationair beeld"
-                          />
-                        </div>
-                      </div>
                     )}
 
                     {toonDekking && (
@@ -896,11 +631,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   <span>
                     <i className={styles.legBron} /> hittebron
                   </span>
-                  {toonFijnstof && (
-                    <span>
-                      <i className={styles.legFijnstof} /> PM2.5
-                    </span>
-                  )}
                 </div>
 
                 {/* Tijdschuif: −12 (verleden) t/m +24 (vooruitblik), nu gemarkeerd */}
@@ -931,15 +661,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   </div>
                 )}
               </div>
-
-              {/* In-kaart-melding wanneer de geostationaire laag geen beeld levert */}
-              {toonGeo && (geoFout || geoGeenBeeld) && (
-                <div className={styles.kaartMelding} role="status">
-                  {geoFout
-                    ? "Geostationair beeld is nu niet bereikbaar."
-                    : "Geen geostationair beeld voor dit tijdstip. Kies een ander frame met de tijdlus."}
-                </div>
-              )}
 
               {/* Popup (breed scherm): eigen overlay, geklemd binnen het kaartvlak */}
               {!smal && gekozen && klikPunt && (
@@ -988,36 +709,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               {embed ? " (klik eerst op de kaart)" : ""}.
             </p>
 
-            {toonGeo && geoTijden && (
-              <p className={styles.satellietBanner}>
-                <strong>Geostationair beeld (EUMETSAT), elke tien minuten ververst.</strong> Onze
-                hittebronnen komen van poolsatellieten die maar enkele keren per etmaal overkomen; een
-                brand die &apos;s nachts begint en &apos;s ochtends geblust is, valt daar zomaar
-                tussenuit. Deze laag kijkt continu en dicht dat gat. Bron: EUMETSAT.
-              </p>
-            )}
-
-            {toonFijnstof && (
-              <div className={styles.fijnstofLegenda}>
-                <span className={styles.fijnstofLegendaTitel}>Fijnstof PM2.5 (µg/m³):</span>
-                <div className={styles.fijnstofBanden}>
-                  {PM25_KLASSEN.map((k, i) => (
-                    <span key={`leg-${i}`} className={styles.fijnstofBand}>
-                      <i style={{ background: `rgb(${k.kleur})` }} /> {k.label}
-                      <em> ({k.duiding})</em>
-                    </span>
-                  ))}
-                </div>
-                <p className={styles.fijnstofRefwaarde}>
-                  Onder de <strong>WHO-daggrens van 15 µg/m³</strong> wordt niets getekend (schone
-                  lucht). De kleur wordt donkerder naarmate de concentratie stijgt.
-                </p>
-                <p className={styles.copernicus}>
-                  Fijnstoflaag: gegenereerd met Copernicus Atmosphere Monitoring Service-informatie
-                  2026 (CAMS European air quality, via Open-Meteo).
-                </p>
-              </div>
-            )}
           </section>
 
           <section className="sectie" aria-labelledby="kaders-titel">
@@ -1053,12 +744,12 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener noreferrer">
               NASA FIRMS (VIIRS)
             </a>
-            ; wind en fijnstof —{" "}
+            ; wind —{" "}
             <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
               Open-Meteo
             </a>{" "}
-            (windmodel; fijnstof uit CAMS/Copernicus); dagelijks satellietbeeld — NASA GIBS / EOSDIS;
-            geostationair beeld — EUMETSAT; kaart — © OpenStreetMap-bijdragers, tegels © CARTO.
+            (windmodel); dagelijks satellietbeeld — NASA GIBS / EOSDIS; kaart —
+            © OpenStreetMap-bijdragers, tegels © CARTO.
             {data?.bijgewerkt ? ` Gegevens opgehaald: ${volledigeDatum(data.bijgewerkt)}.` : ""}
           </p>
 
@@ -1349,16 +1040,6 @@ function klok(startuur: string, urenErbij: number): string {
   const d = new Date(startuur);
   if (Number.isNaN(d.getTime())) return "";
   d.setUTCHours(d.getUTCHours() + urenErbij);
-  return new Intl.DateTimeFormat("nl-NL", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Paris",
-  }).format(d);
-}
-
-function geoFrameTijd(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
   return new Intl.DateTimeFormat("nl-NL", {
     hour: "2-digit",
     minute: "2-digit",

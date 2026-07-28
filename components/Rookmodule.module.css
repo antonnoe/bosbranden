@@ -132,16 +132,14 @@
   overflow-y: auto;
 }
 
-.modusRij,
-.subKnoppen {
+.modusRij {
   display: inline-flex;
   border: 1.5px solid var(--primair-30);
   border-radius: 8px;
   overflow: hidden;
 }
 
-.modusRij button,
-.subKnoppen button {
+.modusRij button {
   flex: 1;
   font-family: "Poppins", sans-serif;
   font-size: 0.78rem;
@@ -153,8 +151,7 @@
   cursor: pointer;
 }
 
-.modusRij button[aria-pressed="true"],
-.subKnoppen button[aria-pressed="true"] {
+.modusRij button[aria-pressed="true"] {
   background: var(--primair);
   color: #fff;
 }
@@ -179,9 +176,7 @@
 }
 
 .laagKnop:focus-visible,
-.modusRij button:focus-visible,
-.subKnoppen button:focus-visible,
-.speelKnop:focus-visible {
+.modusRij button:focus-visible {
   outline: 2px solid var(--primair);
   outline-offset: 1px;
 }
@@ -192,42 +187,10 @@
   line-height: 1.3;
 }
 
-.geoExtra {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding-top: 4px;
-  border-top: 1px solid var(--primair-08);
-}
-
-.geoLus {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.geoLus input[type="range"],
 .dekking input[type="range"] {
   flex: 1;
   width: 100%;
   accent-color: var(--primair);
-}
-
-.speelKnop {
-  flex: 0 0 auto;
-  width: 30px;
-  height: 28px;
-  border: 1.5px solid var(--primair-30);
-  border-radius: 7px;
-  background: #fff;
-  color: var(--primair);
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.speelKnop[aria-pressed="true"] {
-  background: var(--primair);
-  color: #fff;
 }
 
 .dekking {
@@ -275,11 +238,6 @@
   width: 12px !important;
   border-radius: 50% !important;
   background: var(--primair);
-}
-
-.legFijnstof {
-  background: rgba(142, 78, 168, 0.55);
-  border: 1px solid rgba(108, 34, 132, 0.5);
 }
 
 /* Gemeten wind: doorgetrokken lijn. Verwachte wind: gestippelde lijn. */
@@ -438,25 +396,6 @@
   outline: none;
 }
 
-/* In-kaart-melding (bijv. geen geostationair beeld): nooit een stil leeg vlak */
-.kaartMelding {
-  position: absolute;
-  z-index: 660;
-  top: 46px;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(320px, calc(100% - 24px));
-  padding: 7px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 10px rgba(128, 0, 0, 0.18);
-  font-family: "Mulish", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--primair);
-  text-align: center;
-}
-
 /* Horizonregel boven de kaart, beweegt mee met de tijdschuif */
 .horizon {
   display: flex;
@@ -581,77 +520,6 @@
 .kaartHint {
   margin: 10px 0 0;
   font-size: 0.85rem;
-  color: var(--primair-80);
-  line-height: 1.5;
-}
-
-.satellietBanner {
-  margin: 10px 0 0;
-  padding: 9px 12px;
-  border: 1px solid var(--primair-15);
-  border-left: 4px solid var(--primair);
-  border-radius: 8px;
-  background: var(--primair-04);
-  font-size: 0.88rem;
-  line-height: 1.55;
-  color: var(--tekst);
-}
-
-/* ---- Fijnstof-legenda met klassegrenzen (onder de kaart) ---- */
-.fijnstofLegenda {
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--primair-08);
-  border-radius: 8px;
-  background: #fdfcfb;
-}
-
-.fijnstofLegendaTitel {
-  display: block;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--tekst);
-  margin-bottom: 6px;
-}
-
-.fijnstofBanden {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  font-size: 0.82rem;
-}
-
-.fijnstofBand {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.fijnstofBand i {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 13px;
-  border-radius: 3px;
-  display: inline-block;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-}
-
-.fijnstofBand em {
-  font-style: normal;
-  color: var(--primair-80);
-}
-
-.fijnstofRefwaarde {
-  margin: 8px 0 0;
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--tekst);
-}
-
-.copernicus {
-  margin: 8px 0 0;
-  font-size: 0.78rem;
   color: var(--primair-80);
   line-height: 1.5;
 }

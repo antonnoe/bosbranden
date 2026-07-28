@@ -10,7 +10,7 @@
 
 import { CACHE_SECONDEN as DANGER_SECONDEN } from "@/lib/meteofrance";
 import { FIRMS_REVALIDATE_SECONDEN } from "@/lib/firms";
-import { FIJNSTOF_REVALIDATE_SECONDEN } from "@/lib/rookdrift";
+import { WIND_REVALIDATE_SECONDEN } from "@/lib/rookdrift";
 
 export const VERVERS_SECONDEN = {
   // /api/danger → lib/meteofrance CACHE_SECONDEN (live geïmporteerd)
@@ -18,9 +18,10 @@ export const VERVERS_SECONDEN = {
   // /api/waarnemingen → de FIRMS-fetch wint (lib/firms), niet de route-revalidate.
   // Live geïmporteerd, zodat de tekst nooit trager belooft dan de data ververst.
   hittebronnen: FIRMS_REVALIDATE_SECONDEN,
-  // /api/rookpluimen → windveld (30 min) én CAMS-fijnstof (60 min) in lib/rookdrift.
-  // We noemen de traagste component, zodat de tekst de data niet vooruitloopt.
-  rook: FIJNSTOF_REVALIDATE_SECONDEN,
+  // /api/rookpluimen → windveld (30 min) in lib/rookdrift. Het windveld is de
+  // traagste (en enige) bron achter de rookberekening, dus de tekst leidt de
+  // ververstermijn daaruit af en loopt de data niet vooruit.
+  rook: WIND_REVALIDATE_SECONDEN,
   // /api/fr-alert → Cache-Control s-maxage=120 (route-respons)
   waarschuwingen: 120,
   // /api/nieuws → export const revalidate = 900

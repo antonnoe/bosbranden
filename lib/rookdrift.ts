@@ -32,11 +32,10 @@ const KM_PER_GRAAD = 111.32;
 const W850_MAX = 0.7; // maximale weging van het 850hPa-transportveld
 const W850_TIJDSCHAAL = 8; // uren; w850 = min(0.70, t / 8)
 
-// Cachetermijnen van de twee databronnen achter de rookberekening. De
-// verantwoording leidt haar termijn hiervandaan af en noemt de traagste
-// component (fijnstof), zodat de tekst niet sneller belooft dan de data ververst.
+// Cachetermijn van de databron achter de rookberekening. De verantwoording leidt
+// haar termijn hiervandaan af (het windveld is nu de traagste — en enige —
+// component), zodat de tekst niet sneller belooft dan de data ververst.
 export const WIND_REVALIDATE_SECONDEN = 1800; // Open-Meteo windveld: 30 minuten
-export const FIJNSTOF_REVALIDATE_SECONDEN = 3600; // Open-Meteo CAMS-fijnstof: 60 minuten
 
 const DEG = Math.PI / 180;
 
@@ -80,17 +79,6 @@ export interface Pluim {
   kmLeefniveau: number;
   kmOphoogte: number;
   richting: string; // 16-punts kompas, bijv. "OZO"
-}
-
-export interface FijnstofGridpunt {
-  lat: number;
-  lon: number;
-  pm25: Array<number | null>;
-}
-
-export interface Fijnstof {
-  grid: FijnstofGridpunt[];
-  uren: string[];
 }
 
 export interface PostcodeAntwoord {
@@ -812,72 +800,12 @@ function minAfstandTotDepartementKm(pluimen: Pluim[], codes: Set<string>): numbe
   return Number.isFinite(min) ? Math.round(min) : null;
 }
 
-// ---- Fijnstof (CAMS PM2.5 via Open-Meteo air-quality) ----
-// Copernicus-attributie is verplicht bij de laag:
-// "Gegenereerd met Copernicus Atmosphere Monitoring Service-informatie 2026".
-
-const AQ_STAP = 1.5; // grovere grid: ~70 punten, compacte payload
-const AQ_LATS = bouwReeks(WIND_LAT_MIN, WIND_LAT_MAX, AQ_STAP);
-const AQ_LONS = bouwReeks(WIND_LON_MIN, WIND_LON_MAX, AQ_STAP);
-
-export async function haalFijnstofOp(startuur: string): Promise<Fijnstof> {
-  const lats: number[] = [];
-  const lons: number[] = [];
-  for (const la of AQ_LATS) {
-    for (const lo of AQ_LONS) {
-      lats.push(la);
-      lons.push(lo);
-    }
-  }
-
-  const url = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
-  url.searchParams.set("latitude", lats.join(","));
-  url.searchParams.set("longitude", lons.join(","));
-  url.searchParams.set("hourly", "pm2_5");
-  url.searchParams.set("domains", "cams_europe");
-  url.searchParams.set("forecast_days", "3");
-  url.searchParams.set("timezone", "UTC");
-  url.searchParams.set("cell_selection", "nearest");
-
-  const res = await fetch(url, {
-    headers: { Accept: "application/json" },
-    next: { revalidate: FIJNSTOF_REVALIDATE_SECONDEN }, // 60 minuten
-  });
-  if (!res.ok) throw new Error(`Open-Meteo air-quality antwoordde met status ${res.status}.`);
-
-  const json = await res.json();
-  const reeks: Array<Record<string, unknown>> = Array.isArray(json) ? json : [json];
-  const eerste = reeks[0]?.hourly as { time?: string[] } | undefined;
-  const alleTijden = eerste?.time ?? [];
-  if (alleTijden.length === 0) throw new Error("Open-Meteo air-quality leverde geen tijdstappen.");
-
-  const startIndex = Math.max(0, alleTijden.indexOf(startuur.slice(0, 16)));
-  const eindIndex = Math.min(alleTijden.length, startIndex + STAPPEN + 1);
-
-  const grid: FijnstofGridpunt[] = reeks.map((punt, p) => {
-    const uur = punt.hourly as { pm2_5?: Array<number | null> };
-    const pm25 = (uur.pm2_5 ?? []).slice(startIndex, eindIndex);
-    return {
-      lat: lats[p],
-      lon: lons[p],
-      pm25: pm25.map((v) => (v == null ? null : Math.round(v * 10) / 10)),
-    };
-  });
-
-  return { grid, uren: alleTijden.slice(startIndex, eindIndex).map(normaliseerUur) };
-}
-
 // ---- Hulpfuncties ----
 
 function huidigUur(): string {
   const d = new Date();
   d.setUTCMinutes(0, 0, 0);
   return d.toISOString().replace(".000Z", "Z");
-}
-
-function normaliseerUur(open_meteo: string): string {
-  // "2026-07-26T05:00" → "2026-07-26T05:00:00Z"
-  return open_meteo.length === 16 ? `${open_meteo}:00Z` : open_meteo;
 }
 
 function klokVoor(startuur: string, urenErbij: number): string {

@@ -54,14 +54,13 @@ const VERANTWOORDING: Verantwoording[] = [
     ],
   },
   {
-    id: "geostationair",
-    titel: "Geostationair satellietbeeld",
-    bronNaam: "EUMETSAT (MTG) en NASA GIBS",
-    bronUrl: "https://view.eumetsat.int/",
+    id: "satellietbeeld",
+    titel: "Dagelijks satellietbeeld",
+    bronNaam: "NASA GIBS / EOSDIS",
+    bronUrl: "https://firms.modaps.eosdis.nasa.gov/",
     ververs: 600, // tien minuten
     grenzen: [
-      "Onze hittebronnenlaag komt van poolsatellieten die maar een paar keer per etmaal overkomen; een brand die 's nachts begint en 's ochtends geblust is, kan daar volledig tussenvallen.",
-      "Het geostationaire beeld kijkt continu (elke tien minuten) en dicht dat gat, maar toont waarneming — geen door de autoriteiten bevestigde brand.",
+      "Het dagelijkse satellietbeeld is een optionele achtergrondlaag (NASA GIBS); het toont waarneming, geen door de autoriteiten bevestigde brand.",
     ],
   },
   {
