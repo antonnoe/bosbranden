@@ -9,6 +9,8 @@ import { NIVEAUS, niveauVoor, GEEN_DATA_KLEUR } from "@/lib/niveaus";
 import type { WaarnemingenAntwoord } from "@/lib/waarnemingen";
 import Voortgang from "@/components/Voortgang";
 import NiveauBlok from "@/components/NiveauBlok";
+import InfoKnop from "@/components/InfoKnop";
+import { UITLEG } from "@/data/uitleg";
 import FranceKaart from "@/components/FranceKaart";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import styles from "@/components/Waarnemingen.module.css";
@@ -377,6 +379,26 @@ export default function Tool({ embed }: { embed: boolean }) {
           onVraagWaarnemingen={() => setToonWaarnemingen(true)}
         />
 
+        {/* Onderscheid tussen de twee kaartlagen expliciet maken: de
+            departementkleur is een verwachting, de bolletjes en pins zijn
+            gemeten warmte en meldingen van de afgelopen 24 uur. */}
+        <div className="kaart-laaguitleg">
+          <p className="laag-onderscheid">
+            De <strong>kleur</strong> van elk departement toont het verwachte brandgevaar
+            <InfoKnop
+              kop={UITLEG.verwachtBrandgevaar.kop}
+              tekst={UITLEG.verwachtBrandgevaar.tekst}
+            />{" "}
+            — een voorspelling van Météo-France. De <strong>bolletjes en pins</strong> tonen
+            gemeten warmte en officiële meldingen van de afgelopen 24 uur. Dat zijn twee losse
+            gegevensbronnen die los van elkaar gelezen moeten worden.
+          </p>
+          <p className="laag-onderscheid">
+            De cijfers in de bolletjes zijn het aantal satellietmetingen in dat gebied — niet
+            het aantal branden.
+          </p>
+        </div>
+
         <div className="legenda" aria-hidden="true">
           {[1, 2, 3, 4].map((w) => (
             <span key={w}>
@@ -387,10 +409,33 @@ export default function Tool({ embed }: { embed: boolean }) {
             <i style={{ background: GEEN_DATA_KLEUR }} /> geen gegevens
           </span>
           {waarnemingenData?.beschikbaar && waarnemingen.length > 0 && (
-            <span>
-              <i style={{ background: "#800000", borderRadius: "50%" }} /> satellietdetectie
-            </span>
+            <>
+              <span>
+                <i
+                  style={{
+                    background: "#800000",
+                    borderRadius: "50% 50% 50% 0",
+                    transform: "rotate(45deg)",
+                  }}
+                />{" "}
+                losse satellietmeting
+              </span>
+              <span>
+                <i style={{ background: "#800000", borderRadius: "50%" }} /> bolletje met aantal
+                metingen
+              </span>
+            </>
           )}
+          <span>
+            <i
+              style={{
+                background: "#b00020",
+                borderRadius: "50% 50% 50% 0",
+                transform: "rotate(45deg)",
+              }}
+            />{" "}
+            officiële FR-Alert-melding
+          </span>
         </div>
 
         {/* De uitkomst van zowel een pin- als een departementklik verschijnt nu
