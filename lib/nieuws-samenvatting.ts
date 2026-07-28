@@ -14,6 +14,7 @@
 import { unstable_cache } from "next/cache";
 import type { EcosystemLink } from "@/lib/nieuws-filter";
 import { haalAlle, metGate, type Budget } from "@/lib/nieuws-budget";
+import { bouwContextTitel, corrigeerVaktermen } from "@/lib/nieuws-vaktermen";
 
 const DIENST_URL =
   process.env.NIEUWS_SAMENVAT_URL ?? "https://if-tools-api.vercel.app/api/generate-summary";
@@ -81,17 +82,20 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
       body: JSON.stringify({
         french_url: frenchUrl,
         context_url: CONTEXT_URL,
-        context_title: CONTEXT_TITLE,
+        // C1: woordenlijst meegeven via het gedocumenteerde context_title-veld.
+        context_title: bouwContextTitel(CONTEXT_TITLE),
       }),
       signal: controller.signal,
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`dienst antwoordde met status ${res.status}`);
     const json: unknown = await res.json();
-    const samenvatting = leesSamenvatting(json);
-    if (!samenvatting) throw new Error("geen bruikbare samenvatting");
+    const ruw = leesSamenvatting(json);
+    if (!ruw) throw new Error("geen bruikbare samenvatting");
+    // C1-vangnet: bekende vaktermfouten alsnog rechtzetten (idempotent).
+    const samenvatting = corrigeerVaktermen(ruw);
     return {
-      titelNl: leidTitelAf(samenvatting) ?? franseTitel,
+      titelNl: corrigeerVaktermen(leidTitelAf(samenvatting) ?? franseTitel),
       samenvatting,
       ecosystemLinks: normaliseerEcosystem((json as Record<string, unknown>).ecosystem),
     };
