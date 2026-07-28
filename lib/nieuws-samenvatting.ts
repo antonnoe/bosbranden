@@ -76,6 +76,9 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
+    // GEEN `cache: "no-store"`: deze fetch draait binnen unstable_cache, en die
+    // combinatie gooit in Next.js een fout (waardoor élke samenvatting stil
+    // mislukte). unstable_cache regelt het bewaren al.
     const res = await fetch(DIENST_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -86,12 +89,11 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
         context_title: bouwContextTitel(CONTEXT_TITLE),
       }),
       signal: controller.signal,
-      cache: "no-store",
     });
     if (!res.ok) throw new Error(`dienst antwoordde met status ${res.status}`);
     const json: unknown = await res.json();
     const ruw = leesSamenvatting(json);
-    if (!ruw) throw new Error("geen bruikbare samenvatting");
+    if (!ruw) throw new Error("geen bruikbare samenvatting in het antwoord");
     // C1-vangnet: bekende vaktermfouten alsnog rechtzetten (idempotent).
     const samenvatting = corrigeerVaktermen(ruw);
     return {
@@ -99,6 +101,14 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
       samenvatting,
       ecosystemLinks: normaliseerEcosystem((json as Record<string, unknown>).ecosystem),
     };
+  } catch (fout) {
+    // NIET stil laten weglopen: log waaróm een samenvatting mislukt, zodat een
+    // volgende storing zichtbaar is in plaats van een stille terugval op Frans.
+    // (Dit is een echte dienst-/netwerkfout; het budget-overslaan zit in metGate
+    //  en komt hier niet langs, dus deze log blijft betekenisvol.)
+    const reden = fout instanceof Error ? fout.message : String(fout);
+    console.error(`[nieuws-samenvatting] mislukt voor ${frenchUrl}: ${reden}`);
+    throw fout;
   } finally {
     clearTimeout(timer);
   }
