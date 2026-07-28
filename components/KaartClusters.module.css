@@ -45,8 +45,23 @@
   line-height: 1.45;
 }
 
+/* Kolomduiding boven de lijst, zodat duidelijk is dat het getal het gemeten
+   vermogen is (en niet bijv. een afstand of aantal). */
+.clusterKolomKop {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px 5px;
+  border-bottom: 1px solid rgba(128, 0, 0, 0.14);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: rgba(51, 39, 39, 0.6);
+}
+
 .clusterMeetingen {
-  margin: 0;
+  margin: 6px 0 0;
   padding: 0;
   list-style: none;
 }

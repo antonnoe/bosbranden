@@ -184,6 +184,30 @@
   color: #800000;
 }
 
+/* Conclusie in gewone taal, vóór het technische deel. Iets groter en zwaarder
+   zodat de lezer eerst het antwoord ziet. */
+.duidingConclusie {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.technischKop {
+  margin: 8px 0 2px;
+  padding-top: 7px;
+  border-top: 1px solid rgba(128, 0, 0, 0.14);
+  color: #800000;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.technischDetail {
+  margin: 0;
+  color: rgba(51, 39, 39, 0.82);
+}
+
 @media (max-width: 560px) {
   .lagenKnoppen {
     grid-template-columns: 1fr;

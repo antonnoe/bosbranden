@@ -311,6 +311,24 @@
   font-weight: 600;
 }
 
+/* Tweede, kleinere regel onder de departementsnaam met de rauwe coördinaten. */
+.coordRegel {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: rgba(51, 39, 39, 0.62);
+}
+
+/* Schaalreferentie onder de FRP-waarde: geeft de lezer een ijkpunt zonder een
+   categorielabel op te leggen. */
+.schaalReferentie {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: rgba(51, 39, 39, 0.62);
+}
+
 .caveat {
   margin: 9px 0 0;
   padding-top: 8px;

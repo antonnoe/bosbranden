@@ -9,6 +9,8 @@ import { isNuActueel, type FrAlertAntwoord, type FrAlertMelding } from "@/lib/fr
 import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
 import NiveauBlok from "@/components/NiveauBlok";
+import InfoKnop from "@/components/InfoKnop";
+import { UITLEG } from "@/data/uitleg";
 import { useNieuws, Nieuwsgroepen } from "@/components/Nieuws";
 import styles from "@/components/Waarnemingen.module.css";
 import clusterStyles from "@/components/KaartClusters.module.css";
@@ -875,9 +877,9 @@ export default function FranceKaart({
               const geselecteerd = gekozenWaarneming === waarneming.id;
               const label = `Satellietwaarneming in departement ${
                 waarneming.departementCode
-              }, betrouwbaarheid ${waarneming.betrouwbaarheid}, ${formatteerKorteDatum(
-                waarneming.waargenomenOp
-              )}`;
+              }, betrouwbaarheid ${betrouwbaarheidLabel(
+                waarneming.betrouwbaarheid
+              )}, ${formatteerKorteDatum(waarneming.waargenomenOp)}`;
               return (
                 <g
                   key={marker.id}
@@ -1011,9 +1013,14 @@ export default function FranceKaart({
                 {formatteerAantal(clusterSelectie.punten.length)} metingen in dit gebied
               </h3>
               <p className={clusterStyles.clusterPopupIntro}>
-                Kies een tijdstip voor de afzonderlijke meetgegevens (tijd, departement en
-                vermogen in MW).
+                Op deze plek zijn in de afgelopen 24 uur{" "}
+                {formatteerAantal(clusterSelectie.punten.length)} warmtemetingen gedaan. Klik
+                een meting aan voor de details.
               </p>
+              <div className={clusterStyles.clusterKolomKop} aria-hidden="true">
+                <span>tijdstip</span>
+                <span>departement · gemeten vermogen</span>
+              </div>
               <ol className={clusterStyles.clusterMeetingen}>
                 {[...clusterSelectie.punten]
                   .sort(
@@ -1075,48 +1082,77 @@ export default function FranceKaart({
               >
                 ×
               </button>
-              <h3 id="satelliet-popup-titel">
-                Satellietwaarneming{" "}
-                <span className="dep-code">{gekozenPunt.waarneming.departementCode}</span>
-              </h3>
+              <h3 id="satelliet-popup-titel">Satellietwaarneming</h3>
               <div className={styles.detailGrid}>
                 <span className={styles.detailLabel}>Locatie</span>
                 <span>
                   {DEP_BY_CODE[gekozenPunt.waarneming.departementCode]?.naam ??
                     `departement ${gekozenPunt.waarneming.departementCode}`}
-                  <br />
-                  {gekozenPunt.waarneming.latitude.toFixed(4)},{" "}
-                  {gekozenPunt.waarneming.longitude.toFixed(4)}
+                  <span className={styles.coordRegel}>
+                    coördinaten {gekozenPunt.waarneming.latitude.toFixed(4)},{" "}
+                    {gekozenPunt.waarneming.longitude.toFixed(4)}
+                  </span>
                 </span>
                 <span className={styles.detailLabel}>Waargenomen</span>
                 <span>{formatteerDatum(gekozenPunt.waarneming.waargenomenOp)}</span>
                 <span className={styles.detailLabel}>Sensor</span>
                 <span>
-                  {gekozenPunt.waarneming.instrument} · {gekozenPunt.waarneming.satelliet}
+                  {gekozenPunt.waarneming.instrument}
+                  <InfoKnop kop={UITLEG.viirs.kop} tekst={UITLEG.viirs.tekst} />
+                  {" · "}
+                  {gekozenPunt.waarneming.satelliet}
                   {gekozenPunt.waarneming.dagNacht
                     ? ` · ${gekozenPunt.waarneming.dagNacht}`
                     : ""}
                 </span>
                 <span className={styles.detailLabel}>Betrouwbaarheid</span>
-                <span>{gekozenPunt.waarneming.betrouwbaarheid}</span>
+                <span>
+                  {betrouwbaarheidLabel(gekozenPunt.waarneming.betrouwbaarheid)}
+                  <InfoKnop
+                    kop={UITLEG.betrouwbaarheid.kop}
+                    tekst={UITLEG.betrouwbaarheid.tekst}
+                  />
+                </span>
                 {gekozenPunt.waarneming.frp !== null && (
                   <>
                     <span className={styles.detailLabel}>FRP</span>
-                    <span>{formatteerGetal(gekozenPunt.waarneming.frp)} MW</span>
+                    <span>
+                      {formatteerGetal(gekozenPunt.waarneming.frp)} MW
+                      <InfoKnop kop={UITLEG.frp.kop} tekst={UITLEG.frp.tekst} />
+                      <span className={styles.schaalReferentie}>
+                        ter vergelijking: een grote bosbrand geeft honderden tot meer dan
+                        duizend MW
+                      </span>
+                    </span>
                   </>
                 )}
               </div>
-              <p className={laagStyles.technischeDuiding}>
-                <strong>Technische duiding:</strong>{" "}
-                {gekozenPunt.waarneming.waarschijnlijkNatuurbrand
-                  ? "deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster"
-                  : "deze meting hoort niet bij een samenhangend cluster"}
-                {gekozenPunt.waarneming.waarschijnlijkheidsRedenen.length > 0
-                  ? `. Signalen: ${gekozenPunt.waarneming.waarschijnlijkheidsRedenen.join(
-                      ", "
-                    )}.`
-                  : "."}
-              </p>
+              <div className={laagStyles.technischeDuiding}>
+                <p className={laagStyles.duidingConclusie}>
+                  {gekozenPunt.waarneming.waarschijnlijkNatuurbrand ? (
+                    <>
+                      Deze meting hoort bij een groep metingen
+                      <InfoKnop kop={UITLEG.cluster.kop} tekst={UITLEG.cluster.tekst} /> die
+                      dicht bij elkaar en kort na elkaar zijn gedaan. Dat past bij een brand
+                      die enige tijd doorbrandt — maar het kan ook een fabriek of gasfakkel
+                      zijn.
+                    </>
+                  ) : (
+                    "Dit is een losse meting. Die past minder bij een doorbrandende natuurbrand en komt vaak van landbouw, industrie of een korte hitte-uitschieter."
+                  )}
+                </p>
+                <p className={laagStyles.technischKop}>Technisch</p>
+                <p className={laagStyles.technischDetail}>
+                  {gekozenPunt.waarneming.waarschijnlijkNatuurbrand
+                    ? "Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster"
+                    : "Deze meting hoort niet bij een samenhangend cluster"}
+                  {gekozenPunt.waarneming.waarschijnlijkheidsRedenen.length > 0
+                    ? `. Signalen: ${gekozenPunt.waarneming.waarschijnlijkheidsRedenen.join(
+                        ", "
+                      )}.`
+                    : "."}
+                </p>
+              </div>
               <p className={styles.popupBron}>
                 Bron:{" "}
                 <a
@@ -1407,4 +1443,20 @@ function formatteerDatum(iso: string): string {
 
 function formatteerGetal(waarde: number): string {
   return new Intl.NumberFormat("nl-NL", { maximumFractionDigits: 1 }).format(waarde);
+}
+
+// Vertaalt de NASA-betrouwbaarheidsklasse naar gewone taal met de oorspronkelijke
+// term erachter. De datastroom levert alleen "hoog" en "nominaal" (lage metingen
+// worden al bij het inlezen weggefilterd); "laag" staat er voor de volledigheid.
+function betrouwbaarheidLabel(betrouwbaarheid: string): string {
+  switch (betrouwbaarheid) {
+    case "hoog":
+      return "hoog (high)";
+    case "nominaal":
+      return "standaard (nominal)";
+    case "laag":
+      return "laag (low)";
+    default:
+      return betrouwbaarheid;
+  }
 }

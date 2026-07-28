@@ -1,0 +1,106 @@
+/* Herbruikbaar [i]-knopje met inline uitlegblok. Huisstijl: bordeaux op wit
+   (rusttoestand) en wit op bordeaux (hover/focus/open). Beide contrasten liggen
+   ruim boven 4.5:1. */
+
+.wrap {
+  position: relative;
+  display: inline;
+}
+
+.knop {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 1px 0 4px;
+  padding: 0;
+  vertical-align: -3px;
+  border: 1px solid #800000;
+  border-radius: 50%;
+  background: #fff;
+  color: #800000;
+  font-family: "Poppins", "Mulish", sans-serif;
+  font-size: 12px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Onzichtbaar trefvlak van 44×44px rond het kleine knopje, zodat het klikdoel
+   voldoet aan de minimummaat zonder de tekstregel op te blazen. */
+.knop::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.knop:hover,
+.knop:focus-visible,
+.knop[aria-expanded="true"] {
+  background: #800000;
+  color: #fff;
+  outline: none;
+}
+
+.knop:focus-visible {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px #800000;
+}
+
+.blok {
+  display: block;
+  margin: 7px 0 3px;
+  padding: 9px 11px;
+  border: 1px solid rgba(128, 0, 0, 0.35);
+  border-left: 3px solid #800000;
+  border-radius: 8px;
+  background: #fff;
+  color: #332727;
+  font-size: 0.8rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.blokKop {
+  display: block;
+  margin-bottom: 3px;
+  color: #800000;
+  font-weight: 700;
+}
+
+.blokTekst {
+  display: block;
+}
+
+.blokSluit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  margin-top: 8px;
+  padding: 0 14px;
+  border: 1px solid #800000;
+  border-radius: 7px;
+  background: #fff;
+  color: #800000;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.blokSluit:hover,
+.blokSluit:focus-visible {
+  background: #800000;
+  color: #fff;
+  outline: none;
+}

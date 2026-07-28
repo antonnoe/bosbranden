@@ -403,6 +403,22 @@ a:hover {
   stroke-width: 2.5;
 }
 
+.kaart-laaguitleg {
+  margin-top: 12px;
+}
+
+.laag-onderscheid {
+  margin: 0 0 6px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--tekst);
+}
+
+.laag-onderscheid:last-child {
+  margin-bottom: 0;
+  color: rgba(51, 39, 39, 0.75);
+}
+
 .legenda {
   display: flex;
   gap: 14px;
