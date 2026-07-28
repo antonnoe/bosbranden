@@ -13,7 +13,12 @@ import {
 import { haalSamenvattingen } from "@/lib/nieuws-samenvatting";
 
 export const revalidate = 900; // 15 minuten
+// De samenvatdienst doet er ~9 s per artikel over; met parallelle aanroepen en
+// een fetch-timeout van 30 s mag de functie niet eerder afkappen dan die fetch.
+export const maxDuration = 60;
 
+// RSS-feeds zijn snel; dit is een aparte, kortere timeout dan die van de
+// samenvatdienst (30 s, zie lib/nieuws-samenvatting.ts).
 const FEED_TIMEOUT_MS = 8000;
 
 interface BronResultaat {

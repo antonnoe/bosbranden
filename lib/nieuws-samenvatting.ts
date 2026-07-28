@@ -20,7 +20,10 @@ const DIENST_URL =
   process.env.NIEUWS_SAMENVAT_URL ?? "https://if-tools-api.vercel.app/api/generate-summary";
 const CONTEXT_URL = "https://www.nederlanders.fr/page/bosbranden";
 const CONTEXT_TITLE = "Weer en waarschuwingen Frankrijk";
-const TIMEOUT_MS = 9000;
+// De dienst doet er gemeten ~9,2 s over; 9 s brak vrijwel elke aanroep af. De
+// vier aanroepen lopen parallel (Promise.all), dus de wachttijd is die van de
+// traagste, niet de som. Zie ook maxDuration in app/api/nieuws/route.ts.
+const TIMEOUT_MS = 30000;
 
 // Bewaartermijn van een geslaagde samenvatting in de Data Cache: lang, want per
 // URL stabiel. 30 dagen.
@@ -74,7 +77,12 @@ export async function haalSamenvattingen(
 // er niets mislukts in de durable cache belandt.
 async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenvatting> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const start = Date.now();
+  let afgebroken = false;
+  const timer = setTimeout(() => {
+    afgebroken = true;
+    controller.abort();
+  }, TIMEOUT_MS);
   try {
     // GEEN `cache: "no-store"`: deze fetch draait binnen unstable_cache, en die
     // combinatie gooit in Next.js een fout (waardoor élke samenvatting stil
@@ -106,8 +114,18 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
     // volgende storing zichtbaar is in plaats van een stille terugval op Frans.
     // (Dit is een echte dienst-/netwerkfout; het budget-overslaan zit in metGate
     //  en komt hier niet langs, dus deze log blijft betekenisvol.)
-    const reden = fout instanceof Error ? fout.message : String(fout);
-    console.error(`[nieuws-samenvatting] mislukt voor ${frenchUrl}: ${reden}`);
+    const verstreken = Date.now() - start;
+    const isTimeout = afgebroken || (fout instanceof Error && fout.name === "AbortError");
+    if (isTimeout) {
+      console.error(
+        `[nieuws-samenvatting] TIMEOUT na ${verstreken} ms (limiet ${TIMEOUT_MS} ms) voor ${frenchUrl}`
+      );
+    } else {
+      const reden = fout instanceof Error ? fout.message : String(fout);
+      console.error(
+        `[nieuws-samenvatting] mislukt na ${verstreken} ms voor ${frenchUrl}: ${reden}`
+      );
+    }
     throw fout;
   } finally {
     clearTimeout(timer);
