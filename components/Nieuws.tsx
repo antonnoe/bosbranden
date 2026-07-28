@@ -221,7 +221,9 @@ function NieuwsDetail({ item, onTerug }: { item: NieuwsItem; onTerug: () => void
         ← Terug naar het nieuws
       </button>
       <h4 className={styles.detailKop}>{item.titelNl ?? item.titel}</h4>
-      <div className={styles.detailBody}>{renderMarkdown(item.samenvatting ?? "")}</div>
+      <div className={styles.detailBody}>
+        {renderMarkdown(zonderKopregel(item.samenvatting ?? ""))}
+      </div>
       <p className={styles.detailBron}>Bron: {item.bron}</p>
       <a
         className={styles.detailLink}
@@ -247,6 +249,22 @@ function NieuwsDetail({ item, onTerug }: { item: NieuwsItem; onTerug: () => void
       )}
     </div>
   );
+}
+
+// D2: de Nederlandse kop (titelNl) is afgeleid uit de eerste kopregel van de
+// samenvatting en staat al als detailkop boven de tekst. Verwijder die eerste
+// markdown-kopregel uit de body zodat hij niet dubbel verschijnt. Is de eerste
+// regel geen kop (titel uit de eerste zin gehaald), dan blijft de body intact.
+function zonderKopregel(md: string): string {
+  const regels = md.split(/\r?\n/);
+  let i = 0;
+  while (i < regels.length && regels[i].trim() === "") i += 1;
+  if (i < regels.length && /^#{1,6}\s+/.test(regels[i].trim())) {
+    regels.splice(i, 1);
+    // Een direct volgende lege regel ook weghalen, voor nette marges.
+    if (i < regels.length && regels[i].trim() === "") regels.splice(i, 1);
+  }
+  return regels.join("\n");
 }
 
 // Compacte, veilige markdown-weergave (geen dangerouslySetInnerHTML, geen extra

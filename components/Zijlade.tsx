@@ -190,7 +190,15 @@ export default function Zijlade() {
                 {label}
               </span>
             ) : (
-              <Link key={pad} className={`${styles.tab} ${styles.tabNav}`} href={navHref(pad)}>
+              <Link
+                key={pad}
+                className={`${styles.tab} ${styles.tabNav}`}
+                href={navHref(pad)}
+                // D1: navigeren naar een andere toolpagina sluit een open paneel,
+                // zodat de nieuwe pagina met vrij zicht opent. Paneel↔paneel
+                // wisselen (Nieuws ↔ Verantwoording) blijft ongemoeid.
+                onClick={() => setPaneel(null)}
+              >
                 {label}
               </Link>
             );
