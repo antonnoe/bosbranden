@@ -1,0 +1,144 @@
+/* De AI-duider in de bordeaux zijlade. Zelfde witte typografie als de andere
+   panelen (kleur technisch afgedwongen, geen overerving). Poppins voor koppen,
+   Mulish voor tekst. */
+
+.paneel {
+  color: #ffffff;
+}
+
+.inleiding {
+  margin: 0 0 16px;
+  font-size: 0.86rem;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ---- Postcode- en vraagformulieren ---- */
+.postcodeVorm {
+  margin: 0 0 4px;
+}
+
+.veldLabel {
+  display: block;
+  margin: 0 0 6px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.veldRij {
+  display: flex;
+  gap: 8px;
+}
+
+.postcodeVeld,
+.vraagVeld {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-family: "Mulish", sans-serif;
+  font-size: 0.9rem;
+}
+
+.postcodeVeld {
+  letter-spacing: 0.08em;
+}
+
+.vraagVeld {
+  margin-bottom: 8px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.postcodeVeld::placeholder,
+.vraagVeld::placeholder {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.postcodeVeld:focus-visible,
+.vraagVeld:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 1px;
+}
+
+.knop {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: 1px solid #ffffff;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #7a1128;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.knop:hover {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.knop:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.knop:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.vraagVorm {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+/* ---- Antwoorden ---- */
+.antwoordBlok {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.antwoordKop {
+  margin: 0 0 8px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.antwoordTekst {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.8;
+  color: #ffffff;
+  white-space: pre-wrap;
+}
+
+.laden {
+  margin: 12px 0 0;
+  font-size: 0.84rem;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Noodsignaal-antwoord: extra nadruk, want dit gaat om acuut gevaar. */
+.nood {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.75;
+  color: #ffffff;
+  white-space: pre-wrap;
+}

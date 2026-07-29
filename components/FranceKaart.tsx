@@ -11,6 +11,7 @@ import type { Waarneming } from "@/lib/waarnemingen";
 import type { Niveaus } from "@/components/Tool";
 import NiveauBlok from "@/components/NiveauBlok";
 import InfoKnop from "@/components/InfoKnop";
+import { LegUit } from "@/components/LegUit";
 import { UITLEG } from "@/data/uitleg";
 import styles from "@/components/Waarnemingen.module.css";
 import clusterStyles from "@/components/KaartClusters.module.css";
@@ -1112,6 +1113,19 @@ export default function FranceKaart({
                   De acht meest recente metingen worden getoond.
                 </p>
               )}
+              <LegUit
+                meting={{
+                  soort: "cluster",
+                  id:
+                    "cluster-" +
+                    clusterSelectie.punten
+                      .map((p) => p.waarneming.id)
+                      .sort()
+                      .join("_"),
+                  aantal: clusterSelectie.punten.length,
+                  departementCode: clusterSelectie.punten[0]?.waarneming.departementCode,
+                }}
+              />
               <button
                 type="button"
                 className={styles.popupSluitOnder}
@@ -1225,6 +1239,17 @@ export default function FranceKaart({
                 tussen vegetatiebranden en vaste industriële warmtebronnen. FRP is het
                 geschatte uitgestraalde vermogen, niet het verbrande oppervlak.
               </p>
+              <LegUit
+                meting={{
+                  soort: "detectie",
+                  id: gekozenPunt.waarneming.id,
+                  departementCode: gekozenPunt.waarneming.departementCode,
+                  frp: gekozenPunt.waarneming.frp,
+                  betrouwbaarheid: gekozenPunt.waarneming.betrouwbaarheid,
+                  cluster: gekozenPunt.waarneming.waarschijnlijkNatuurbrand,
+                  waargenomenOp: gekozenPunt.waarneming.waargenomenOp,
+                }}
+              />
               <button
                 type="button"
                 className={styles.popupSluitOnder}

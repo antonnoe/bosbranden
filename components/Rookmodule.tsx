@@ -15,6 +15,7 @@ import { departementVoorPostcode } from "@/lib/departements";
 import { geoBoundsVoorCodes } from "@/lib/departement-bbox";
 import Voortgang from "@/components/Voortgang";
 import EmbedHoogte from "@/components/EmbedHoogte";
+import { LegUit, type LegUitMeting } from "@/components/LegUit";
 import styles from "@/components/Rookmodule.module.css";
 
 const DEG = Math.PI / 180;
@@ -767,6 +768,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                   </h3>
                   <PluimDetails pluim={gekozen} />
                   <p className={styles.paneelNoot}>{PLUIM_NOOT}</p>
+                  <LegUit meting={pluimMeting(gekozen)} />
                   <button
                     type="button"
                     className={styles.popupSluitOnder}
@@ -975,9 +977,24 @@ function BronSheet({ pluim, onSluit }: { pluim: Pluim; onSluit: () => void }) {
         </div>
         <PluimDetails pluim={pluim} />
         <p className={styles.paneelNoot}>{PLUIM_NOOT}</p>
+        <LegUit meting={pluimMeting(pluim)} />
       </div>
     </div>
   );
+}
+
+// Bouwt de whitelisted payload voor de "Leg uit"-knop uit een pluim. Alleen
+// getypeerde velden; de server bouwt de prompttekst zelf.
+function pluimMeting(pluim: Pluim): LegUitMeting {
+  return {
+    soort: "pluim",
+    id: pluim.id,
+    departementCode: pluim.bronDepartementCode ?? undefined,
+    frp: pluim.frp,
+    aantal: pluim.detecties,
+    waargenomenOp: pluim.laatsteDetectie,
+    richting: pluim.richting,
+  };
 }
 
 // ---- Pluimgeometrie in geografische ruimte ----

@@ -1,0 +1,66 @@
+/* "Leg uit"-knop in de meet-popups. Twee thema's: "licht" voor de SVG-popup in
+   FranceKaart (donkere tekst op licht vlak) en "donker" voor de Leaflet-popup /
+   BronSheet in Rookmodule. De knop is compact zodat hij in de popup past. */
+
+.wikkel {
+  margin-top: 8px;
+}
+
+.knop {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid;
+}
+
+.knop:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.knop:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.uitleg {
+  margin: 8px 0 0;
+  font-family: "Mulish", sans-serif;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+/* Licht thema (SVG-popup FranceKaart): bordeaux knop op lichte popup. */
+.licht .knop {
+  border-color: #7a1128;
+  background: #7a1128;
+  color: #ffffff;
+}
+
+.licht .knop:hover:not(:disabled) {
+  background: #5f0d1f;
+}
+
+.licht .uitleg {
+  color: #2a2a2a;
+}
+
+/* Donker thema (Leaflet-popup / BronSheet Rookmodule): witte knop op donker. */
+.donker .knop {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #7a1128;
+}
+
+.donker .knop:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.donker .uitleg {
+  color: #ffffff;
+}

@@ -11,11 +11,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ZijkolomNieuws, ZijkolomVerantwoording } from "@/components/Zijkolom";
+import { ZijkolomDuiding } from "@/components/Duiding";
 import { useNieuws } from "@/components/Nieuws";
 import styles from "@/components/Zijlade.module.css";
 
 const SLEUTEL = "bosbranden-zijkolom";
-type PaneelSoort = "nieuws" | "verantwoording";
+type PaneelSoort = "nieuws" | "duiding" | "verantwoording";
 
 const NAVIGATIE: Array<{ pad: string; label: string }> = [
   { pad: "/start", label: "Start" },
@@ -37,7 +38,8 @@ export default function Zijlade() {
   useEffect(() => {
     try {
       const opgeslagen = sessionStorage.getItem(SLEUTEL);
-      if (opgeslagen === "nieuws" || opgeslagen === "verantwoording") setPaneel(opgeslagen);
+      if (opgeslagen === "nieuws" || opgeslagen === "duiding" || opgeslagen === "verantwoording")
+        setPaneel(opgeslagen);
     } catch {
       /* sessionStorage kan geblokkeerd zijn; dan blijft de lade dicht */
     }
@@ -125,7 +127,13 @@ export default function Zijlade() {
         ref={paneelRef}
         tabIndex={-1}
         role="region"
-        aria-label={paneel === "verantwoording" ? "Technische verantwoording" : "Nieuws"}
+        aria-label={
+          paneel === "verantwoording"
+            ? "Technische verantwoording"
+            : paneel === "duiding"
+              ? "Duiding"
+              : "Nieuws"
+        }
         aria-hidden={!open}
         onTouchStart={opVeegStart}
         onTouchEnd={opVeegEind}
@@ -147,6 +155,7 @@ export default function Zijlade() {
         )}
         <div className={styles.paneelInhoud}>
           {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
+          {paneel === "duiding" && <ZijkolomDuiding />}
           {paneel === "verantwoording" && <ZijkolomVerantwoording />}
         </div>
       </div>
@@ -162,6 +171,15 @@ export default function Zijlade() {
           onClick={() => wissel("nieuws")}
         >
           {nieuws.data ? `Nieuws (${nieuws.aantal})` : "Nieuws"}
+        </button>
+        <button
+          type="button"
+          className={`${styles.tab} ${styles.tabPaneel} ${paneel === "duiding" ? styles.tabActief : ""}`}
+          aria-expanded={paneel === "duiding"}
+          aria-controls="app-zijkolom"
+          onClick={() => wissel("duiding")}
+        >
+          Duiding
         </button>
         <button
           type="button"
