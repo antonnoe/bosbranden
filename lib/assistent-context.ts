@@ -65,6 +65,54 @@ function centroidVanCodes(codes: string[]): { lat: number; lon: number } | null 
   return { lat: (zLat + nLat) / 2, lon: (wLon + oLon) / 2 };
 }
 
+// Kleinste afstand (km) van een referentiepunt tot een reeks detecties. Puur en
+// los testbaar: met dezelfde detecties maar een ándere referentiecoördinaat
+// (bijvoorbeeld twee verschillende postcodes) hoort er een andere afstand uit te
+// komen — dat is precies wat de afstandsregel eist (vanaf de postcode, niet het
+// departementsmiddelpunt).
+export function naasteAfstandKm(
+  ref: { lat: number; lon: number },
+  detecties: Array<{ latitude: number; longitude: number }>
+): number | null {
+  if (detecties.length === 0) return null;
+  return Math.min(
+    ...detecties.map((d) => haversineKm(ref.lat, ref.lon, d.latitude, d.longitude))
+  );
+}
+
+// Postcode → geografische coördinaat via de officiële Franse overheids-API
+// (geo.api.gouv.fr, een .gouv.fr-bron). Een postcode kan meerdere gemeenten
+// beslaan; we nemen het gemiddelde van de gemeente-middelpunten als postcode-
+// coördinaat. Faalt de aanroep (offline, onbekende postcode), dan geeft dit null
+// terug en valt de context terug op een benadering — nooit op de bewoording
+// "middelpunt van het departement".
+export async function geocodePostcode(
+  postcode: string
+): Promise<{ lat: number; lon: number } | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(
+      `https://geo.api.gouv.fr/communes?codePostal=${encodeURIComponent(
+        postcode
+      )}&fields=centre&format=json`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = (await res.json()) as Array<{ centre?: { coordinates?: [number, number] } }>;
+    const punten = data
+      .map((g) => g.centre?.coordinates)
+      .filter((c): c is [number, number] => Array.isArray(c) && c.length === 2);
+    if (punten.length === 0) return null;
+    const lon = punten.reduce((s, c) => s + c[0], 0) / punten.length;
+    const lat = punten.reduce((s, c) => s + c[1], 0) / punten.length;
+    return { lat, lon };
+  } catch {
+    return null;
+  }
+}
+
 async function haalJson(basisUrl: string, pad: string): Promise<any | null> {
   try {
     const controller = new AbortController();
@@ -103,12 +151,18 @@ export async function bouwDuidingContext(
   const depNamen = res.departementen.map((d) => `${d.naam} (${d.code})`).join(" / ");
   const centroid = centroidVanCodes(codes);
 
-  const [danger, waarn, rook, nieuws] = await Promise.all([
+  const [danger, waarn, rook, nieuws, postcodeCoord] = await Promise.all([
     haalJson(basisUrl, "/api/danger"),
     haalJson(basisUrl, "/api/waarnemingen"),
     haalJson(basisUrl, "/api/rookpluimen"),
     haalJson(basisUrl, "/api/nieuws"),
+    geocodePostcode(postcode),
   ]);
+
+  // Afstanden worden vanaf de postcode-coördinaat gerekend (fix 3). Lukt de
+  // geocodering niet, dan is er een benadering; nooit "het departementsmiddelpunt".
+  const referentie = postcodeCoord ?? centroid;
+  const refIsPostcode = postcodeCoord !== null;
 
   const regels: string[] = [];
   regels.push(`Departement: ${depNamen}.`);
@@ -134,11 +188,13 @@ export async function bouwDuidingContext(
     const inDep = lijst.filter((w) => codes.includes(w.departementCode));
     const cluster = inDep.filter((w) => w.waarschijnlijkNatuurbrand).length;
     let afstandZin = "";
-    if (centroid && inDep.length > 0) {
-      const km = Math.min(
-        ...inDep.map((w) => haversineKm(centroid.lat, centroid.lon, w.latitude, w.longitude))
-      );
-      afstandZin = ` De dichtstbijzijnde ligt ongeveer ${Math.round(km)} km van het midden van het departement.`;
+    if (referentie && inDep.length > 0) {
+      const km = naasteAfstandKm(referentie, inDep);
+      if (km !== null) {
+        afstandZin = refIsPostcode
+          ? ` De dichtstbijzijnde ligt ongeveer ${Math.round(km)} km van de opgegeven postcode ${postcode}.`
+          : ` De dichtstbijzijnde ligt ongeveer ${Math.round(km)} km hiervandaan (bij benadering; de exacte ligging van de postcode kon nu niet worden opgehaald).`;
+      }
     }
     regels.push(
       inDep.length === 0
@@ -154,16 +210,19 @@ export async function bouwDuidingContext(
     regels.push("Windrichting op leefniveau: geen berekende windbaan in de buurt beschikbaar.");
   } else {
     let dichtst = pluimen.find((p) => codes.includes(p.bronDepartementCode ?? ""));
-    if (!dichtst && centroid) {
+    if (!dichtst && referentie) {
       dichtst = [...pluimen].sort(
         (a, b) =>
-          haversineKm(centroid.lat, centroid.lon, a.lat, a.lon) -
-          haversineKm(centroid.lat, centroid.lon, b.lat, b.lon)
+          haversineKm(referentie.lat, referentie.lon, a.lat, a.lon) -
+          haversineKm(referentie.lat, referentie.lon, b.lat, b.lon)
       )[0];
     }
+    // Windrichting altijd ondubbelzinnig als "waait naar …" (fix 2): richting is
+    // de kompasrichting waarheen de berekende windbaan drijft, dus waar de rook
+    // naartoe gaat — nooit "uit …".
     regels.push(
       dichtst
-        ? `Windrichting op leefniveau (Open-Meteo, dichtstbijzijnde berekende windbaan): drift naar ${dichtst.richting || "onbekend"}.`
+        ? `Windrichting op leefniveau (Open-Meteo, dichtstbijzijnde berekende windbaan): de wind waait naar ${dichtst.richting || "onbekend"} (de rook verplaatst zich die kant op).`
         : "Windrichting op leefniveau: geen berekende windbaan in de buurt beschikbaar."
     );
   }
