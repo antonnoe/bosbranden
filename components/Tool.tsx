@@ -223,15 +223,15 @@ export default function Tool({ embed }: { embed: boolean }) {
       <a className="terug-overzicht" href={startHref}>
         ← Terug naar overzicht
       </a>
-      {!embed && (
-        <header className="site-kop">
-          <h1>Brandrisico Frankrijk</h1>
-          <p>
-            Het verwachte bosbrandgevaar per departement, met een rustige laag van recente
-            satellietwaarnemingen van hittebronnen.
-          </p>
-        </header>
-      )}
+      {/* In embed verdwijnt de kopregel (de NING-pagina heeft een eigen titel),
+          maar de introtekst eronder blijft staan. Standalone verandert niet. */}
+      <header className="site-kop">
+        {!embed && <h1>Brandrisico Frankrijk</h1>}
+        <p>
+          Het verwachte bosbrandgevaar per departement, met een rustige laag van recente
+          satellietwaarnemingen van hittebronnen.
+        </p>
+      </header>
 
       {laden && <Voortgang />}
 

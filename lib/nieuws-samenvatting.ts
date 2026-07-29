@@ -55,7 +55,7 @@ function durableSamenvatting(sleutel: string, budget: Budget): Promise<Samenvatt
   const titel = titelPerUrl.get(sleutel) ?? "";
   return unstable_cache(
     () => metGate(budget, () => genereer(sleutel, titel)),
-    ["nieuws-samenvatting-v1", sleutel],
+    ["nieuws-samenvatting-v2", sleutel],
     { revalidate: SAMENVATTING_REVALIDATE }
   )();
 }
@@ -95,6 +95,10 @@ async function genereer(frenchUrl: string, franseTitel: string): Promise<Samenva
         context_url: CONTEXT_URL,
         // C1: woordenlijst meegeven via het gedocumenteerde context_title-veld.
         context_title: bouwContextTitel(CONTEXT_TITLE),
+        // Korte, juridisch veilige stijl (max. 3–4 zinnen, geen citaten): deze
+        // afnemer vraagt hem expliciet aan zodat andere platforms de standaard
+        // langere samenvatting houden.
+        style: "brief",
       }),
       signal: controller.signal,
     });

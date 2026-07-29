@@ -101,6 +101,15 @@
   margin: 0;
 }
 
+.tegelOndertitel {
+  font-family: "Mulish", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--primair);
+  opacity: 0.85;
+  margin: 2px 0 0;
+}
+
 .ernstMerk {
   flex: 0 0 auto;
   font-family: "Poppins", sans-serif;

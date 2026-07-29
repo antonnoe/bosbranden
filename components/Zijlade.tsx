@@ -1,9 +1,11 @@
 "use client";
 
 // Uitschuifbare zijlade — één instantie in de gedeelde schil (app-layout), op
-// ELKE route. De rail heeft twee soorten tabbladen, visueel gescheiden:
-//   Groep 1 (PANELEN, blijf op de pagina):   Nieuws (n) · Verantwoording
-//   Groep 2 (NAVIGATIE, verlaat de pagina):  Start · Rook
+// ELKE route. De tabbladen staan in één vaste volgorde van boven naar beneden:
+//   Start · Duiding · Verantwoording · Rookpaden · Nieuws · Infographics
+// Navigatie-tabbladen (Start, Rookpaden) verlaten de pagina; paneel-tabbladen
+// (Duiding, Verantwoording, Nieuws, Infographics) schuiven de lade uit. De
+// oude groepsindeling is losgelaten om deze volgorde te kunnen aanhouden.
 // De schil beslaat alleen het paneel + de rail (geen viewport-vullende laag);
 // pointer-events staat uit op de schil en aan op rail en paneel.
 
@@ -12,16 +14,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ZijkolomNieuws, ZijkolomVerantwoording } from "@/components/Zijkolom";
 import { ZijkolomDuiding } from "@/components/Duiding";
+import { ZijkolomInfographics } from "@/components/Infographics";
 import { useNieuws } from "@/components/Nieuws";
 import styles from "@/components/Zijlade.module.css";
 
 const SLEUTEL = "bosbranden-zijkolom";
-type PaneelSoort = "nieuws" | "duiding" | "verantwoording";
-
-const NAVIGATIE: Array<{ pad: string; label: string }> = [
-  { pad: "/start", label: "Start" },
-  { pad: "/rook", label: "Rook" },
-];
+type PaneelSoort = "nieuws" | "duiding" | "verantwoording" | "infographics";
 
 export default function Zijlade() {
   const pathname = usePathname();
@@ -38,7 +36,12 @@ export default function Zijlade() {
   useEffect(() => {
     try {
       const opgeslagen = sessionStorage.getItem(SLEUTEL);
-      if (opgeslagen === "nieuws" || opgeslagen === "duiding" || opgeslagen === "verantwoording")
+      if (
+        opgeslagen === "nieuws" ||
+        opgeslagen === "duiding" ||
+        opgeslagen === "verantwoording" ||
+        opgeslagen === "infographics"
+      )
         setPaneel(opgeslagen);
     } catch {
       /* sessionStorage kan geblokkeerd zijn; dan blijft de lade dicht */
@@ -103,6 +106,39 @@ export default function Zijlade() {
 
   const open = paneel !== null;
 
+  // Paneel-tabblad: schuift de lade uit (blijft op de pagina).
+  function paneelTab(soort: PaneelSoort, label: React.ReactNode) {
+    return (
+      <button
+        type="button"
+        className={`${styles.tab} ${styles.tabPaneel} ${paneel === soort ? styles.tabActief : ""}`}
+        aria-expanded={paneel === soort}
+        aria-controls="app-zijkolom"
+        onClick={() => wissel(soort)}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  // Navigatie-tabblad: interne route (blijft in het iframe). Op de eigen pagina
+  // een niet-klikbare markering; anders een Link die een open paneel sluit (D1).
+  function navTab(pad: string, label: string) {
+    return pathname === pad ? (
+      <span className={`${styles.tab} ${styles.tabNav} ${styles.tabHier}`} aria-current="page">
+        {label}
+      </span>
+    ) : (
+      <Link
+        className={`${styles.tab} ${styles.tabNav}`}
+        href={navHref(pad)}
+        onClick={() => setPaneel(null)}
+      >
+        {label}
+      </Link>
+    );
+  }
+
   return (
     <div className={styles.schil} ref={schilRef}>
       {/* Klik-vanger die de hele viewport bedekt zodra de lade open is: een klik
@@ -132,7 +168,9 @@ export default function Zijlade() {
             ? "Technische verantwoording"
             : paneel === "duiding"
               ? "Duiding"
-              : "Nieuws"
+              : paneel === "infographics"
+                ? "Infographics"
+                : "Nieuws"
         }
         aria-hidden={!open}
         onTouchStart={opVeegStart}
@@ -157,71 +195,26 @@ export default function Zijlade() {
           {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
           {paneel === "duiding" && <ZijkolomDuiding />}
           {paneel === "verantwoording" && <ZijkolomVerantwoording />}
+          {paneel === "infographics" && <ZijkolomInfographics />}
         </div>
       </div>
 
-      {/* Rail met tabbladen (altijd zichtbaar, aan de rechterrand). */}
+      {/* Rail met tabbladen (altijd zichtbaar, aan de rechterrand). Eén vaste
+          volgorde, navigatie en panelen door elkaar:
+          Start · Duiding · Verantwoording · Rookpaden · Nieuws · Infographics */}
       <div className={styles.rail}>
-        {/* Groep 1 — PANELEN */}
-        <button
-          type="button"
-          className={`${styles.tab} ${styles.tabPaneel} ${paneel === "nieuws" ? styles.tabActief : ""}`}
-          aria-expanded={paneel === "nieuws"}
-          aria-controls="app-zijkolom"
-          onClick={() => wissel("nieuws")}
-        >
-          {nieuws.data ? `Nieuws (${nieuws.aantal})` : "Nieuws"}
-        </button>
-        <button
-          type="button"
-          className={`${styles.tab} ${styles.tabPaneel} ${paneel === "duiding" ? styles.tabActief : ""}`}
-          aria-expanded={paneel === "duiding"}
-          aria-controls="app-zijkolom"
-          onClick={() => wissel("duiding")}
-        >
-          Duiding
-        </button>
-        <button
-          type="button"
-          className={`${styles.tab} ${styles.tabPaneel} ${paneel === "verantwoording" ? styles.tabActief : ""}`}
-          aria-expanded={paneel === "verantwoording"}
-          aria-controls="app-zijkolom"
-          onClick={() => wissel("verantwoording")}
-        >
-          <span className={styles.labelVol}>Verantwoording</span>
-          <span className={styles.labelKort}>Info</span>
-        </button>
-
-        {/* Duidelijke scheiding tussen panelen en navigatie. */}
-        <span className={styles.scheiding} aria-hidden="true" />
-
-        {/* Groep 2 — NAVIGATIE (interne routes, blijft in het iframe) */}
-        <nav className={styles.nav} aria-label="Ga naar toolpagina">
-          {NAVIGATIE.map(({ pad, label }) => {
-            const actief = pathname === pad;
-            return actief ? (
-              <span
-                key={pad}
-                className={`${styles.tab} ${styles.tabNav} ${styles.tabHier}`}
-                aria-current="page"
-              >
-                {label}
-              </span>
-            ) : (
-              <Link
-                key={pad}
-                className={`${styles.tab} ${styles.tabNav}`}
-                href={navHref(pad)}
-                // D1: navigeren naar een andere toolpagina sluit een open paneel,
-                // zodat de nieuwe pagina met vrij zicht opent. Paneel↔paneel
-                // wisselen (Nieuws ↔ Verantwoording) blijft ongemoeid.
-                onClick={() => setPaneel(null)}
-              >
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
+        {navTab("/start", "Start")}
+        {paneelTab("duiding", "Duiding")}
+        {paneelTab(
+          "verantwoording",
+          <>
+            <span className={styles.labelVol}>Verantwoording</span>
+            <span className={styles.labelKort}>Info</span>
+          </>
+        )}
+        {navTab("/rook", "Rookpaden")}
+        {paneelTab("nieuws", nieuws.data ? `Nieuws (${nieuws.aantal})` : "Nieuws")}
+        {paneelTab("infographics", "Infographics")}
       </div>
     </div>
   );

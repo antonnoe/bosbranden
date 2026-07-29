@@ -13,50 +13,18 @@ export default function CamsVerwijzing() {
         </div>
 
         <p className={styles.inleiding}>
-          De CAMS Aerosol Alerts-kaart toont modelverwachtingen tot drie dagen vooruit voor onder
-          meer organische aerosolen, roet, PM2.5 en wind. Deze informatie kan helpen bij het volgen
-          van grote rook- of aerosolpluimen, maar bevestigt geen lokale natuurbrand.
+          De CAMS-kaart van Copernicus toont modelverwachtingen tot drie dagen vooruit voor rook-
+          en aerosolpluimen; dit bevestigt geen lokale natuurbrand.
         </p>
 
-        <div className={styles.opties}>
-          <article className={styles.optie}>
-            <h3>Bekijk de interactieve kaart</h3>
-            <p>
-              Kies op de CAMS-kaart een aerosolsoort, tijdstip en weergave. Windpijlen tonen de
-              verwachte luchtstroming.
-            </p>
-            <a
-              className={styles.knop}
-              href="https://aerosol-alerts.atmosphere.copernicus.eu/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open interactieve CAMS-kaart
-            </a>
-          </article>
-
-          <article className={styles.optie}>
-            <h3>Ontvang een waarschuwing</h3>
-            <p>
-              Teken een gebied en ontvang per e-mail een melding wanneer CAMS daar verhoogde
-              aerosol- of fijnstofwaarden verwacht.
-            </p>
-            <a
-              className={`${styles.knop} ${styles.secundair}`}
-              href="https://aerosol-alerts.atmosphere.copernicus.eu/subscription/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Stel een aerosolwaarschuwing in
-            </a>
-          </article>
-        </div>
-
-        <p className={styles.caveat}>
-          Organische aerosolen en roet kunnen samenhangen met natuurbrandrook, maar ook met andere
-          bronnen. Gebruik lokale meldingen van prefectuur, mairie en FR-Alert voor officiële
-          informatie over een concrete brand.
-        </p>
+        <a
+          className={styles.knop}
+          href="https://aerosol-alerts.atmosphere.copernicus.eu/?lat=44.591095693885364&lon=-5.447755795617844&zoom=3&height=19551000&base_layer=none&overlays=&view=2d&parameter=od550dust%2Bod550ss%2Bod550so4%2Bod550oa%2Bod550bc"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open de CAMS-kaart
+        </a>
       </section>
     </div>
   );

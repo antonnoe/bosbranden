@@ -162,7 +162,12 @@ export default function Start({ embed }: { embed: boolean }) {
                 }`}
               >
                 <div className={styles.tegelKop}>
-                  <h2 className={styles.tegelTitel}>{module.titel}</h2>
+                  <div>
+                    <h2 className={styles.tegelTitel}>{module.titel}</h2>
+                    {module.ondertitel && (
+                      <p className={styles.tegelOndertitel}>{module.ondertitel}</p>
+                    )}
+                  </div>
                   {(() => {
                     // De module levert desgewenst een eigen, feitelijk merk (bijv. een
                     // teller). Alleen bij een echt gevaarniveau valt het terug op

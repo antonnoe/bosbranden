@@ -101,7 +101,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [satellietFout, setSatellietFout] = useState(false);
 
   const [dekking, setDekking] = useState(40); // standaard lager, zodat de onderliggende kaart zichtbaar blijft; schuif loopt tot 100
-  const [lagenOpen, setLagenOpen] = useState(!embed);
+  // Lagenpaneel staat standaard open (ook in embed); op smalle schermen klapt
+  // het bij mount alsnog in (zie hieronder).
+  const [lagenOpen, setLagenOpen] = useState(true);
   const [smal, setSmal] = useState(false);
 
   const [postcode, setPostcode] = useState("");
@@ -1129,7 +1131,30 @@ function statusTekst(data: Antwoord | null): string {
       data.opmerking ?? "De hittebronnen worden getoond; de windbanen zijn tijdelijk niet beschikbaar."
     );
   const n = data.pluimen.length;
-  return `${n} ${n === 1 ? "windbaan" : "windbanen"} berekend vanaf de sterkste gemeten warmtebronnen. Eén uitgestrekte brand levert meerdere oorsprongen op; industriële warmtebronnen worden niet uitgesloten.`;
+  const zn = n === 1 ? "windbaan" : "windbanen";
+  const moment = data.startuur ? berekendMoment(data.startuur) : "";
+  const kop = moment
+    ? `Op ${moment} ${n === 1 ? "werd" : "werden"} ${n} ${zn} berekend`
+    : `${n} ${zn} berekend`;
+  return `${kop} vanaf de sterkste gemeten warmtebronnen. Eén uitgestrekte brand levert meerdere oorsprongen op; industriële warmtebronnen worden niet uitgesloten.`;
+}
+
+// Berekeningsmoment uit de data, in de vorm "29-07-2026 – 09:00" (Europe/Paris).
+function berekendMoment(startuur: string): string {
+  const d = new Date(startuur);
+  if (Number.isNaN(d.getTime())) return "";
+  const datum = new Intl.DateTimeFormat("nl-NL", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    timeZone: "Europe/Paris",
+  }).format(d);
+  const tijd = new Intl.DateTimeFormat("nl-NL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Paris",
+  }).format(d);
+  return `${datum} – ${tijd}`;
 }
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {

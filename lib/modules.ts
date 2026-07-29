@@ -5,6 +5,7 @@
 export interface Module {
   id: string; // "brandgevaar"
   titel: string; // "Brandgevaar"
+  ondertitel?: string; // optionele ondertitel onder de titel
   functie: string; // één regel gewone taal: wat de module doet
   pad: string; // waar de tegel naartoe gaat
   actief: boolean;
@@ -37,9 +38,10 @@ export const MODULES: Module[] = [
   },
   {
     id: "waarschuwingen",
-    titel: "Laatste officiële meldingen",
+    titel: "FR-Alert",
+    ondertitel: "Laatste officiële meldingen",
     functie:
-      "De meest recente officiële FR-Alert-meldingen van de Franse autoriteiten (lopend én beëindigd). FR-Alert publiceert met vertraging en is geen actuele brandenlijst.",
+      "FR-Alert zendt alleen uit wat de autoriteiten alertwaardig achten — ook tijdens een grote crisis kan de lijst leeg blijven. Meldingen verschijnen met vertraging; dit is geen lijst van actuele branden.",
     pad: "/?laag=officieel",
     actief: true,
   },
