@@ -18,6 +18,17 @@ const LAAD_FASEN = [
   "Tegels klaarzetten…",
 ];
 
+// Statische tegel "Gedupeerd?" — geen data, geen API's, geen dynamiek; puur
+// vaste tekst zodat de tegel zonder onderhoud correct blijft. Komt als vijfde
+// tegel (na de modules), dus linksonder in het 2-koloms raster.
+const GEDUPEERD_SPOREN = [
+  "Brand — ook bosbrand: via uw eigen brandverzekering. Er komt géén natuurramp-arrêté; meld direct (doorgaans binnen 5 werkdagen).",
+  "Storm, hagel, sneeuw: via de verplichte garantie tempête-grêle-neige van uw contract. Ook direct melden, geen arrêté.",
+  "Natuurramp (overstroming, bodemkrimp, aardbeving): vergoeding pas ná het arrêté in het Journal Officiel — daarna maximaal 30 dagen om uw schade in te dienen.",
+];
+const GEDUPEERD_URL =
+  "https://infofrankrijk.com/gedupeerd-door-natuurgeweld-in-frankrijk-uw-verzekering-goed-regelen/";
+
 export default function Start({ embed }: { embed: boolean }) {
   const [statussen, setStatussen] = useState<ModuleStatus[] | null>(null);
   const [statusFout, setStatusFout] = useState(false);
@@ -192,6 +203,42 @@ export default function Start({ embed }: { embed: boolean }) {
               </a>
             );
           })}
+
+          {/* Vijfde tegel: statische verwijzing "Gedupeerd?". Zelfde tegelstijl,
+              maar geen link-tegel (de knop onderaan is het klikdoel), dus een
+              article in plaats van een <a>. */}
+          <article className={`${styles.tegel} ${styles.ernst0} ${styles.tegelStatisch}`}>
+            <div className={styles.tegelKop}>
+              <div>
+                <h2 className={styles.tegelTitel}>Gedupeerd?</h2>
+                <p className={styles.tegelOndertitel}>Schade door brand, storm of natuurramp</p>
+              </div>
+            </div>
+            <p className={styles.gedupeerdIntro}>
+              Het Franse stelsel kent drie loketten. Kies het juiste spoor:
+            </p>
+            <ol className={styles.gedupeerdSporen}>
+              {GEDUPEERD_SPOREN.map((tekst) => {
+                const scheiding = tekst.indexOf(": ");
+                const label = tekst.slice(0, scheiding);
+                const rest = tekst.slice(scheiding + 1);
+                return (
+                  <li key={label}>
+                    <strong>{label}:</strong>
+                    {rest}
+                  </li>
+                );
+              })}
+            </ol>
+            <a
+              className={styles.gedupeerdKnop}
+              href={GEDUPEERD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Lees het volledige dossier op Infofrankrijk →
+            </a>
+          </article>
         </div>
       </div>
 

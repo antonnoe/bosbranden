@@ -45,12 +45,12 @@
   align-content: start;
 }
 
-/* Vanaf 640px vullen de tegels de beschikbare breedte: twee kolommen op
-   middelbrede schermen, meer op brede (op 1280px staan de vier modules naast
-   elkaar). minmax(260px) voorkomt dat een tegel te smal wordt. */
+/* Vanaf 640px precies twee kolommen — in álle weergaven, ook op de breedste
+   schermen en in embed. Vijf tegels vullen zo drie rijen (2 – 2 – 1); de laatste
+   tegel valt vanzelf linksonder. Onder 640px blijft het één kolom. */
 @media (min-width: 640px) {
   .tegels {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -144,6 +144,59 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--primair);
+}
+
+/* ---- Statische tegel "Gedupeerd?" ----
+   Zelfde kaart, maar geen klik-tegel: onderdruk de hover-lift zodat de kaart
+   niet klikbaar oogt (de knop onderaan is het klikdoel). */
+.tegelStatisch:hover,
+.tegelStatisch:focus-within {
+  box-shadow: 0 1px 4px var(--primair-04);
+  transform: none;
+}
+
+.gedupeerdIntro {
+  margin: 8px 0 10px;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--tekst);
+}
+
+.gedupeerdSporen {
+  margin: 0 0 16px;
+  padding-left: 1.3em;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--tekst);
+}
+
+.gedupeerdSporen strong {
+  color: var(--primair);
+  font-weight: 700;
+}
+
+.gedupeerdKnop {
+  margin-top: auto;
+  align-self: flex-start;
+  display: inline-block;
+  padding: 9px 16px;
+  border-radius: 8px;
+  background: var(--primair);
+  color: #fff;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.gedupeerdKnop:hover,
+.gedupeerdKnop:focus-visible {
+  background: #9a1f1f;
+  outline: none;
 }
 
 /* ---- Ernst-accenten (0 rustig zonder kleur, 3–4 bordeaux/rood) ---- */
