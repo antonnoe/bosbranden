@@ -142,18 +142,41 @@ function leesSamenvatting(json: unknown): string | null {
   return typeof summary === "string" && summary.trim() ? summary.trim() : null;
 }
 
-// Nederlandse kop uit de samenvatting (H2): de eerste markdown-kop of anders de
-// eerste zin, ingekort. Markdown-opmaak (# ** [] ()) wordt uit de kop gehaald.
-function leidTitelAf(markdown: string): string | null {
-  const regels = markdown.split(/\r?\n/).map((r) => r.trim());
-  const kopRegel = regels.find((r) => /^#{1,6}\s+/.test(r));
-  const ruw = kopRegel
-    ? kopRegel.replace(/^#{1,6}\s+/, "")
-    : (regels.find((r) => r.length > 0) ?? "");
-  const schoon = ontdoeVanOpmaak(ruw);
-  if (!schoon) return null;
-  const eersteZin = schoon.split(/(?<=[.!?])\s/)[0] ?? schoon;
-  return eersteZin.length > 100 ? `${eersteZin.slice(0, 97).trimEnd()}…` : eersteZin;
+// Generieke koppen die een samenvatting soms als eerste regel meekrijgt
+// ("Samenvatting", "Résumé", ...). Zulke woorden zeggen niets en mogen NOOIT de
+// nieuwskop worden; we slaan ze over en pakken de eerste echte regel eronder.
+const GENERIEKE_KOPPEN = new Set([
+  "samenvatting",
+  "resume",
+  "résumé",
+  "summary",
+  "in het kort",
+  "kort",
+  "overzicht",
+  "inleiding",
+  "conclusie",
+]);
+
+// Nederlandse kop uit de samenvatting (H2): de eerste bruikbare markdown-kop of
+// regel, ingekort. Markdown-opmaak (# ** [] ()) wordt eruit gehaald. Generieke
+// koppen worden overgeslagen; blijft er niets zinnigs over, dan null zodat de
+// aanroeper terugvalt op de (Franse) brontitel.
+export function leidTitelAf(markdown: string): string | null {
+  const regels = markdown
+    .split(/\r?\n/)
+    .map((r) => r.trim())
+    .filter((r) => r.length > 0);
+  for (const regel of regels) {
+    const schoon = ontdoeVanOpmaak(regel.replace(/^#{1,6}\s+/, ""));
+    if (!schoon) continue;
+    // Een kaal, generiek kopwoord ("Samenvatting", eventueel met dubbele punt)
+    // overslaan; de echte inhoud staat op de volgende regel.
+    const genormaliseerd = schoon.toLowerCase().replace(/[:.\s]+$/, "").trim();
+    if (GENERIEKE_KOPPEN.has(genormaliseerd)) continue;
+    const eersteZin = schoon.split(/(?<=[.!?])\s/)[0] ?? schoon;
+    return eersteZin.length > 100 ? `${eersteZin.slice(0, 97).trimEnd()}…` : eersteZin;
+  }
+  return null;
 }
 
 function ontdoeVanOpmaak(tekst: string): string {
