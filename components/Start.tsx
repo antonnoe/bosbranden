@@ -286,18 +286,13 @@ export default function Start({ embed }: { embed: boolean }) {
               <a className={styles.actiePrimair} href={bouwLink("/?laag=alle")}>
                 Op de kaart →
               </a>
-              {aantalDetecties > 0 ? (
+              {/* Rookpaden is een vervolgactie, geen bestemming: verberg de knop
+                  bij nul detecties — een ingang naar een lege kaart is erger dan
+                  geen ingang. */}
+              {aantalDetecties > 0 && (
                 <a className={styles.actieSecundair} href={bouwLink(ROOK_ACTIE.pad)}>
                   {ROOK_ACTIE.label}
                 </a>
-              ) : (
-                <span
-                  className={`${styles.actieSecundair} ${styles.actieUit}`}
-                  aria-disabled="true"
-                  title="Geen hittebronnen om windbanen vanaf te tekenen."
-                >
-                  {ROOK_ACTIE.label}
-                </span>
               )}
             </div>
           </article>

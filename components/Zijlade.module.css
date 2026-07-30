@@ -346,41 +346,219 @@
   border-bottom-color: #ffffff;
 }
 
-/* ---- Onder 768px: schermbreed paneel; compacte rail. De tabbladen draaien
-   naar horizontale tekst. De twee groepen blijven twee secties met hetzelfde
-   streepje ertussen en hetzelfde vormverschil (massief vs. omlijnd); de lade
-   vervangt de rail (nooit twee panelen tegelijk). Tikdoelen ≥ 44px hoog. ---- */
-@media (max-width: 768px) {
-  .schil {
-    --rail: 96px;
-    width: 100%;
-  }
+/* ====================================================================
+   Mobiele navigatie (< 768px). De verticale rail vervalt volledig; navigatie
+   gaat via een segmented control (Start/Kaart) bovenaan het contentgebied en
+   één leesmateriaal-icoon dat de lade opent. Standaard (desktop) zijn al deze
+   onderdelen verborgen; hun uiterlijk is alleen < 768px zichtbaar.
+   ==================================================================== */
+.mobielKop {
+  display: none;
+}
 
-  .paneel {
-    width: calc(100% - var(--rail));
-    max-width: none;
+.mobielSluit {
+  display: none;
+}
+
+.mobielLadeSchakel {
+  display: none;
+}
+
+.mobielNav {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 8px;
+}
+
+/* Segmented control: actief massief bordeaux, inactief wit met rand. */
+.mobielNavKnop {
+  flex: 1 1 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border: 1.5px solid var(--rand);
+  border-radius: 8px;
+  background: var(--kaart);
+  color: var(--tekst);
+  font-family: "Poppins", sans-serif;
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mobielNavKnop:focus-visible {
+  outline: 2px solid var(--merk);
+  outline-offset: 2px;
+}
+
+.mobielNavActief {
+  background: var(--merk);
+  border-color: var(--merk);
+  color: #ffffff;
+  cursor: default;
+}
+
+/* Leesmateriaal-icoon rechtsboven, met tellerbadge. */
+.leesIcoon {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--rand);
+  border-radius: 8px;
+  background: var(--kaart);
+  color: var(--merk);
+  cursor: pointer;
+}
+
+.leesIcoon:focus-visible {
+  outline: 2px solid var(--merk);
+  outline-offset: 2px;
+}
+
+.leesBadge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--merk);
+  color: #ffffff;
+  border-radius: 999px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Mobiele ✕ rechtsboven in de lade. */
+.mobielSluit {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.14);
+  color: #ffffff;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.mobielSluit:hover {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.mobielSluit:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: -4px;
+}
+
+/* Mobiele schakel Nieuws / Verantwoording binnen de lade. */
+.mobielLadeKnop {
+  flex: 1 1 0;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  background: transparent;
+  color: #ffffff;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.mobielLadeKnop:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.mobielLadeActief {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #800000;
+}
+
+/* ---- Onder 768px: rail weg, mobiele kop aan, lade schermvullend maar boven de
+   onderbalk van if-mobiel (host kan --if-onderbalk zetten; anders 56px) plus de
+   safe-area, zodat de host-navigatie altijd bereikbaar blijft. ---- */
+@media (max-width: 768px) {
+  .mobielKop {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    padding: 8px 12px;
+    background: var(--pagina);
+    border-bottom: 1px solid var(--rand);
   }
 
   .rail {
-    gap: 4px;
+    display: none;
   }
 
-  .tab {
-    writing-mode: horizontal-tb;
-    text-orientation: mixed;
-    min-height: 44px;
-    padding: 10px 12px;
-    font-size: 0.8rem;
+  .schil {
+    --rail: 0px;
+    width: 100%;
+    bottom: calc(var(--if-onderbalk, 56px) + env(safe-area-inset-bottom, 0px));
   }
 
-  .tabPaneel::before,
-  .tabNav::before {
-    font-size: 0.92rem;
+  /* Lade schuift van rechts in, maar laat links een strook overlay vrij zodat
+     tikken naast de lade (op de kaart) hem sluit — naast de ✕ en Escape. */
+  .paneel {
+    width: min(440px, calc(100% - 48px));
+    max-width: none;
+    right: 0;
   }
 
-  /* Het streepje blijft tussen de groepen; iets minder witruimte. */
-  .scheiding {
-    margin: 4px auto;
+  .overlay {
+    height: auto;
+    bottom: calc(var(--if-onderbalk, 56px) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Op mobiel sluit de ✕ rechtsboven; de linker sluitrand vervalt. */
+  .sluitRand {
+    display: none;
+  }
+
+  .mobielSluit {
+    display: inline-flex;
+  }
+
+  .mobielLadeSchakel {
+    display: flex;
+    gap: 8px;
+    margin: 0 0 14px;
+    padding-right: 52px; /* ruimte naast de ✕ rechtsboven */
+  }
+
+  .paneelInhoud {
+    padding-bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   }
 }
 

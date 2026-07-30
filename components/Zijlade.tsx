@@ -162,9 +162,61 @@ export default function Zijlade() {
     );
   }
 
+  // Mobiele navigatieknop (segmented control): interne route; op de eigen route
+  // een niet-klikbare markering, anders een Link die een open lade sluit.
+  function mobielNavKnop(pad: string, label: string) {
+    return pathname === pad ? (
+      <span className={`${styles.mobielNavKnop} ${styles.mobielNavActief}`} aria-current="page">
+        {label}
+      </span>
+    ) : (
+      <Link className={styles.mobielNavKnop} href={navHref(pad)} onClick={() => setPaneel(null)}>
+        {label}
+      </Link>
+    );
+  }
+
   return (
-    <div className={styles.schil} ref={schilRef}>
-      {/* Klik-vanger die de hele viewport bedekt zodra de lade open is (A2). */}
+    <>
+      {/* Mobiele kop (< 768px, via CSS): de enige navigatie op mobiel — een
+          segmented control Start/Kaart — plus één leesmateriaal-icoon dat de
+          lade opent. Boven 768px verborgen; dan geldt de rail. Sticky bovenaan
+          het contentgebied. */}
+      <div className={styles.mobielKop}>
+        <div className={styles.mobielNav} role="group" aria-label="Navigatie">
+          {mobielNavKnop("/start", "Start")}
+          {mobielNavKnop("/", "Kaart")}
+        </div>
+        <button
+          type="button"
+          className={styles.leesIcoon}
+          aria-label="Lees erbij: nieuws en verantwoording"
+          aria-expanded={open}
+          aria-controls="app-zijkolom"
+          onClick={() => setPaneel((h) => (h ? null : "uitleg"))}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="22"
+            height="22"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
+            <path d="M9 8h6M9 12h6M9 16h4" />
+          </svg>
+          {nieuws.data && nieuws.aantal > 0 ? (
+            <span className={styles.leesBadge}>{nieuws.aantal}</span>
+          ) : null}
+        </button>
+      </div>
+
+      <div className={styles.schil} ref={schilRef}>
+        {/* Klik-vanger die de hele viewport bedekt zodra de lade open is (A2). */}
       {open && (
         <button
           type="button"
@@ -187,6 +239,18 @@ export default function Zijlade() {
         onTouchStart={opVeegStart}
         onTouchEnd={opVeegEind}
       >
+        {/* Mobiele sluitknop (✕) rechtsboven; op desktop verborgen (daar sluit
+            de linker sluitrand). */}
+        {open && (
+          <button
+            type="button"
+            className={styles.mobielSluit}
+            aria-label="Sluiten"
+            onClick={() => setPaneel(null)}
+          >
+            <span aria-hidden="true">×</span>
+          </button>
+        )}
         {open && (
           <button
             type="button"
@@ -203,6 +267,30 @@ export default function Zijlade() {
           </button>
         )}
         <div className={styles.paneelInhoud}>
+          {/* Mobiele schakel (< 768px): Nieuws / Verantwoording binnen dezelfde
+              lade — op mobiel de enige toegang tot leesmateriaal. Op desktop
+              verborgen (daar kiest de rail). */}
+          <div className={styles.mobielLadeSchakel} role="group" aria-label="Kies onderdeel">
+            <button
+              type="button"
+              className={`${styles.mobielLadeKnop} ${paneel === "nieuws" ? styles.mobielLadeActief : ""}`}
+              aria-pressed={paneel === "nieuws"}
+              onClick={() => setPaneel("nieuws")}
+            >
+              Nieuws
+              {nieuws.data && nieuws.aantal > 0 ? (
+                <span className={styles.telPil}>{nieuws.aantal}</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
+              className={`${styles.mobielLadeKnop} ${paneel === "uitleg" ? styles.mobielLadeActief : ""}`}
+              aria-pressed={paneel === "uitleg"}
+              onClick={() => setPaneel("uitleg")}
+            >
+              Verantwoording
+            </button>
+          </div>
           {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
           {paneel === "uitleg" && (
             <>
@@ -253,6 +341,7 @@ export default function Zijlade() {
           {paneelTab("uitleg", "Verantwoording")}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

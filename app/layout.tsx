@@ -58,9 +58,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        {children}
-        {/* Eén instantie van de uitschuifbare zijlade voor álle routes. */}
+        {/* Eén instantie van de gedeelde schil (mobiele kop + rail + lade) voor
+            álle routes. Vóór de content zodat de mobiele kop (< 768px) bovenaan
+            het contentgebied valt; de rail/lade zijn fixed en ongevoelig voor
+            de DOM-volgorde. */}
         <Zijlade />
+        {children}
       </body>
     </html>
   );
