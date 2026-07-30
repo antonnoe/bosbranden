@@ -196,7 +196,7 @@
 }
 
 .mapPin path {
-  fill: #800000;
+  fill: var(--hittebron);
   stroke: #fff;
   stroke-width: 2.2;
   vector-effect: non-scaling-stroke;

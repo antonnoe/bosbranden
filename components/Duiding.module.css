@@ -57,7 +57,7 @@
 
 .postcodeVeld::placeholder,
 .vraagVeld::placeholder {
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .postcodeVeld:focus-visible,
@@ -126,7 +126,7 @@
   margin: 12px 0 0;
   font-size: 0.84rem;
   font-style: italic;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 /* Noodsignaal-antwoord: extra nadruk, want dit gaat om acuut gevaar. */

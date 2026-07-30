@@ -80,7 +80,7 @@
   content: "–";
   position: absolute;
   left: 0;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 /* ---- Bron- en praktische links: wit, hoog contrast tegen bordeaux ---- */
@@ -123,7 +123,7 @@
 
 .standBron::before {
   content: "· ";
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
   font-weight: 400;
 }
 
@@ -141,7 +141,7 @@
 
 .standPraktisch::before {
   content: "→ ";
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.78);
   font-weight: 400;
 }
 

@@ -644,7 +644,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     aria-pressed={uur < 0}
                     onClick={() => setUur(-12)}
                   >
-                    <span className={styles.knopTitel}>Afgelopen 12 uur</span>
+                    <span className={styles.knopTitel}>12 uur terug</span>
                     <span className={styles.knopOnder}>gemeten</span>
                   </button>
                   <button

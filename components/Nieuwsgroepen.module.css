@@ -275,7 +275,7 @@
 }
 
 .wrap[data-thema="donker"] .vertaalMislukt {
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .wrap[data-thema="licht"] .vertaalMislukt {
@@ -291,7 +291,7 @@
 }
 
 .wrap[data-thema="donker"] .vertaalNoot {
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(255, 255, 255, 0.78);
 }
 
 .wrap[data-thema="licht"] .vertaalNoot {

@@ -5,13 +5,14 @@
 
 .clusterHalo {
   fill: rgba(255, 255, 255, 0.9);
-  stroke: rgba(128, 0, 0, 0.18);
+  stroke: rgba(232, 32, 42, 0.18);
   stroke-width: 2;
   filter: drop-shadow(0 2px 3px rgba(45, 25, 25, 0.24));
 }
 
+/* Hittebron-cluster: data, dus de datakleur --hittebron (niet het merk). */
 .clusterCore {
-  fill: #800000;
+  fill: var(--hittebron);
   stroke: #fff;
   stroke-width: 2.5;
 }
@@ -26,12 +27,12 @@
 
 .cluster:hover .clusterCore,
 .cluster:focus-visible .clusterCore {
-  fill: #5f0000;
+  fill: #b3141d;
   stroke-width: 3.5;
 }
 
 .cluster:focus-visible .clusterHalo {
-  stroke: #800000;
+  stroke: var(--hittebron);
   stroke-width: 3;
 }
 

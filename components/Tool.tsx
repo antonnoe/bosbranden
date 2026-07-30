@@ -510,7 +510,7 @@ export default function Tool({ embed }: { embed: boolean }) {
               <span>
                 <i
                   style={{
-                    background: "#800000",
+                    background: "var(--hittebron)",
                     borderRadius: "50% 50% 50% 0",
                     transform: "rotate(45deg)",
                   }}
@@ -518,7 +518,7 @@ export default function Tool({ embed }: { embed: boolean }) {
                 losse satellietmeting
               </span>
               <span>
-                <i style={{ background: "#800000", borderRadius: "50%" }} /> bolletje met aantal
+                <i style={{ background: "var(--hittebron)", borderRadius: "50%" }} /> bolletje met aantal
                 metingen
               </span>
             </>

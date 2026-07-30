@@ -62,7 +62,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--primair-55);
+  color: var(--tekst-zacht);
   margin: 0 0 8px;
 }
 
@@ -119,7 +119,7 @@
 .herkomst {
   font-family: "Poppins", sans-serif;
   font-size: 0.78rem;
-  color: rgba(51, 39, 39, 0.6);
+  color: var(--tekst-zacht);
   margin: 3px 0 0;
 }
 
