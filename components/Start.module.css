@@ -1,5 +1,6 @@
-/* Tegelstart — huisstijl: Poppins koppen, Mulish body, #800000-varianten,
-   warm lichtgrijze achtergrond, witte kaarten met subtiele rand en schaduw. */
+/* Beslisscherm /start — huisstijl: Poppins koppen, Mulish body, #800000-
+   varianten, warm lichtgrijze achtergrond, witte blokken met subtiele rand en
+   schaduw. De blokken staan in één kolom, gegroepeerd op tijd. */
 
 .postcodeSectie {
   margin-bottom: 18px;
@@ -30,37 +31,46 @@
   line-height: 1.6;
 }
 
-/* ---- Hub-indeling: vast tegelraster ----
-   De uitschuifbare zijlade zit nu in de gedeelde schil (app-layout), niet meer
-   hier. Nooit meer dan twee kolommen: twee vanaf 640px, één daaronder. Het
-   aantal kolommen staat los van het aantal modules. */
-.hub {
-  margin-bottom: 22px;
+/* Optionele kopregel onder de h1 bij een verhoogd nationaal gevaarniveau. */
+.zwaarsteRegel {
+  margin: 0 0 16px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #b00020;
 }
 
-.tegels {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-  align-content: start;
+/* ---- Blokken: één kolom over de volle kolombreedte, gecentreerd. ----
+   De blokken zijn ongelijk van gewicht en de groepskoppen breken een raster,
+   dus geen 2-koloms raster meer. In .embed (750px) verandert er niets wezenlijk. */
+.blokken {
+  max-width: 900px;
+  margin: 0 auto 22px;
 }
 
-/* Vanaf 640px precies twee kolommen — in álle weergaven, ook op de breedste
-   schermen en in embed. Vijf tegels vullen zo drie rijen (2 – 2 – 1); de laatste
-   tegel valt vanzelf linksonder. Onder 640px blijft het één kolom. */
-@media (min-width: 640px) {
-  .tegels {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.groep {
+  margin-top: 18px;
 }
 
-.tegel {
+.blokken > .groep:first-of-type {
+  margin-top: 0;
+}
+
+.groepKop {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--primair-55);
+  margin: 0 0 8px;
+}
+
+/* Blok = de bestaande tegelkaart, nu als niet-klikbaar article (er zitten
+   losse acties in). Hover-lift blijft behouden. */
+.blok {
   display: flex;
   flex-direction: column;
-  /* Geen min-height:100% — een percentagehoogte lost hier op tegen de
-     iframe-hoogte, waardoor de inhoud meegroeit/krimpt met het venster en de
-     gemelde embed-hoogte nooit stabiel werd. Rasteritems rekken standaard al
-     tot gelijke rijhoogte (align-items:stretch); dat volstaat. */
   padding: 18px 20px;
   border: 1px solid var(--primair-08);
   border-left: 4px solid var(--geen-data);
@@ -68,25 +78,16 @@
   background: #fff;
   box-shadow: 0 1px 4px var(--primair-04);
   color: var(--tekst);
-  text-decoration: none;
-  transition: box-shadow 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.tegel:hover,
-.tegel:focus-visible {
+.blok:hover,
+.blok:focus-within {
   box-shadow: 0 4px 14px rgba(128, 0, 0, 0.12);
   transform: translateY(-2px);
-  outline: none;
 }
 
-.tegel:focus-visible {
-  border-color: var(--primair);
-}
-
-/* Titel op de eerste regel, het ernst-label eronder op een eigen regel — zo
-   loopt "NU VERHOOGD" nooit over de titel of buiten de rand, ook niet bij de
-   langste titel ("Laatste officiële meldingen"). */
-.tegelKop {
+.blokKop {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -99,15 +100,6 @@
   font-weight: 600;
   color: var(--primair);
   margin: 0;
-}
-
-.tegelOndertitel {
-  font-family: "Mulish", sans-serif;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--primair);
-  opacity: 0.85;
-  margin: 2px 0 0;
 }
 
 .ernstMerk {
@@ -123,122 +115,170 @@
   padding: 2px 9px;
 }
 
-.tegelFunctie {
-  margin: 8px 0 12px;
+/* Herkomstregel: bron · korrel · tijdvenster. */
+.herkomst {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.78rem;
+  color: rgba(51, 39, 39, 0.6);
+  margin: 3px 0 0;
+}
+
+/* Kerncijfer (Hittebronnen): het aantal detecties, prominent. */
+.kerncijfer {
+  font-family: "Poppins", sans-serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: #b00020;
+  line-height: 1.2;
+  margin: 10px 0 0;
+}
+
+.blokUitleg {
+  margin: 8px 0 0;
   font-size: 0.92rem;
   line-height: 1.55;
   color: var(--tekst);
 }
 
-.tegelStatus {
-  margin: 0 0 14px;
+.blokStatus {
+  margin: 8px 0 0;
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.5;
   color: var(--primair-80);
 }
 
-.tegelGa {
-  margin-top: auto;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--primair);
+/* ---- Niveaublokken (Brandgevaar): Morgen / Overmorgen ---- */
+.niveauRij {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
-/* ---- Statische tegel "Gedupeerd?" ----
-   Zelfde kaart, maar geen klik-tegel: onderdruk de hover-lift zodat de kaart
-   niet klikbaar oogt (de knop onderaan is het klikdoel). */
-.tegelStatisch:hover,
-.tegelStatisch:focus-within {
-  box-shadow: 0 1px 4px var(--primair-04);
-  transform: none;
-}
-
-.gedupeerdIntro {
-  margin: 8px 0 10px;
-  font-size: 0.92rem;
-  line-height: 1.55;
-  color: var(--tekst);
-}
-
-.gedupeerdSporen {
-  margin: 0 0 16px;
-  padding-left: 1.3em;
+.niveauBlok {
+  flex: 1 1 130px;
+  border-radius: 8px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  color: var(--tekst);
+  gap: 2px;
 }
 
-.gedupeerdSporen strong {
-  color: var(--primair);
+.niveauBlokDag {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.85;
+}
+
+.niveauBlokWaarde {
+  font-family: "Poppins", sans-serif;
+  font-size: 1.15rem;
   font-weight: 700;
 }
 
-.gedupeerdKnop {
-  margin-top: auto;
-  align-self: flex-start;
+/* ---- Acties ---- */
+.acties {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.actiePrimair,
+.actieSecundair {
   display: inline-block;
-  padding: 9px 16px;
-  border-radius: 8px;
-  background: var(--primair);
-  color: #fff;
   font-family: "Poppins", sans-serif;
   font-size: 0.85rem;
   font-weight: 600;
+  padding: 9px 15px;
+  border-radius: 8px;
   text-decoration: none;
-  transition: background 0.15s ease;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.gedupeerdKnop:hover,
-.gedupeerdKnop:focus-visible {
-  background: #9a1f1f;
+.actiePrimair {
+  background: var(--primair);
+  color: #fff;
+  border: 1.5px solid var(--primair);
+}
+
+.actiePrimair:hover,
+.actiePrimair:focus-visible {
+  background: var(--primair-80);
+  border-color: var(--primair-80);
   outline: none;
 }
 
-/* ---- Ernst-accenten (0 rustig zonder kleur, 3–4 bordeaux/rood) ---- */
-.ernst0 {
-  border-left-color: var(--geen-data);
+.actieSecundair {
+  background: transparent;
+  color: var(--primair);
+  border: 1.5px solid var(--primair-30);
 }
 
-.ernst1 {
-  border-left-color: rgba(128, 0, 0, 0.25);
+.actieSecundair:hover,
+.actieSecundair:focus-visible {
+  border-color: var(--primair);
+  color: var(--primair-80);
+  outline: none;
 }
 
-.ernst2 {
-  border-left-color: rgba(128, 0, 0, 0.5);
+.actiePrimair:focus-visible,
+.actieSecundair:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
 }
 
-.ernst3 {
-  border-left-color: #b00020;
+/* Uitgeschakelde vervolgactie (rook zonder hittebronnen). */
+.actieUit {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: default;
 }
 
-.ernst3 .tegelStatus {
-  color: #b00020;
+/* ---- Voetregel "Gedupeerd?" ---- */
+.voetregel {
+  border-top: 1px solid var(--primair-15);
+  margin-top: 18px;
+  padding-top: 14px;
+  font-size: 0.9rem;
+  line-height: 1.6;
 }
 
-.ernst4 {
-  border-left-color: #e8202a;
-  background: linear-gradient(180deg, rgba(232, 32, 42, 0.05), #fff 60%);
+.voetregelLink {
+  font-weight: 600;
+  color: var(--primair);
+  white-space: nowrap;
 }
 
-.ernst4 .tegelStatus {
-  color: #c40018;
+.voetregelLink:hover {
+  color: var(--primair-80);
 }
 
-/* ---- Embed (750px): zelfde uitschuifbare zijkolom, alleen compacter. Het
-   tegelraster volgt gewoon de mediaqueries (750px < 768px → twee kolommen). ---- */
-:global(.embed) .tegels {
-  gap: 12px;
-}
-
-:global(.embed) .tegel {
+/* ---- Embed (750px): zelfde blokken, alleen compacter. ---- */
+:global(.embed) .blok {
   padding: 14px 16px;
 }
 
 :global(.embed) .tegelTitel {
   font-size: 1.05rem;
+}
+
+/* ---- Onder 420px: acties full-width, zoals de bestaande .knop. ---- */
+@media (max-width: 420px) {
+  .actiePrimair,
+  .actieSecundair {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blok {
+    transition: none;
+  }
 }

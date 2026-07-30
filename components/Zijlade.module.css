@@ -135,6 +135,42 @@
   pointer-events: none; /* alleen de tabbladen vangen klikken */
 }
 
+/* ---- Railgroepen: "Waar ben ik" (navigatie) en "Lees erbij" (panelen) ---- */
+.railGroep {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none; /* alleen de tabbladen erin vangen klikken */
+}
+
+/* Klein groepslabel; verticaal langs de rail, net als de tabbladen. */
+.groepLabel {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  align-self: center;
+  padding: 4px 0;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(51, 39, 39, 0.5);
+  pointer-events: none;
+}
+
+/* Tellerpil op het Nieuws-tabblad (rechtop, ook in een verticaal tabblad). */
+.telPil {
+  writing-mode: horizontal-tb;
+  background: #fff;
+  color: #800000;
+  border: 1px solid rgba(128, 0, 0, 0.3);
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
 .nav {
   display: flex;
   flex-direction: column;
@@ -188,6 +224,14 @@
   font-size: 1rem;
   line-height: 1;
   color: #ffffff;
+}
+
+/* Groep 1 — PANELEN ("Lees erbij"): gestippelde rand — de vorm zegt "schuift
+   uit", niet "verlaat de pagina". Op de bordeaux tab een lichte streepjesrand;
+   bij een open (wit) tabblad wordt de streepjesrand bordeaux (zie .tabActief). */
+.tabPaneel {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 /* Groep 1 — PANELEN: één chevron die naar het paneel wijst (dicht) en bij het
@@ -251,16 +295,52 @@
   }
 }
 
-/* ---- Scheiding tussen panelen en navigatie: witte lijn + extra ruimte ---- */
+/* ---- Scheiding tussen de twee railgroepen ---- */
 .scheiding {
   height: 1px;
   margin: 8px 6px;
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--primair-15);
 }
 
-/* Twee labelvarianten voor het Verantwoording-tabblad (mobiel korter). */
+/* Twee labelvarianten voor het uitleg-tabblad (mobiel korter). */
 .labelKort {
   display: none;
+}
+
+/* ---- Interne tabs binnen het uitleg-paneel (Duiding · Verantwoording ·
+   Infographics), op de #800000-paneelachtergrond ---- */
+.uitlegTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.uitlegTab {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  background: transparent;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.uitlegTab:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.uitlegTab:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.uitlegTabActief {
+  background: #ffffff;
+  color: #800000;
+  border-color: #ffffff;
 }
 
 /* ---- Onder 700px: schermbreed paneel; compacte rail (< 1/3 vensterhoogte) ----
@@ -304,6 +384,13 @@
 
   .labelKort {
     display: inline;
+  }
+
+  /* Groepslabel horizontaal in de compacte, horizontale rail. */
+  .groepLabel {
+    writing-mode: horizontal-tb;
+    align-self: flex-start;
+    padding: 2px 4px;
   }
 }
 

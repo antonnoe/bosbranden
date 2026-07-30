@@ -13,6 +13,7 @@ import InfoKnop from "@/components/InfoKnop";
 import { UITLEG } from "@/data/uitleg";
 import FranceKaart from "@/components/FranceKaart";
 import EmbedHoogte from "@/components/EmbedHoogte";
+import { normaliseerLaag, LAAG_LABELS, LAAG_UITLEG, type KaartLaag } from "@/lib/kaartlaag";
 import styles from "@/components/Waarnemingen.module.css";
 
 export type Niveaus = Record<string, { j1: number | null; j2: number | null }>;
@@ -91,7 +92,9 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [echeance, setEcheance] = useState<"j1" | "j2">("j1");
   const [gekozenDep, setGekozenDep] = useState<string | null>(null);
-  const [beginWeergave, setBeginWeergave] = useState<KaartWeergave | undefined>(undefined);
+  // De zichtbare laagkeuze bovenaan de kaart is de bron van waarheid voor de
+  // kaartlaag; ze mapt op de bestaande kaartintenties (weergave + satelliet).
+  const [laag, setLaag] = useState<KaartLaag>("alle");
   // Departementcode(s) waar de kaart naartoe zoomt na een geslaagde postcode-zoek
   // (C2). Verse array-referentie per zoekopdracht triggert FranceKaart opnieuw.
   const [zoomDeps, setZoomDeps] = useState<string[] | null>(null);
@@ -159,13 +162,28 @@ export default function Tool({ embed }: { embed: boolean }) {
   // Deep-link ?laag=: expliciete koppeling op laagsleutel (geen DOM-geklik meer).
   // Een onbekende waarde valt terug op de standaardlaag i.p.v. op niets.
   useEffect(() => {
-    const laag = new URLSearchParams(window.location.search).get("laag");
-    if (!laag) return;
-    const intentie = KAART_INTENTIES[laag];
-    if (!intentie) return; // onbekend → standaard (geen wijziging)
-    setBeginWeergave(intentie.weergave);
-    setToonWaarnemingen(intentie.satelliet);
+    const raw = new URLSearchParams(window.location.search).get("laag");
+    if (!raw) return; // geen deeplink → standaardlaag "alle"
+    const gekozen = normaliseerLaag(raw);
+    setLaag(gekozen);
+    setToonWaarnemingen(KAART_INTENTIES[gekozen].satelliet);
   }, []);
+
+  // Laagkeuze bovenaan de kaart: zet de laag én werk ?laag= bij (shallow, geen
+  // herladen) zodat de link deelbaar blijft. De satellietwaarnemingen volgen de
+  // intentie van de laag.
+  function kiesLaag(nieuw: KaartLaag) {
+    if (nieuw === laag) return;
+    setLaag(nieuw);
+    setToonWaarnemingen(KAART_INTENTIES[nieuw].satelliet);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      params.set("laag", nieuw);
+      window.history.replaceState(null, "", `?${params.toString()}`);
+    } catch {
+      /* history kan in een sandbox geblokkeerd zijn; de laag wisselt dan toch */
+    }
+  }
 
   // Additief: leest ?postcode= bij het opstarten, vult het veld voor en toont
   // het resultaat alsof de bezoeker had gezocht. Zonder parameter: niets.
@@ -391,6 +409,52 @@ export default function Tool({ embed }: { embed: boolean }) {
           </p>
         </div>
 
+        {/* Zichtbare laagkeuze bovenaan de kaart, met exact dezelfde woorden als
+            op /start. Wisselen zet ?laag= (shallow) zodat de link deelbaar
+            blijft; dit stuurt uitsluitend de SVG-kaart (niet /rook). */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 14,
+            flexWrap: "wrap",
+            margin: "6px 0 0",
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "'Poppins', sans-serif",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              color: "rgba(51, 39, 39, 0.65)",
+            }}
+          >
+            Kaartlaag:
+          </span>
+          <div className="toggle" role="group" aria-label="Kies de kaartlaag">
+            {(["gevaar", "alle", "officieel"] as KaartLaag[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={laag === k}
+                onClick={() => kiesLaag(k)}
+              >
+                {LAAG_LABELS[k]}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p
+          style={{
+            margin: "10px 0 0",
+            fontSize: "0.92rem",
+            lineHeight: 1.6,
+            color: "var(--tekst)",
+          }}
+        >
+          {LAAG_UITLEG[laag]}
+        </p>
+
         <FranceKaart
           niveaus={niveaus}
           echeance={echeance}
@@ -406,7 +470,7 @@ export default function Tool({ embed }: { embed: boolean }) {
             setGekozenDep(null);
             setGekozenWaarnemingId((huidig) => (huidig === id ? null : id));
           }}
-          beginWeergave={beginWeergave}
+          beginWeergave={KAART_INTENTIES[laag].weergave}
           onVraagWaarnemingen={() => setToonWaarnemingen(true)}
           zoomNaarDeps={zoomDeps}
         />

@@ -1,13 +1,13 @@
 "use client";
 
 // Uitschuifbare zijlade — één instantie in de gedeelde schil (app-layout), op
-// ELKE route. De tabbladen staan in één vaste volgorde van boven naar beneden:
-//   Start · Duiding · Verantwoording · Rookpaden · Nieuws · Infographics
-// Navigatie-tabbladen (Start, Rookpaden) verlaten de pagina; paneel-tabbladen
-// (Duiding, Verantwoording, Nieuws, Infographics) schuiven de lade uit. De
-// oude groepsindeling is losgelaten om deze volgorde te kunnen aanhouden.
-// De schil beslaat alleen het paneel + de rail (geen viewport-vullende laag);
-// pointer-events staat uit op de schil en aan op rail en paneel.
+// ELKE route. De rail is gesplitst in twee groepen:
+//   "Waar ben ik" — navigatietabs die de pagina verlaten: Start · Kaart · Rookpaden
+//   "Lees erbij"  — paneeltabs die een lade uitschuiven: Nieuws · Uitleg & bronnen
+// Duiding, Verantwoording en Infographics zijn samengevoegd tot één
+// "uitleg"-paneel met interne tabs. De schil beslaat alleen het paneel + de
+// rail (geen viewport-vullende laag); pointer-events staat uit op de schil en
+// aan op rail en paneel.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -16,14 +16,27 @@ import { ZijkolomNieuws, ZijkolomVerantwoording } from "@/components/Zijkolom";
 import { ZijkolomDuiding } from "@/components/Duiding";
 import { ZijkolomInfographics } from "@/components/Infographics";
 import { useNieuws } from "@/components/Nieuws";
+import {
+  migreerPaneelSleutel,
+  beginUitlegTab,
+  type PaneelSoort,
+  type UitlegTab,
+} from "@/lib/zijlade-migratie";
 import styles from "@/components/Zijlade.module.css";
 
 const SLEUTEL = "bosbranden-zijkolom";
-type PaneelSoort = "nieuws" | "duiding" | "verantwoording" | "infographics";
+
+// Interne tabs binnen het uitleg-paneel, in vaste volgorde (duiding eerst).
+const UITLEG_TABS: { id: UitlegTab; label: string }[] = [
+  { id: "duiding", label: "Duiding" },
+  { id: "verantwoording", label: "Verantwoording" },
+  { id: "infographics", label: "Infographics" },
+];
 
 export default function Zijlade() {
   const pathname = usePathname();
   const [paneel, setPaneel] = useState<PaneelSoort | null>(null);
+  const [uitlegTab, setUitlegTab] = useState<UitlegTab>("duiding");
   const [query, setQuery] = useState("");
   const paneelRef = useRef<HTMLDivElement>(null);
   const schilRef = useRef<HTMLDivElement>(null);
@@ -32,17 +45,18 @@ export default function Zijlade() {
   // op het Nieuws-tabblad live blijft, óók als de lade dicht is.
   const nieuws = useNieuws();
 
-  // Bewaarde open-stand teruglezen (sessionStorage, geen cookies).
+  // Bewaarde open-stand teruglezen (sessionStorage, geen cookies). Oude
+  // paneelwaarden (duiding/verantwoording/infographics) worden naar "uitleg"
+  // gemigreerd; de bijbehorende interne tab wordt hersteld, zodat bewaarde
+  // standen van vóór de samenvoeging niet breken.
   useEffect(() => {
     try {
       const opgeslagen = sessionStorage.getItem(SLEUTEL);
-      if (
-        opgeslagen === "nieuws" ||
-        opgeslagen === "duiding" ||
-        opgeslagen === "verantwoording" ||
-        opgeslagen === "infographics"
-      )
-        setPaneel(opgeslagen);
+      const soort = migreerPaneelSleutel(opgeslagen);
+      if (soort) {
+        setPaneel(soort);
+        if (soort === "uitleg") setUitlegTab(beginUitlegTab(opgeslagen));
+      }
     } catch {
       /* sessionStorage kan geblokkeerd zijn; dan blijft de lade dicht */
     }
@@ -53,16 +67,22 @@ export default function Zijlade() {
     setQuery(typeof window !== "undefined" ? window.location.search : "");
   }, [pathname]);
 
-  // Stand bewaren, Escape-sluiten en focus naar het paneel bij openen. Klikken
-  // náást het paneel gaat via de overlay (onder), niet meer via een
-  // document-listener: zo sluit één klik op de kaart de lade zónder tegelijk een
-  // pin te selecteren of in te zoomen (A2).
+  // Stand bewaren. Voor het uitleg-paneel bewaren we de actieve interne tab als
+  // sleutelwaarde; migreerPaneelSleutel mapt die bij terugkeer weer op "uitleg"
+  // en beginUitlegTab herstelt de tab. Een dichte lade bewaart "dicht".
   useEffect(() => {
     try {
-      sessionStorage.setItem(SLEUTEL, paneel ?? "dicht");
+      const teBewaren = paneel === "uitleg" ? uitlegTab : paneel ?? "dicht";
+      sessionStorage.setItem(SLEUTEL, teBewaren);
     } catch {
       /* stil */
     }
+  }, [paneel, uitlegTab]);
+
+  // Escape-sluiten en focus naar het paneel bij openen. Klikken náást het paneel
+  // gaat via de overlay (onder), niet via een document-listener: zo sluit één
+  // klik op de kaart de lade zónder tegelijk een pin te selecteren (A2).
+  useEffect(() => {
     if (!paneel) return;
     paneelRef.current?.focus();
     const opToets = (e: KeyboardEvent) => {
@@ -106,7 +126,8 @@ export default function Zijlade() {
 
   const open = paneel !== null;
 
-  // Paneel-tabblad: schuift de lade uit (blijft op de pagina).
+  // Paneel-tabblad: schuift de lade uit (blijft op de pagina). Gestippelde rand
+  // ("Lees erbij") — de vorm zegt: dit schuift uit, het verlaat de pagina niet.
   function paneelTab(soort: PaneelSoort, label: React.ReactNode) {
     return (
       <button
@@ -122,7 +143,8 @@ export default function Zijlade() {
   }
 
   // Navigatie-tabblad: interne route (blijft in het iframe). Op de eigen pagina
-  // een niet-klikbare markering; anders een Link die een open paneel sluit (D1).
+  // een niet-klikbare, duidelijk gevulde markering; anders een Link die een open
+  // paneel sluit (D1). Massieve vorm ("Waar ben ik").
   function navTab(pad: string, label: string) {
     return pathname === pad ? (
       <span className={`${styles.tab} ${styles.tabNav} ${styles.tabHier}`} aria-current="page">
@@ -141,10 +163,7 @@ export default function Zijlade() {
 
   return (
     <div className={styles.schil} ref={schilRef}>
-      {/* Klik-vanger die de hele viewport bedekt zodra de lade open is: een klik
-          ernaast (ook op de kaart) sluit de lade en bereikt de kaart niet, dus
-          er wordt geen pin geselecteerd of ingezoomd (A2). Ligt vóór de kaart
-          maar áchter paneel en rail (DOM-volgorde), die hun eigen klikken houden. */}
+      {/* Klik-vanger die de hele viewport bedekt zodra de lade open is (A2). */}
       {open && (
         <button
           type="button"
@@ -155,23 +174,14 @@ export default function Zijlade() {
         />
       )}
 
-      {/* Paneel (schuift uit); links van de rail. Het paneel zelf scrollt niet:
-          een vaste sluitrand links + een scrollende inhoudskolom. */}
+      {/* Paneel (schuift uit); links van de rail. */}
       <div
         id="app-zijkolom"
         className={`${styles.paneel} ${open ? styles.paneelOpen : ""}`}
         ref={paneelRef}
         tabIndex={-1}
         role="region"
-        aria-label={
-          paneel === "verantwoording"
-            ? "Technische verantwoording"
-            : paneel === "duiding"
-              ? "Duiding"
-              : paneel === "infographics"
-                ? "Infographics"
-                : "Nieuws"
-        }
+        aria-label={paneel === "uitleg" ? "Uitleg en bronnen" : "Nieuws"}
         aria-hidden={!open}
         onTouchStart={opVeegStart}
         onTouchEnd={opVeegEind}
@@ -193,28 +203,65 @@ export default function Zijlade() {
         )}
         <div className={styles.paneelInhoud}>
           {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
-          {paneel === "duiding" && <ZijkolomDuiding />}
-          {paneel === "verantwoording" && <ZijkolomVerantwoording />}
-          {paneel === "infographics" && <ZijkolomInfographics />}
+          {paneel === "uitleg" && (
+            <>
+              {/* Interne tabs: Duiding · Verantwoording · Infographics. */}
+              <div className={styles.uitlegTabs} role="tablist" aria-label="Uitleg-onderdelen">
+                {UITLEG_TABS.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={uitlegTab === t.id}
+                    className={`${styles.uitlegTab} ${
+                      uitlegTab === t.id ? styles.uitlegTabActief : ""
+                    }`}
+                    onClick={() => setUitlegTab(t.id)}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {uitlegTab === "duiding" && <ZijkolomDuiding />}
+              {uitlegTab === "verantwoording" && <ZijkolomVerantwoording />}
+              {uitlegTab === "infographics" && <ZijkolomInfographics />}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Rail met tabbladen (altijd zichtbaar, aan de rechterrand). Eén vaste
-          volgorde, navigatie en panelen door elkaar:
-          Start · Duiding · Verantwoording · Rookpaden · Nieuws · Infographics */}
+      {/* Rail met twee groepen. */}
       <div className={styles.rail}>
-        {navTab("/start", "Start")}
-        {paneelTab("duiding", "Duiding")}
-        {paneelTab(
-          "verantwoording",
-          <>
-            <span className={styles.labelVol}>Verantwoording</span>
-            <span className={styles.labelKort}>Info</span>
-          </>
-        )}
-        {navTab("/rook", "Rookpaden")}
-        {paneelTab("nieuws", nieuws.data ? `Nieuws (${nieuws.aantal})` : "Nieuws")}
-        {paneelTab("infographics", "Infographics")}
+        <div className={styles.railGroep}>
+          <span className={styles.groepLabel} aria-hidden="true">
+            Waar ben ik
+          </span>
+          {navTab("/start", "Start")}
+          {navTab("/", "Kaart")}
+          {navTab("/rook", "Rookpaden")}
+        </div>
+
+        <div className={styles.scheiding} aria-hidden="true" />
+
+        <div className={styles.railGroep}>
+          <span className={styles.groepLabel} aria-hidden="true">
+            Lees erbij
+          </span>
+          {paneelTab(
+            "nieuws",
+            <>
+              Nieuws
+              {nieuws.data ? <span className={styles.telPil}>{nieuws.aantal}</span> : null}
+            </>
+          )}
+          {paneelTab(
+            "uitleg",
+            <>
+              <span className={styles.labelVol}>Uitleg &amp; bronnen</span>
+              <span className={styles.labelKort}>Uitleg</span>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

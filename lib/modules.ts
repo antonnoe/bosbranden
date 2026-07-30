@@ -1,50 +1,58 @@
-// Moduleregister voor de tegelstart (/start). Puur additief: bepaalt welke
-// tegels worden getoond en waar ze naartoe wijzen. Drie tegels wijzen naar de
-// bestaande brandpagina met een voorgeselecteerde kaartlaag (?laag=).
+// Moduleregister voor de tegelstart (/start). De start is een beslisscherm:
+// drie blokken, gegroepeerd op tijd (nu-gemeten / straks-verwacht / officieel)
+// in plaats van op onderwerp. Elk blok toont zijn herkomst expliciet, zodat een
+// meting (hittebronnen) niet met een verwachting (brandgevaar) wordt verward.
+
+export type Tijdgroep = "nu" | "straks" | "officieel";
 
 export interface Module {
-  id: string; // "brandgevaar"
-  titel: string; // "Brandgevaar"
-  ondertitel?: string; // optionele ondertitel onder de titel
-  functie: string; // één regel gewone taal: wat de module doet
-  pad: string; // waar de tegel naartoe gaat
-  actief: boolean;
+  id: string; // "hittebronnen"
+  titel: string; // "Hittebronnen"
+  groep: Tijdgroep; // tijdkop waaronder het blok valt
+  // Herkomstregel: drie delen met " · " (bron · korrel · tijdvenster).
+  herkomst: string;
+  pad: string; // waar de primaire kaartactie naartoe wijst (?laag=)
 }
 
+// Tijdkoppen boven elke groep, in vaste volgorde nu → straks → officieel.
+export const GROEP_KOPPEN: Record<Tijdgroep, string> = {
+  nu: "Nu — gemeten",
+  straks: "Straks — verwacht",
+  officieel: "Officieel",
+};
+
+// Vaste volgorde: Hittebronnen (nu) → Brandgevaar (straks) → FR-Alert (officieel).
+// De volgorde is bewust vast en hangt NIET van de ernst af; ernst blijft
+// zichtbaar via de border-left-kleur, het ernst-merk en de statusregel — nooit
+// via de positie.
 export const MODULES: Module[] = [
-  {
-    id: "brandgevaar",
-    titel: "Brandgevaar",
-    functie:
-      "De verwachting of er morgen en overmorgen makkelijk nieuwe branden kunnen ontstaan — het officiële gevaarniveau per departement, nog geen brand.",
-    pad: "/?laag=gevaar",
-    actief: true,
-  },
-  {
-    id: "rook",
-    titel: "Rookverplaatsing",
-    functie:
-      "De berekende windbaan vanaf gedetecteerde hittebronnen: waar de lucht — en dus mogelijk de rook — naartoe waait, op leefniveau en op hoogte.",
-    pad: "/rook",
-    actief: true,
-  },
   {
     id: "hittebronnen",
     titel: "Hittebronnen",
-    functie:
-      "Satellietdetecties van warmte die er nú is: gemeten hittebronnen van de afgelopen 24 uur. Een detectie is een waarneming, niet automatisch een bevestigde brand.",
+    groep: "nu",
+    herkomst: "Satelliet VIIRS · per pixel · afgelopen 24 uur",
     pad: "/?laag=alle",
-    actief: true,
+  },
+  {
+    id: "brandgevaar",
+    titel: "Brandgevaar",
+    groep: "straks",
+    herkomst: "Météo-France · per departement · morgen & overmorgen",
+    pad: "/?laag=gevaar",
   },
   {
     id: "waarschuwingen",
     titel: "FR-Alert",
-    ondertitel: "Laatste officiële meldingen",
-    functie:
-      "FR-Alert zendt alleen uit wat de autoriteiten alertwaardig achten — ook tijdens een grote crisis kan de lijst leeg blijven. Meldingen verschijnen met vertraging; dit is geen lijst van actuele branden.",
+    groep: "officieel",
+    herkomst: "Autoriteiten · hele land · met vertraging",
     pad: "/?laag=officieel",
-    actief: true,
   },
 ];
 
-export const ACTIEVE_MODULES = MODULES.filter((m) => m.actief);
+// Rookpaden is geen eigen tegel meer, maar een vervolgactie binnen het
+// hittebronnenblok: pas als er warmte gemeten is, is "waar waait de rook
+// heen?" een zinnige volgende vraag.
+export const ROOK_ACTIE = {
+  label: "Waar waait de rook heen? →",
+  pad: "/rook",
+} as const;

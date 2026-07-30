@@ -153,14 +153,14 @@ export default function FranceKaart({
     { left: number; top: number; breedte: number; hoogte: number } | null
   >(null);
 
-  // Deep-link: pas de beginlaag toe zodra de ouder hem (na mount) doorgeeft.
-  // Alleen de laag zelf; het vinkje wordt door de ouder gestuurd (de intentie
-  // bepaalt of de satellietwaarnemingen aan of uit staan).
-  const beginToegepastRef = useRef(false);
+  // De kaartlaag wordt nu bovenaan de kaart (in Tool) gekozen en via
+  // beginWeergave doorgegeven. Volg die keuze en ruim vluchtige selecties op,
+  // zodat een laagwissel geen verweesde popup of clusterselectie laat staan.
   useEffect(() => {
-    if (beginToegepastRef.current || !beginWeergave) return;
-    beginToegepastRef.current = true;
+    if (!beginWeergave) return;
     setWeergave(beginWeergave);
+    setClusterSelectie(null);
+    setGekozenMeldingId(null);
   }, [beginWeergave]);
 
   // C2: spring naar de omhullende van het (de) gezochte departement(en). Elke
@@ -230,10 +230,6 @@ export default function FranceKaart({
 
   const zichtbareBreedte = kaartBreedte / camera.zoom;
   const zichtbareHoogte = kaartHoogte / camera.zoom;
-  const waarschijnlijkeAantal = useMemo(
-    () => waarnemingen.filter((waarneming) => waarneming.waarschijnlijkNatuurbrand).length,
-    [waarnemingen]
-  );
   const gefilterdeWaarnemingen = useMemo(() => {
     if (weergave === "officieel") return [];
     // Warmtebronnen toont álle metingen; het clusterdeel is alleen nog een
@@ -565,28 +561,6 @@ export default function FranceKaart({
     }
   }
 
-  function kiesWeergave(volgende: Weergave) {
-    if (weergave === volgende) return;
-    setWeergave(volgende);
-    setClusterSelectie(null);
-    setGekozenMeldingId(null);
-    if (gekozenWaarneming) onKiesWaarneming(gekozenWaarneming);
-    // De checkbox volgt de laagkeuze: een satellietlaag zet de waarnemingen aan,
-    // zodat er nooit een actieve-maar-lege laag zonder uitleg ontstaat.
-    if (volgende !== "officieel") onVraagWaarnemingen?.();
-    setCamera({ x: kaartX, y: kaartY, zoom: MIN_ZOOM });
-  }
-
-  // Warmtebronnen toont álle metingen; op de tweede regel staat hoeveel ervan
-  // een samenhangend cluster vormen, met de eerlijke formulering over
-  // industriële bronnen (B2).
-  const filterUitleg =
-    weergave === "warmte"
-      ? `${formatteerAantal(waarnemingen.length)} thermische VIIRS-warmtemetingen; dit zijn niet automatisch branden. Daarvan vormen er ${formatteerAantal(
-          waarschijnlijkeAantal
-        )} een ruimtelijk en in tijd samenhangend cluster — industriële warmtebronnen worden daarbij niet uitgesloten. Per meting staat in de popup of ze bij een cluster hoort.`
-      : "Recente officiële FR-Alert-meldingen. FR-Alert wordt alleen bij ernstige situaties ingezet en is geen volledige brandenlijst.";
-
   // In-kaart-melding zodat geen enkele laag stil leeg blijft (D2).
   const satellietUit = weergave !== "officieel" && !toonWaarnemingen;
   const geenHittebronnen =
@@ -600,27 +574,6 @@ export default function FranceKaart({
   return (
     <div className={styles.kaartEnNieuws}>
       <div className={styles.kaartContainer}>
-        <div className={laagStyles.lagenFilter}>
-          <span className={laagStyles.lagenTitel}>Kaartlaag</span>
-          <div className={laagStyles.lagenKnoppen} role="group" aria-label="Kies de kaartlaag">
-            <button
-              type="button"
-              aria-pressed={weergave === "warmte"}
-              onClick={() => kiesWeergave("warmte")}
-            >
-              Warmtebronnen
-            </button>
-            <button
-              type="button"
-              aria-pressed={weergave === "officieel"}
-              onClick={() => kiesWeergave("officieel")}
-            >
-              Laatste officiële meldingen
-            </button>
-          </div>
-          <p className={laagStyles.lagenUitleg}>{filterUitleg}</p>
-        </div>
-
         {weergave === "officieel" && (
           <>
             {!frAlertLaden && frAlert && !frAlert.liveBron && frAlert.meldingen.length > 0 && (
