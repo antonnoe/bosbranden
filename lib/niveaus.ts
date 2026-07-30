@@ -1,6 +1,9 @@
 // De vier officiële niveaus van de Météo des forêts (Météo-France).
-// Kleuren zijn de officiële Météo-France-risicokleuren en mogen niet
-// vervangen worden door huisstijlkleuren.
+// Kleur heeft hier één rol — gevaarniveau — en is dus NOOIT de huisstijlkleur
+// (bordeaux). De schaal loopt op van groen (laag) naar rood (zeer hoog); de
+// tinten zijn afgestemd op leesbaarheid tegen een lichte ondergrond (lichtgeel
+// verdween en is amber geworden; fel groen/oranje zijn iets verdiept). De
+// waarden komen overeen met de tokens --niveau-1 t/m --niveau-4 in globals.css.
 
 export interface Niveau {
   waarde: 1 | 2 | 3 | 4;
@@ -16,7 +19,7 @@ export const NIVEAUS: Record<number, Niveau> = {
     waarde: 1,
     fr: "faible",
     nl: "laag",
-    kleur: "#31aa35",
+    kleur: "#2f6b3a",
     tekstKleur: "#ffffff",
     toelichting:
       "Het weer zorgt voor een laag risico op het ontstaan en de verspreiding van bosbrand. Blijf altijd voorzichtig met vuur in de natuur.",
@@ -25,8 +28,8 @@ export const NIVEAUS: Record<number, Niveau> = {
     waarde: 2,
     fr: "modéré",
     nl: "gemiddeld",
-    kleur: "#f6e50e",
-    tekstKleur: "#3d3200",
+    kleur: "#d4a017",
+    tekstKleur: "#2b2220",
     toelichting:
       "Verhoogde waakzaamheid: onder deze weersomstandigheden kan een brand gemakkelijker ontstaan. Vermijd vuur, barbecue en werkzaamheden met vonkvorming in en bij de natuur.",
   },
@@ -34,8 +37,8 @@ export const NIVEAUS: Record<number, Niveau> = {
     waarde: 3,
     fr: "élevé",
     nl: "hoog",
-    kleur: "#ff9e00",
-    tekstKleur: "#4a2b00",
+    kleur: "#c2560f",
+    tekstKleur: "#ffffff",
     toelichting:
       "Hoog gevaarniveau: een brand kan snel ontstaan en zich snel uitbreiden. Geen open vuur, niet roken in de natuur en let op lokale toegangsbeperkingen van bossen en natuurgebieden.",
   },

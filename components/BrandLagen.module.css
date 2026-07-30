@@ -50,7 +50,7 @@
   margin: 7px 0 0;
   font-size: 0.74rem;
   line-height: 1.45;
-  color: rgba(51, 39, 39, 0.75);
+  color: var(--tekst-zacht);
 }
 
 .officieelStatus {
@@ -86,7 +86,7 @@
   gap: 8px;
   margin: 0 0 9px;
   font-size: 0.8rem;
-  color: rgba(51, 39, 39, 0.85);
+  color: var(--tekst-zacht);
   cursor: pointer;
 }
 
@@ -205,7 +205,7 @@
 
 .technischDetail {
   margin: 0;
-  color: rgba(51, 39, 39, 0.82);
+  color: var(--tekst-zacht);
 }
 
 @media (max-width: 560px) {

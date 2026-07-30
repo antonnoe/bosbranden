@@ -1,4 +1,13 @@
+/* Kleur als ROL, niet als tint. Drie rollen; niets heeft twee rollen.
+   In de embed staan deze tokens op .if-dossier-wrapper (host-schil); in deze
+   standalone-app is :root het equivalente wortelbereik. */
 :root {
+  /* rol 1 — merk: chrome (koppen, rail, knoppen, links, randen), nooit data */
+  --merk: #800000;
+  --merk-vlak: #f4ecea;
+
+  /* merk-alias + alpha-varianten. Uitsluitend voor RANDEN en VLAKKEN —
+     nooit voor letters (opacity op letters was de leesbaarheidsbug). */
   --primair: #800000;
   --primair-04: rgba(128, 0, 0, 0.04);
   --primair-08: rgba(128, 0, 0, 0.08);
@@ -6,9 +15,30 @@
   --primair-30: rgba(128, 0, 0, 0.3);
   --primair-55: rgba(128, 0, 0, 0.55);
   --primair-80: rgba(128, 0, 0, 0.8);
-  --tekst: #332727;
-  --achtergrond: #fbf8f6;
+
+  /* rol 2 — neutraal: vlakken, randen én ALLE tekst */
+  --tekst: #2b2220;
+  --tekst-zacht: #6e5f5b;
+  --rand: #e8dedb;
+  --vlak: #f2f0ee;
+  --pagina: #faf7f6;
+  --kaart: #ffffff;
+  --achtergrond: #faf7f6; /* bestaande naam, nu = --pagina */
   --geen-data: #d9d9d9;
+
+  /* rol 3 — betekenis: uitsluitend gevaarniveau */
+  --niveau-1: #2f6b3a; /* laag */
+  --niveau-2: #d4a017; /* gemiddeld */
+  --niveau-3: #c2560f; /* hoog */
+  --niveau-4: #e8202a; /* zeer hoog */
+
+  /* kaartdata */
+  --rook-gemeten: #3f3733; /* houtskool */
+  --rook-verwacht: #c2560f;
+  --hittebron: #e8202a;
+
+  /* Donkere merk-tint voor een link-hover (solide, geen opacity op letters). */
+  --merk-diep: #5c0000;
 }
 
 * {
@@ -25,8 +55,11 @@ body {
   font-family: "Mulish", -apple-system, "Segoe UI", sans-serif;
   line-height: 1.8em;
   color: var(--tekst);
-  background: var(--achtergrond);
+  background: var(--pagina);
   font-size: 16px;
+  /* Getallen, tellers en tijdstempels krijgen gelijke breedte, zodat ze bij
+     verversen niet verspringen. Raakt alleen cijfers, niet de letters. */
+  font-variant-numeric: tabular-nums;
 }
 
 h1,
@@ -61,7 +94,7 @@ a {
 }
 
 a:hover {
-  color: var(--primair-80);
+  color: var(--merk-diep);
 }
 
 .omhulsel {
@@ -109,7 +142,7 @@ a:hover {
   display: inline-block;
   margin-bottom: 12px;
   font-size: 0.85rem;
-  color: var(--primair-80);
+  color: var(--tekst-zacht);
   text-decoration: none;
 }
 
@@ -145,7 +178,7 @@ a:hover {
 
 .site-kop p {
   margin: 0;
-  color: var(--primair-80);
+  color: var(--tekst-zacht);
 }
 
 .sectie {
@@ -237,7 +270,7 @@ a:hover {
 .voortgang-fase {
   margin-top: 8px;
   font-size: 0.88rem;
-  color: var(--primair-55);
+  color: var(--tekst-zacht);
   transition: opacity 0.45s ease;
   min-height: 1.8em;
 }
@@ -277,6 +310,7 @@ a:hover {
   font-family: "Poppins", sans-serif;
   font-size: 0.95rem;
   font-weight: 500;
+  line-height: 1.5;
   padding: 9px 20px;
   border: none;
   border-radius: 8px;
@@ -320,7 +354,7 @@ a:hover {
   font-family: "Poppins", sans-serif;
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--primair-80);
+  color: var(--merk);
   background: var(--primair-08);
   border-radius: 6px;
   padding: 1px 8px;
@@ -450,7 +484,7 @@ a:hover {
 
 .laag-onderscheid:last-child {
   margin-bottom: 0;
-  color: rgba(51, 39, 39, 0.75);
+  color: var(--tekst-zacht);
 }
 
 .legenda {
@@ -458,7 +492,9 @@ a:hover {
   gap: 14px;
   flex-wrap: wrap;
   font-size: 0.85rem;
+  line-height: 1.5;
   margin-top: 10px;
+  color: var(--tekst);
 }
 
 .legenda span {
@@ -508,8 +544,9 @@ a:hover {
 /* ---- Compliance ---- */
 .bron-regel {
   font-size: 0.88rem;
-  color: var(--primair-80);
+  color: var(--tekst-zacht);
   margin-top: 10px;
+  line-height: 1.5;
 }
 
 .disclaimer {
@@ -527,7 +564,8 @@ a:hover {
   margin-top: 10px;
   padding-top: 14px;
   font-size: 0.9rem;
-  color: var(--primair-80);
+  color: var(--tekst-zacht);
+  line-height: 1.5;
 }
 
 @media (max-width: 420px) {

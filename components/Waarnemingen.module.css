@@ -31,7 +31,7 @@
   flex: 0 0 100%;
   margin: 0;
   max-width: 640px;
-  color: rgba(51, 39, 39, 0.72);
+  color: var(--tekst-zacht);
   font-size: 0.75rem;
   line-height: 1.4;
 }
@@ -39,7 +39,7 @@
 .status {
   margin: 0;
   font-size: 0.84rem;
-  color: rgba(51, 39, 39, 0.75);
+  color: var(--tekst-zacht);
 }
 
 .kaartEnNieuws {
@@ -171,7 +171,7 @@
 }
 
 .zoomBediening button:disabled {
-  color: rgba(128, 0, 0, 0.3);
+  color: var(--merk);
   cursor: default;
 }
 
@@ -186,7 +186,7 @@
   margin: 5px 0 0;
   font-size: 0.78rem;
   line-height: 1.45;
-  color: rgba(51, 39, 39, 0.72);
+  color: var(--tekst-zacht);
   text-align: center;
 }
 
@@ -316,7 +316,7 @@
   display: block;
   margin-top: 2px;
   font-size: 0.75rem;
-  color: rgba(51, 39, 39, 0.62);
+  color: var(--tekst-zacht);
 }
 
 /* Schaalreferentie onder de FRP-waarde: geeft de lezer een ijkpunt zonder een
@@ -326,7 +326,7 @@
   margin-top: 2px;
   font-size: 0.72rem;
   line-height: 1.4;
-  color: rgba(51, 39, 39, 0.62);
+  color: var(--tekst-zacht);
 }
 
 .caveat {
@@ -363,7 +363,7 @@
   margin: 2px 0 0;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: rgba(51, 39, 39, 0.75);
+  color: var(--tekst-zacht);
 }
 
 .officieleLink {
@@ -417,7 +417,7 @@
   display: block;
   margin-top: 2px;
   font-size: 0.75rem;
-  color: rgba(51, 39, 39, 0.68);
+  color: var(--tekst-zacht);
 }
 
 .nieuwsStatus {
@@ -431,7 +431,7 @@
   border-top: 1px solid rgba(128, 0, 0, 0.1);
   font-size: 0.75rem;
   line-height: 1.45;
-  color: rgba(51, 39, 39, 0.72);
+  color: var(--tekst-zacht);
 }
 
 :global(.embed) .nieuwsBlok {

@@ -185,7 +185,7 @@
 
 .wrap[data-thema="licht"] .meta,
 .wrap[data-thema="licht"] .bronMeta {
-  color: rgba(51, 39, 39, 0.7);
+  color: var(--tekst-zacht);
 }
 
 .wrap[data-thema="licht"] .item + .item {
@@ -194,7 +194,7 @@
 
 .wrap[data-thema="licht"] .bronnen {
   border-top-color: rgba(128, 0, 0, 0.14);
-  color: rgba(51, 39, 39, 0.85);
+  color: var(--tekst-zacht);
 }
 
 .wrap[data-thema="licht"] .bronnen summary,
@@ -207,7 +207,7 @@
 }
 
 .wrap[data-thema="licht"] .status {
-  color: rgba(51, 39, 39, 0.8);
+  color: var(--tekst-zacht);
 }
 
 .wrap[data-thema="licht"] .ok {
@@ -279,7 +279,7 @@
 }
 
 .wrap[data-thema="licht"] .vertaalMislukt {
-  color: rgba(51, 39, 39, 0.65);
+  color: var(--tekst-zacht);
 }
 
 /* ---- Vertaalnoot onderaan de kolom (H6) ---- */
@@ -295,7 +295,7 @@
 }
 
 .wrap[data-thema="licht"] .vertaalNoot {
-  color: rgba(51, 39, 39, 0.65);
+  color: var(--tekst-zacht);
 }
 
 /* ---- Detailweergave: volledige Nederlandse samenvatting ---- */

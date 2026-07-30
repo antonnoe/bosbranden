@@ -426,7 +426,8 @@ export default function Tool({ embed }: { embed: boolean }) {
               fontFamily: "'Poppins', sans-serif",
               fontSize: "0.85rem",
               fontWeight: 600,
-              color: "rgba(51, 39, 39, 0.65)",
+              lineHeight: 1.5,
+              color: "var(--tekst-zacht)",
             }}
           >
             Kaartlaag:

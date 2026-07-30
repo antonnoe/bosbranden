@@ -57,7 +57,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
-  color: rgba(51, 39, 39, 0.6);
+  color: var(--tekst-zacht);
 }
 
 .clusterMeetingen {
@@ -99,13 +99,13 @@
 .clusterMeetingen span {
   margin-top: 1px;
   font-size: 0.75rem;
-  color: rgba(51, 39, 39, 0.72);
+  color: var(--tekst-zacht);
 }
 
 .clusterMeer {
   margin: 7px 0 0;
   font-size: 0.74rem;
-  color: rgba(51, 39, 39, 0.7);
+  color: var(--tekst-zacht);
 }
 
 .viirsUitleg {
@@ -152,7 +152,7 @@
   margin: 2px 0 0;
   font-size: 0.76rem;
   line-height: 1.4;
-  color: rgba(51, 39, 39, 0.7);
+  color: var(--tekst-zacht);
 }
 
 .nieuwsToggle {

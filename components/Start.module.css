@@ -9,7 +9,7 @@
 .gevondenDep {
   margin: 10px 0 0;
   font-size: 0.95rem;
-  color: var(--primair-80);
+  color: var(--tekst-zacht);
 }
 
 .postcodeFout {
@@ -145,7 +145,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   line-height: 1.5;
-  color: var(--primair-80);
+  color: var(--tekst-zacht);
 }
 
 /* ---- Niveaublokken (Brandgevaar): Morgen / Overmorgen ---- */
@@ -223,7 +223,7 @@
 .actieSecundair:hover,
 .actieSecundair:focus-visible {
   border-color: var(--primair);
-  color: var(--primair-80);
+  color: var(--merk-diep);
   outline: none;
 }
 
@@ -256,7 +256,7 @@
 }
 
 .voetregelLink:hover {
-  color: var(--primair-80);
+  color: var(--merk-diep);
 }
 
 /* ---- Embed (750px): zelfde blokken, alleen compacter. ---- */
