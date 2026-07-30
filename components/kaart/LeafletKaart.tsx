@@ -112,7 +112,10 @@ export default function LeafletKaart({ className, ariaLabel, coöperatief, onKaa
           L.geoJSON(gj, {
             pane: PANE_GRENZEN,
             interactive: false,
-            style: { color: "#800000", weight: 1, opacity: 0.35, fillOpacity: 0 },
+            // Neutrale ondergrond: departementsgrenzen in --rand, niet bordeaux
+            // (rood is voorbehouden aan data). Leaflet zet dit als SVG-attribuut,
+            // waar var() niet werkt, dus de letterlijke tokenwaarde.
+            style: { color: "#e8dedb", weight: 1, opacity: 1, fillOpacity: 0 },
           }).addTo(kaart);
         }
       } catch {

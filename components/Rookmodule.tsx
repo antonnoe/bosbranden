@@ -90,7 +90,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [laden, setLaden] = useState(true);
   const [fout, setFout] = useState<string | null>(null);
 
-  const [uur, setUur] = useState(24); // schuif loopt van −12 (12 u geleden) t/m +24 u; begint op +24u (de volle vooruitblik blijft behouden)
+  const [uur, setUur] = useState(0); // drie standen: −12 (afgelopen), 0 (nu, standaard), +12 (komende)
   const [modus, setModus] = useState<Windmodus>("leefniveau");
   const [gekozenId, setGekozenId] = useState<string | null>(null);
   const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);
@@ -213,23 +213,26 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         const isGekozen = pluim.id === gekozenId;
         const klik = (e: LT.LeafletMouseEvent) => kies(pluim.id, [e.latlng.lat, e.latlng.lng]);
 
-        // Onzekerheidskegel: alleen over het verwachte (toekomstige) deel.
+        // Rook is grijs (--rook-gemeten / --rook-verwacht); rood is uitsluitend
+        // de bron (de hittebron). Onzekerheid = neutrale grijze band, zichtbaar
+        // op de neutrale ondergrond. (Leaflet zet deze kleuren als SVG-attribuut;
+        // daar werkt var() niet, dus staan hier de letterlijke tokenwaarden.)
         if (geo.kegel.length >= 3) {
           L.polygon(geo.kegel, {
             pane: "kegels",
-            color: "rgba(128,0,0,0.28)",
+            color: "rgba(63,55,51,0.3)",
             weight: 1,
-            fillColor: "#800000",
-            fillOpacity: isGekozen ? 0.18 : 0.1,
+            fillColor: "#3f3733",
+            fillOpacity: isGekozen ? 0.2 : 0.14,
             interactive: false,
           }).addTo(groep);
         }
 
-        // Gemeten wind (vóór nu): doorgetrokken lijn.
+        // Gemeten wind (vóór nu): doorgetrokken houtskoollijn (--rook-gemeten).
         if (geo.solid.length >= 2) {
           const lijn = L.polyline(geo.solid, {
             pane: "pluimen",
-            color: "#800000",
+            color: "#3f3733",
             weight: isGekozen ? 3.5 : 2.5,
             opacity: isGekozen ? 1 : 0.85,
           });
@@ -237,13 +240,13 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
           lijn.addTo(groep);
         }
 
-        // Verwachte wind (ná nu): gestippeld en lichter.
+        // Verwachte wind (ná nu): gestippeld en amber (--rook-verwacht).
         if (geo.dashed && geo.dashed.length >= 2) {
           const lijn = L.polyline(geo.dashed, {
             pane: "pluimen",
-            color: "#800000",
+            color: "#c2560f",
             weight: isGekozen ? 3 : 2,
-            opacity: isGekozen ? 0.9 : 0.6,
+            opacity: isGekozen ? 0.95 : 0.75,
             dashArray: "5 6",
           });
           lijn.on("click", klik);
@@ -253,8 +256,8 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         L.circleMarker(geo.eind, {
           pane: "pluimen",
           radius: 4,
-          color: "#800000",
-          fillColor: "#800000",
+          color: "#3f3733",
+          fillColor: "#3f3733",
           fillOpacity: 1,
           weight: 1,
           interactive: false,
@@ -608,12 +611,64 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               {statusTekst(data)}
             </p>
 
+            {/* Bediening als rij ONDER de kaartkop (geen zwevend paneel over de
+                kaart). Twee laagknoppen naast elkaar; drie tijdknoppen (op smal
+                horizontaal schuifbaar). De actieve stand staat massief. */}
             {data?.windBeschikbaar && (
-              <p className={styles.horizon} aria-live="polite">
-                <span aria-hidden="true" className={styles.horizonPunt} />
-                {horizonTekst(uur)}
-                {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
-              </p>
+              <div className={styles.bediening}>
+                <div className={styles.laagKeuze} role="group" aria-label="Kies wat u ziet">
+                  <button
+                    type="button"
+                    className={`${styles.keuzeKnop} ${styles.laagKnop2} ${modus === "leefniveau" ? styles.keuzeActief : ""}`}
+                    aria-pressed={modus === "leefniveau"}
+                    onClick={() => setModus("leefniveau")}
+                  >
+                    <span className={styles.knopTitel}>Rook bij de grond</span>
+                    <span className={styles.knopOnder}>wat u ruikt en inademt</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.keuzeKnop} ${styles.laagKnop2} ${modus === "ophoogte" ? styles.keuzeActief : ""}`}
+                    aria-pressed={modus === "ophoogte"}
+                    onClick={() => setModus("ophoogte")}
+                  >
+                    <span className={styles.knopTitel}>Rook hoog in de lucht</span>
+                    <span className={styles.knopOnder}>waait over, u ruikt het niet</span>
+                  </button>
+                </div>
+
+                <div className={styles.tijdKeuze} role="group" aria-label="Kies het tijdvenster">
+                  <button
+                    type="button"
+                    className={`${styles.keuzeKnop} ${styles.tijdKnop} ${uur < 0 ? styles.keuzeActief : ""}`}
+                    aria-pressed={uur < 0}
+                    onClick={() => setUur(-12)}
+                  >
+                    <span className={styles.knopTitel}>Afgelopen 12 uur</span>
+                    <span className={styles.knopOnder}>gemeten</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.keuzeKnop} ${styles.tijdKnop} ${uur === 0 ? styles.keuzeActief : ""}`}
+                    aria-pressed={uur === 0}
+                    onClick={() => setUur(0)}
+                  >
+                    <span className={styles.knopTitel}>Nu</span>
+                    <span className={styles.knopOnder}>
+                      {data?.startuur ? `${klok(data.startuur, 0)} · gemeten` : "gemeten"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.keuzeKnop} ${styles.tijdKnop} ${styles.tijdVerwacht} ${uur > 0 ? styles.keuzeActief : ""}`}
+                    aria-pressed={uur > 0}
+                    onClick={() => setUur(12)}
+                  >
+                    <span className={styles.knopTitel}>Komende 12 uur</span>
+                    <span className={styles.knopOnder}>verwacht</span>
+                  </button>
+                </div>
+              </div>
             )}
 
             {/* ---- Volvlak-kaart met zwevende bediening ---- */}
@@ -624,126 +679,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 ariaLabel="Kaart van Frankrijk met de berekende windbanen vanaf hittebronnen"
                 onKaart={onKaart}
               />
-
-              {/* Datumbanner (klein, bovenin) */}
-              {toonSatelliet && satelliet && (
-                <div className={styles.datumBalk}>
-                  <span>NASA · {satellietDatum(satelliet.datum)}</span>
-                </div>
-              )}
-
-              {/* Lagenpaneel rechtsboven */}
-              <div className={styles.laagPaneel}>
-                <button
-                  type="button"
-                  className={styles.lagenKop}
-                  aria-expanded={lagenOpen}
-                  aria-controls="rook-lagen"
-                  onClick={() => setLagenOpen((v) => !v)}
-                >
-                  Lagen <span aria-hidden="true">{lagenOpen ? "▾" : "▸"}</span>
-                </button>
-                {lagenOpen && (
-                  <div id="rook-lagen" className={styles.laagInhoud}>
-                    {data?.windBeschikbaar && (
-                      <div className={styles.modusRij} role="group" aria-label="Windlaag">
-                        <button
-                          type="button"
-                          aria-pressed={modus === "leefniveau"}
-                          onClick={() => setModus("leefniveau")}
-                        >
-                          Leefniveau
-                        </button>
-                        <button
-                          type="button"
-                          aria-pressed={modus === "ophoogte"}
-                          onClick={() => setModus("ophoogte")}
-                        >
-                          Op hoogte
-                        </button>
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      className={styles.laagKnop}
-                      aria-pressed={toonSatelliet}
-                      onClick={() => setToonSatelliet((v) => !v)}
-                    >
-                      Satelliet — dag (NASA){toonSatelliet && satellietLaden ? " …" : ""}
-                    </button>
-                    {toonSatelliet && satellietFout && (
-                      <span className={styles.laagFout}>satelliet nu niet beschikbaar</span>
-                    )}
-
-                    {toonDekking && (
-                      <label className={styles.dekking}>
-                        <span>Dekking {dekking}%</span>
-                        <input
-                          type="range"
-                          min={20}
-                          max={100}
-                          step={5}
-                          value={dekking}
-                          onChange={(e) => setDekking(Number(e.target.value))}
-                          aria-label="Dekking van het satellietbeeld"
-                        />
-                      </label>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Onderrij: legenda + tijdschuif in één rij, zodat ze elkaar
-                  nooit bedekken en de zijladerail/attributie vrij blijven. */}
-              <div className={styles.onderBalk}>
-                <div className={styles.legenda}>
-                  {data?.windBeschikbaar && (
-                    <>
-                      <span>
-                        <i className={styles.legGemeten} /> wind tot nu
-                      </span>
-                      <span>
-                        <i className={styles.legVerwacht} /> verwachte wind
-                      </span>
-                    </>
-                  )}
-                  <span>
-                    <i className={styles.legKegel} /> onzekerheid richting
-                  </span>
-                  <span>
-                    <i className={styles.legBron} /> hittebron
-                  </span>
-                </div>
-
-                {/* Tijdschuif: −12 (verleden) t/m +24 (vooruitblik), nu gemarkeerd */}
-                {data?.windBeschikbaar && (
-                  <div className={styles.tijdBalk}>
-                    <span className={styles.tijdLabel}>
-                      {tijdLabel(uur)}
-                      {data?.startuur ? ` · ${klok(data.startuur, uur)}` : ""}
-                    </span>
-                    <div className={styles.schuifWrap}>
-                      <span
-                        className={styles.nuMerk}
-                        style={{ left: `${((0 - SCHUIF_MIN) / (SCHUIF_MAX - SCHUIF_MIN)) * 100}%` }}
-                        aria-hidden="true"
-                      >
-                        nu
-                      </span>
-                      <input
-                        type="range"
-                        min={SCHUIF_MIN}
-                        max={SCHUIF_MAX}
-                        step={1}
-                        value={uur}
-                        onChange={(e) => setUur(Number(e.target.value))}
-                        aria-label="Tijdstip: van 12 uur geleden tot 24 uur vooruit"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
 
               {/* Popup (breed scherm): eigen overlay, geklemd binnen het kaartvlak */}
               {!smal && gekozen && klikPunt && (
@@ -786,6 +721,30 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 <BronSheet pluim={gekozen} onSluit={() => setGekozenId(null)} />
               )}
             </div>
+
+            {/* Legenda: inklapbaar en dicht bij eerste bezoek, onder de kaart —
+                bedekt de kaart nooit. */}
+            <details className={styles.legendaDetails}>
+              <summary className={styles.legendaSummary}>Wat betekenen de kleuren?</summary>
+              <div className={styles.legendaInhoud}>
+                {data?.windBeschikbaar && (
+                  <>
+                    <span>
+                      <i className={styles.legGemeten} /> Waar de rook langs kwam
+                    </span>
+                    <span>
+                      <i className={styles.legVerwacht} /> Waar de rook heen gaat
+                    </span>
+                    <span>
+                      <i className={styles.legKegel} /> Hoe zeker die richting is
+                    </span>
+                  </>
+                )}
+                <span>
+                  <i className={styles.legBron} /> Hittebron — hier is warmte gemeten
+                </span>
+              </div>
+            </details>
 
             <p className={styles.kaartHint}>
               Tip: klik of tik op een hittebron of een berekende windbaan voor de details. Zoomen met de knoppen,
