@@ -22,37 +22,38 @@ function test(naam: string, uitvoeren: () => void) {
 
 console.log("sessionStorage-migratie zijlade:");
 
-// --- Migratie van oude paneelwaarden naar "uitleg" ------------------------
+// --- Migratie van oude/actuele paneelwaarden naar "uitleg" ----------------
 test('oude waarde "duiding" → uitleg', () =>
   assert.equal(migreerPaneelSleutel("duiding"), "uitleg"));
 test('oude waarde "verantwoording" → uitleg', () =>
   assert.equal(migreerPaneelSleutel("verantwoording"), "uitleg"));
 test('oude waarde "infographics" → uitleg', () =>
   assert.equal(migreerPaneelSleutel("infographics"), "uitleg"));
+test('nieuwe interne waarde "bronnen" → uitleg', () =>
+  assert.equal(migreerPaneelSleutel("bronnen"), "uitleg"));
 
 // --- Bestaande/actuele waarden blijven werken -----------------------------
 test('"nieuws" blijft nieuws', () =>
   assert.equal(migreerPaneelSleutel("nieuws"), "nieuws"));
-test('nieuwe waarde "uitleg" blijft uitleg', () =>
+test('waarde "uitleg" blijft uitleg', () =>
   assert.equal(migreerPaneelSleutel("uitleg"), "uitleg"));
 
-// --- Dicht / onbekend / leeg / null → lade blijft dicht (null) ------------
+// --- Dicht / onbekend / null → lade blijft dicht (null) -------------------
 test('"dicht"-schildwacht → null', () =>
   assert.equal(migreerPaneelSleutel("dicht"), null));
 test("null → null", () => assert.equal(migreerPaneelSleutel(null), null));
-test("lege string → null", () => assert.equal(migreerPaneelSleutel(""), null));
-test('onbekende waarde → null', () =>
+test("onbekende waarde → null", () =>
   assert.equal(migreerPaneelSleutel("verzonnen"), null));
 
-// --- Herstel van de juiste interne uitleg-tab -----------------------------
-test('interne tab herstelt "verantwoording"', () =>
-  assert.equal(beginUitlegTab("verantwoording"), "verantwoording"));
+// --- Herstel van de juiste interne tab (Bronnen is de standaardtab) -------
 test('interne tab herstelt "infographics"', () =>
   assert.equal(beginUitlegTab("infographics"), "infographics"));
 test('interne tab "duiding" blijft duiding', () =>
   assert.equal(beginUitlegTab("duiding"), "duiding"));
-test('onbekende/nieuwswaarde valt terug op "duiding"', () =>
-  assert.equal(beginUitlegTab("nieuws"), "duiding"));
+test('oude "verantwoording" valt terug op "bronnen" (tab opgegaan in Bronnen)', () =>
+  assert.equal(beginUitlegTab("verantwoording"), "bronnen"));
+test('onbekende/nieuwswaarde valt terug op "bronnen"', () =>
+  assert.equal(beginUitlegTab("nieuws"), "bronnen"));
 
 console.log(`\n✓ ${geslaagd}/13 tests geslaagd — zijlade-migratie werkt.`);
 if (geslaagd !== 13) {

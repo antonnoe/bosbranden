@@ -143,21 +143,6 @@
   pointer-events: none; /* alleen de tabbladen erin vangen klikken */
 }
 
-/* Klein groepslabel; verticaal langs de rail, net als de tabbladen. */
-.groepLabel {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  align-self: center;
-  padding: 4px 0;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.6rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(51, 39, 39, 0.5);
-  pointer-events: none;
-}
-
 /* Tellerpil op het Nieuws-tabblad (rechtop, ook in een verticaal tabblad). */
 .telPil {
   writing-mode: horizontal-tb;
@@ -177,12 +162,14 @@
   gap: 6px;
 }
 
-/* ---- Tabblad (gemeenschappelijk) ----
-   Eén kleurensysteem met vier leesbare toestanden. Elke color én background
-   staat expliciet — niets leunt op overerving, color-mix of currentColor.
-   RUST (paneel dicht / navigatie naar andere route): wit op #800000.
-   Contrast wit↔#800000 = 10.95:1 (ruim boven 4.5:1). Elk tabblad is minstens
-   44px in de korte richting (rail = 46px breed; min-height dekt mobiel). */
+/* ---- Tabblad (gemeenschappelijk maatwerk) ----
+   Alle vijf tabs delen afmetingen, radius (6px 0 0 6px) en letterstijl. Het
+   verschil tussen de twee groepen zit in de VORM, niet in de kleur:
+     massief (navigatie) = bordeaux vlak, witte tekst, geen zichtbare rand;
+     omlijnd (lade)       = wit vlak, bordeaux tekst en 1,5px bordeaux rand.
+   Massief = je gaat naar een pagina; omlijnd = er schuift een lade uit over de
+   huidige pagina. De 1,5px rand staat op álle tabs (transparant bij massief),
+   zodat de afmetingen exact gelijk blijven. Minstens 44px in de korte richting. */
 .tab {
   pointer-events: auto;
   writing-mode: vertical-rl;
@@ -194,10 +181,8 @@
   justify-content: center;
   gap: 7px;
   padding: 14px 5px;
-  border: 2px solid #800000;
-  border-radius: 10px 0 0 10px;
-  background: #800000;
-  color: #ffffff;
+  border: 1.5px solid transparent;
+  border-radius: 6px 0 0 6px;
   font-family: "Poppins", sans-serif;
   font-size: 0.86rem;
   font-weight: 600;
@@ -206,73 +191,38 @@
   box-shadow: -3px 0 12px rgba(0, 0, 0, 0.26);
 }
 
-.tab:hover {
-  background: #9a1f1f;
-  border-color: #9a1f1f;
-}
-
-/* Focus op bordeaux ondergrond: witte focusring. */
-.tab:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: -6px;
-}
-
 /* Chevron/pijl: minstens even groot als de labeltekst, met ruimte ernaast. */
 .tabPaneel::before,
 .tabNav::before {
   writing-mode: horizontal-tb;
   font-size: 1rem;
   line-height: 1;
+}
+
+/* ---- Groep NAVIGATIE ("Waar ben ik") — massief ---- */
+.tabNav {
+  background: #800000;
   color: #ffffff;
-}
-
-/* Groep 1 — PANELEN ("Lees erbij"): gestippelde rand — de vorm zegt "schuift
-   uit", niet "verlaat de pagina". Op de bordeaux tab een lichte streepjesrand;
-   bij een open (wit) tabblad wordt de streepjesrand bordeaux (zie .tabActief). */
-.tabPaneel {
-  border-style: dashed;
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-/* Groep 1 — PANELEN: één chevron die naar het paneel wijst (dicht) en bij het
-   openen 180° draait (open, van het paneel af). Zelfde glyph, CSS-transition. */
-.tabPaneel::before {
-  content: "‹";
-  transform: rotate(0deg);
-  transition: transform 0.28s ease;
-}
-
-/* ACTIEF PANEEL (open): #800000 op wit, met bordeaux rand. Chevron gedraaid. */
-.tabActief {
-  background: #ffffff;
-  color: #800000;
   border-color: #800000;
 }
 
-.tabActief::before {
-  color: #800000;
-  transform: rotate(180deg);
+.tabNav:hover {
+  background: #9a1f1f;
+  border-color: #9a1f1f;
 }
 
-.tabActief:hover {
-  background: #ffffff;
-  border-color: #800000;
-}
-
-/* Focus op witte ondergrond: bordeaux focusring. */
-.tabActief:focus-visible {
-  outline: 3px solid #800000;
+.tabNav:focus-visible {
+  outline: 3px solid #ffffff;
   outline-offset: -6px;
 }
 
-/* Groep 2 — NAVIGATIE (andere route, aanklikbaar): RUST = wit op #800000, met
-   een pijl die aangeeft dat je de pagina verlaat. Geen doorschijnend vlak. */
 .tabNav::before {
   content: "→";
+  color: #ffffff;
 }
 
-/* HUIDIGE ROUTE (aria-current, niet aanklikbaar): NADRUKKELIJK NIET gedimd of
-   grijs — wit op #800000, met een witte markeerstreep aan de rail-zijde. */
+/* HUIDIGE ROUTE (aria-current, niet aanklikbaar): massief met een witte
+   markeerstreep aan de rail-zijde — nooit gedimd of grijs. */
 .tabHier {
   cursor: default;
   box-shadow: inset -4px 0 0 0 #ffffff, -3px 0 12px rgba(0, 0, 0, 0.26);
@@ -288,6 +238,54 @@
   border-color: #800000;
 }
 
+/* ---- Groep LADE ("Lees erbij") — omlijnd ---- */
+.tabPaneel {
+  background: #ffffff;
+  color: #800000;
+  border-color: rgba(128, 0, 0, 0.35);
+}
+
+.tabPaneel:hover {
+  background: rgba(128, 0, 0, 0.06);
+  border-color: rgba(128, 0, 0, 0.5);
+}
+
+.tabPaneel:focus-visible {
+  outline: 3px solid #800000;
+  outline-offset: -6px;
+}
+
+/* Eén chevron die naar het paneel wijst (dicht) en bij het openen 180° draait. */
+.tabPaneel::before {
+  content: "‹";
+  color: #800000;
+  transform: rotate(0deg);
+  transition: transform 0.28s ease;
+}
+
+/* OPEN LADE (actief): omgekeerd naar massief bordeaux, zodat zichtbaar is welke
+   lade openstaat. Chevron gedraaid en wit. */
+.tabActief {
+  background: #800000;
+  color: #ffffff;
+  border-color: #800000;
+}
+
+.tabActief::before {
+  color: #ffffff;
+  transform: rotate(180deg);
+}
+
+.tabActief:hover {
+  background: #800000;
+  border-color: #800000;
+}
+
+.tabActief:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: -6px;
+}
+
 /* Reduced motion: geen draai-animatie, maar wél de eindstand behouden. */
 @media (prefers-reduced-motion: reduce) {
   .tabPaneel::before {
@@ -295,41 +293,46 @@
   }
 }
 
-/* ---- Scheiding tussen de twee railgroepen ---- */
+/* ---- Scheiding tussen de twee railgroepen ----
+   Geen groepslabels meer; alleen witruimte plus één kort horizontaal streepje
+   (28px, 1px) tussen "Rookpaden" en "Nieuws". Met de rail-gap van 6px komt de
+   witruimte op ~12px boven en onder. */
 .scheiding {
+  width: 28px;
   height: 1px;
-  margin: 8px 6px;
-  background: var(--primair-15);
+  align-self: center;
+  margin: 6px auto;
+  background: rgba(128, 0, 0, 0.3);
 }
 
-/* Twee labelvarianten voor het uitleg-tabblad (mobiel korter). */
-.labelKort {
-  display: none;
-}
-
-/* ---- Interne tabs binnen het uitleg-paneel (Duiding · Verantwoording ·
-   Infographics), op de #800000-paneelachtergrond ---- */
+/* ---- Interne tabs binnen de Verantwoording-lade (Bronnen · Duiding ·
+   Infographics), op de #800000-paneelachtergrond. De opdracht noemt donkere
+   kleuren (rand #800000, tekst rgba(51,39,39,.6)); op de bordeaux achtergrond
+   zijn die naar wit/lichtwit vertaald zodat ze leesbaar blijven. Actieve tab:
+   witte onderstreep (3px) + vetter; inactieve tab: lichtwitte tekst. ---- */
 .uitlegTabs {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 18px;
   margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .uitlegTab {
+  white-space: nowrap;
   font-family: "Poppins", sans-serif;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  font-size: 0.9rem;
+  font-weight: 400;
+  padding: 6px 2px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 3px solid transparent;
   background: transparent;
-  color: #ffffff;
+  color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
 }
 
 .uitlegTab:hover {
-  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
 }
 
 .uitlegTab:focus-visible {
@@ -338,17 +341,18 @@
 }
 
 .uitlegTabActief {
-  background: #ffffff;
-  color: #800000;
-  border-color: #ffffff;
+  color: #ffffff;
+  font-weight: 600;
+  border-bottom-color: #ffffff;
 }
 
-/* ---- Onder 700px: schermbreed paneel; compacte rail (< 1/3 vensterhoogte) ----
-   De tabbladen draaien naar horizontale tekst met korte labels, zodat vier
-   gestapelde tabbladen laag blijven in plaats van hoog. */
-@media (max-width: 700px) {
+/* ---- Onder 768px: schermbreed paneel; compacte rail. De tabbladen draaien
+   naar horizontale tekst. De twee groepen blijven twee secties met hetzelfde
+   streepje ertussen en hetzelfde vormverschil (massief vs. omlijnd); de lade
+   vervangt de rail (nooit twee panelen tegelijk). Tikdoelen ≥ 44px hoog. ---- */
+@media (max-width: 768px) {
   .schil {
-    --rail: 78px;
+    --rail: 96px;
     width: 100%;
   }
 
@@ -364,9 +368,9 @@
   .tab {
     writing-mode: horizontal-tb;
     text-orientation: mixed;
-    padding: 8px 10px;
-    font-size: 0.78rem;
-    border-radius: 8px 0 0 8px;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 0.8rem;
   }
 
   .tabPaneel::before,
@@ -374,23 +378,9 @@
     font-size: 0.92rem;
   }
 
+  /* Het streepje blijft tussen de groepen; iets minder witruimte. */
   .scheiding {
-    margin: 4px 6px;
-  }
-
-  .labelVol {
-    display: none;
-  }
-
-  .labelKort {
-    display: inline;
-  }
-
-  /* Groepslabel horizontaal in de compacte, horizontale rail. */
-  .groepLabel {
-    writing-mode: horizontal-tb;
-    align-self: flex-start;
-    padding: 2px 4px;
+    margin: 4px auto;
   }
 }
 

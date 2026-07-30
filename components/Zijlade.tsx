@@ -1,20 +1,21 @@
 "use client";
 
 // Uitschuifbare zijlade — één instantie in de gedeelde schil (app-layout), op
-// ELKE route. De rail is gesplitst in twee groepen:
-//   "Waar ben ik" — navigatietabs die de pagina verlaten: Start · Kaart · Rookpaden
-//   "Lees erbij"  — paneeltabs die een lade uitschuiven: Nieuws · Uitleg & bronnen
-// Duiding, Verantwoording en Infographics zijn samengevoegd tot één
-// "uitleg"-paneel met interne tabs. De schil beslaat alleen het paneel + de
-// rail (geen viewport-vullende laag); pointer-events staat uit op de schil en
-// aan op rail en paneel.
+// ELKE route. De rail heeft vijf tabs in twee groepen, onderscheiden via VORM:
+//   massief (bordeaux, geen rand)  = navigatie: Start · Kaart · Rookpaden
+//   omlijnd (wit, bordeaux rand)   = lade:      Nieuws · Verantwoording
+// Achter "Verantwoording" komen Bronnen, Duiding en Infographics samen in één
+// lade met interne tabs. De schil beslaat alleen het paneel + de rail (geen
+// viewport-vullende laag); pointer-events staat uit op de schil en aan op rail
+// en paneel.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ZijkolomNieuws, ZijkolomVerantwoording } from "@/components/Zijkolom";
+import { ZijkolomNieuws } from "@/components/Zijkolom";
 import { ZijkolomDuiding } from "@/components/Duiding";
 import { ZijkolomInfographics } from "@/components/Infographics";
+import { ZijkolomBronnen } from "@/components/Bronnen";
 import { useNieuws } from "@/components/Nieuws";
 import {
   migreerPaneelSleutel,
@@ -26,17 +27,17 @@ import styles from "@/components/Zijlade.module.css";
 
 const SLEUTEL = "bosbranden-zijkolom";
 
-// Interne tabs binnen het uitleg-paneel, in vaste volgorde (duiding eerst).
+// Interne tabs binnen de Verantwoording-lade, in vaste volgorde (Bronnen eerst).
 const UITLEG_TABS: { id: UitlegTab; label: string }[] = [
+  { id: "bronnen", label: "Bronnen" },
   { id: "duiding", label: "Duiding" },
-  { id: "verantwoording", label: "Verantwoording" },
   { id: "infographics", label: "Infographics" },
 ];
 
 export default function Zijlade() {
   const pathname = usePathname();
   const [paneel, setPaneel] = useState<PaneelSoort | null>(null);
-  const [uitlegTab, setUitlegTab] = useState<UitlegTab>("duiding");
+  const [uitlegTab, setUitlegTab] = useState<UitlegTab>("bronnen");
   const [query, setQuery] = useState("");
   const paneelRef = useRef<HTMLDivElement>(null);
   const schilRef = useRef<HTMLDivElement>(null);
@@ -181,7 +182,7 @@ export default function Zijlade() {
         ref={paneelRef}
         tabIndex={-1}
         role="region"
-        aria-label={paneel === "uitleg" ? "Uitleg en bronnen" : "Nieuws"}
+        aria-label={paneel === "uitleg" ? "Verantwoording" : "Nieuws"}
         aria-hidden={!open}
         onTouchStart={opVeegStart}
         onTouchEnd={opVeegEind}
@@ -222,20 +223,18 @@ export default function Zijlade() {
                   </button>
                 ))}
               </div>
+              {uitlegTab === "bronnen" && <ZijkolomBronnen />}
               {uitlegTab === "duiding" && <ZijkolomDuiding />}
-              {uitlegTab === "verantwoording" && <ZijkolomVerantwoording />}
               {uitlegTab === "infographics" && <ZijkolomInfographics />}
             </>
           )}
         </div>
       </div>
 
-      {/* Rail met twee groepen. */}
+      {/* Rail met twee groepen, onderscheiden via vorm (massief = navigatie,
+          omlijnd = lade). Geen groepslabels; alleen een kort streepje ertussen. */}
       <div className={styles.rail}>
         <div className={styles.railGroep}>
-          <span className={styles.groepLabel} aria-hidden="true">
-            Waar ben ik
-          </span>
           {navTab("/start", "Start")}
           {navTab("/", "Kaart")}
           {navTab("/rook", "Rookpaden")}
@@ -244,9 +243,6 @@ export default function Zijlade() {
         <div className={styles.scheiding} aria-hidden="true" />
 
         <div className={styles.railGroep}>
-          <span className={styles.groepLabel} aria-hidden="true">
-            Lees erbij
-          </span>
           {paneelTab(
             "nieuws",
             <>
@@ -254,13 +250,7 @@ export default function Zijlade() {
               {nieuws.data ? <span className={styles.telPil}>{nieuws.aantal}</span> : null}
             </>
           )}
-          {paneelTab(
-            "uitleg",
-            <>
-              <span className={styles.labelVol}>Uitleg &amp; bronnen</span>
-              <span className={styles.labelKort}>Uitleg</span>
-            </>
-          )}
+          {paneelTab("uitleg", "Verantwoording")}
         </div>
       </div>
     </div>
