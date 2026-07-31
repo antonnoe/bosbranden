@@ -169,6 +169,11 @@ export default function Zijlade() {
             <path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
             <path d="M9 8h6M9 12h6M9 16h4" />
           </svg>
+          {/* Zichtbaar label boven 768px (CSS). aria-hidden zodat de aria-label
+              van de knop niet dubbel wordt voorgelezen. */}
+          <span className={styles.leesLabel} aria-hidden="true">
+            Uitleg &amp; bronnen
+          </span>
           {nieuws.data && nieuws.aantal > 0 ? (
             <span className={styles.leesBadge}>{nieuws.aantal}</span>
           ) : null}

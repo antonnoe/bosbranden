@@ -255,6 +255,13 @@
   outline-offset: 2px;
 }
 
+/* Label van de leesknop: verborgen onder 768px, zichtbaar erboven (media-query
+   onderaan). Het leesmateriaal mag op een breed scherm niet achter een woordloos
+   icoon verdwijnen. */
+.leesLabel {
+  display: none;
+}
+
 .leesBadge {
   position: absolute;
   top: -6px;
@@ -349,6 +356,29 @@
 @media (min-width: 769px) {
   .mobielNavKnop {
     flex: 0 0 auto;
+  }
+
+  /* Leesknop krijgt het label "Uitleg & bronnen" erbij. */
+  .leesIcoon {
+    gap: 8px;
+    padding: 8px 14px;
+    font-family: "Poppins", sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  .leesLabel {
+    display: inline;
+    white-space: nowrap;
+  }
+
+  /* Met een zichtbaar label wordt de teller een inline pil achter het label,
+     geen hoekbadge meer. */
+  .leesBadge {
+    position: static;
+    top: auto;
+    right: auto;
+    margin-left: 2px;
   }
 }
 
