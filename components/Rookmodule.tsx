@@ -34,16 +34,6 @@ const PANE_Z: Record<string, number> = {
   bronnen: 550,
 };
 
-// De NASA-tegellaag ligt in de STANDAARD tegel-pane, net boven de basiskaart.
-// Een eigen pane leek de laag te laten verdwijnen (hij zat er wél, maar buiten
-// .leaflet-tile-pane, dus onvindbaar bij inspectie); de standaard tegel-pane is
-// robuuster en onmiskenbaar zichtbaar. zIndex houdt hem boven de basiskaart en —
-// omdat de pane zelf onder de overlay-panes ligt — onder de windbanen en pins.
-const GIBS_TEGEL_ZINDEX = 10;
-
-const GIBS_SJABLOON =
-  "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/{TIME}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg";
-
 type Windmodus = "leefniveau" | "ophoogte";
 
 interface Pluim {
@@ -90,15 +80,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
   const [gekozenId, setGekozenId] = useState<string | null>(null);
   const [klikPunt, setKlikPunt] = useState<[number, number] | null>(null);
 
-  const [toonSatelliet, setToonSatelliet] = useState(false);
-  const [satelliet, setSatelliet] = useState<{ datum: string; laag: string } | null>(null);
-  const [satellietLaden, setSatellietLaden] = useState(false);
-  const [satellietFout, setSatellietFout] = useState(false);
-
-  const [dekking, setDekking] = useState(40); // standaard lager, zodat de onderliggende kaart zichtbaar blijft; schuif loopt tot 100
-  // Lagenpaneel staat standaard open (ook in embed); op smalle schermen klapt
-  // het bij mount alsnog in (zie hieronder).
-  const [lagenOpen, setLagenOpen] = useState(true);
   const [smal, setSmal] = useState(false);
 
   const [postcode, setPostcode] = useState("");
@@ -108,7 +89,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
   const [kaart, setKaart] = useState<{ map: LeafletKaartInstantie; L: LeafletModule } | null>(null);
 
-  const gibsRef = useRef<LT.TileLayer | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
   const bronKlikRef = useRef(0);
 
@@ -117,8 +97,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     const mq = window.matchMedia("(max-width: 599px)");
     const ver = () => setSmal(mq.matches);
     ver();
-    // Op een smal scherm start het lagenpaneel ingeklapt (één keer, bij mount).
-    if (mq.matches) setLagenOpen(false);
     mq.addEventListener("change", ver);
     return () => mq.removeEventListener("change", ver);
   }, []);
@@ -143,29 +121,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       actief = false;
     };
   }, [embed]);
-
-  useEffect(() => {
-    if (!toonSatelliet || satelliet) return;
-    let actief = true;
-    setSatellietLaden(true);
-    setSatellietFout(false);
-    (async () => {
-      try {
-        const res = await fetch("/api/satellietbeeld?meta=1");
-        if (!res.ok) throw new Error("geen datum");
-        const j = await res.json();
-        if (!j.beschikbaar) throw new Error("geen beeld");
-        if (actief) setSatelliet({ datum: j.datum, laag: j.laag });
-      } catch {
-        if (actief) setSatellietFout(true);
-      } finally {
-        if (actief) setSatellietLaden(false);
-      }
-    })();
-    return () => {
-      actief = false;
-    };
-  }, [toonSatelliet, satelliet]);
 
   const pluimen = useMemo(() => data?.pluimen ?? [], [data]);
   const gekozen = pluimen.find((p) => p.id === gekozenId) ?? null;
@@ -301,37 +256,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       map.removeLayer(groep);
     };
   }, [kaart, pluimen, gekozenId, kies, uur, data]);
-
-  // ---- GIBS-tegellaag ----
-  // Hangt af van de PRIMITIEVE datum (een stabiele string), niet van het
-  // satelliet-object: zo kan geen enkele objectidentiteit-wisseling de cleanup
-  // (en daarmee removeLayer) ongewild triggeren. De laag wordt daardoor alleen
-  // toegevoegd/verwijderd als de kaart, de aan/uit-stand of de dátum echt
-  // verandert — niet bij een gewone re-render. De laag ligt in de standaard
-  // tegel-pane (geen eigen pane, zie GIBS_TEGEL_ZINDEX).
-  const satellietDatumSleutel = satelliet?.datum ?? null;
-  useEffect(() => {
-    if (!kaart || !toonSatelliet || !satellietDatumSleutel) return;
-    const { map, L } = kaart;
-    const laag = L.tileLayer(GIBS_SJABLOON.replace("{TIME}", satellietDatumSleutel), {
-      zIndex: GIBS_TEGEL_ZINDEX,
-      maxNativeZoom: 9,
-      maxZoom: 11,
-      opacity: dekking / 100,
-      attribution: "NASA GIBS / EOSDIS",
-    });
-    laag.addTo(map);
-    gibsRef.current = laag;
-    return () => {
-      map.removeLayer(laag);
-      gibsRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kaart, toonSatelliet, satellietDatumSleutel]);
-
-  useEffect(() => {
-    gibsRef.current?.setOpacity(dekking / 100);
-  }, [dekking]);
 
   // ---- Popup bij klik (breed scherm); smal scherm gebruikt het schuifpaneel ----
   // Eigen HTML-overlay (geen Leaflet-popup): zo klemmen we hem — net als op de
@@ -509,8 +433,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     if (res.type === "ok") zoomNaarDepartement(res.departementen.map((d) => d.code));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kaart, gezochtePostcode]);
-
-  const toonDekking = toonSatelliet && !!satelliet;
 
   return (
     <div className="omhulsel">
@@ -768,8 +690,7 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
               Open-Meteo
             </a>{" "}
-            (windmodel); dagelijks satellietbeeld — NASA GIBS / EOSDIS; kaart —
-            © OpenStreetMap-bijdragers, tegels © CARTO.
+            (windmodel); kaart — © OpenStreetMap-bijdragers, tegels © CARTO.
             {data?.bijgewerkt ? ` Gegevens opgehaald: ${volledigeDatum(data.bijgewerkt)}.` : ""}
           </p>
 
