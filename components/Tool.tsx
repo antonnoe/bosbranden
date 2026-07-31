@@ -84,7 +84,6 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [waarnemingenData, setWaarnemingenData] = useState<WaarnemingenAntwoord | null>(null);
   const [waarnemingenLaden, setWaarnemingenLaden] = useState(true);
-  const [toonWaarnemingen, setToonWaarnemingen] = useState(true);
   const [gekozenWaarnemingId, setGekozenWaarnemingId] = useState<string | null>(null);
 
   const [postcode, setPostcode] = useState("");
@@ -93,9 +92,12 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [echeance, setEcheance] = useState<"j1" | "j2">("j1");
   const [gekozenDep, setGekozenDep] = useState<string | null>(null);
-  // De zichtbare laagkeuze bovenaan de kaart is de bron van waarheid voor de
-  // kaartlaag; ze mapt op de bestaande kaartintenties (weergave + satelliet).
+  // De zichtbare laagkeuze bovenaan de kaart is de énige bron van waarheid voor
+  // de kaartlaag; ze mapt op de bestaande kaartintenties (weergave + satelliet).
+  // De satellietwaarnemingen volgen dus de laag — geen los vinkje dat de laag kan
+  // tegenspreken (P3.3).
   const [laag, setLaag] = useState<KaartLaag>("alle");
+  const toonWaarnemingen = KAART_INTENTIES[laag].satelliet;
   // Departementcode(s) waar de kaart naartoe zoomt na een geslaagde postcode-zoek
   // (C2). Verse array-referentie per zoekopdracht triggert FranceKaart opnieuw.
   const [zoomDeps, setZoomDeps] = useState<string[] | null>(null);
@@ -167,7 +169,6 @@ export default function Tool({ embed }: { embed: boolean }) {
     if (!raw) return; // geen deeplink → standaardlaag "alle"
     const gekozen = normaliseerLaag(raw);
     setLaag(gekozen);
-    setToonWaarnemingen(KAART_INTENTIES[gekozen].satelliet);
   }, []);
 
   // Laagkeuze bovenaan de kaart: zet de laag én werk ?laag= bij (shallow, geen
@@ -176,7 +177,7 @@ export default function Tool({ embed }: { embed: boolean }) {
   function kiesLaag(nieuw: KaartLaag) {
     if (nieuw === laag) return;
     setLaag(nieuw);
-    setToonWaarnemingen(KAART_INTENTIES[nieuw].satelliet);
+    setGekozenWaarnemingId(null); // een verborgen laag mag geen open meting-popup laten staan
     try {
       const params = new URLSearchParams(window.location.search);
       params.set("laag", nieuw);
@@ -330,27 +331,6 @@ export default function Tool({ embed }: { embed: boolean }) {
         </p>
 
         <div className={styles.bediening}>
-          <label className={styles.checkbox}>
-            <input
-              type="checkbox"
-              aria-describedby="waarnemingen-toelichting"
-              checked={
-                toonWaarnemingen &&
-                !!waarnemingenData?.beschikbaar &&
-                waarnemingen.length > 0
-              }
-              disabled={!waarnemingenData?.beschikbaar || waarnemingen.length === 0}
-              onChange={(e) => {
-                setToonWaarnemingen(e.target.checked);
-                if (!e.target.checked) setGekozenWaarnemingId(null);
-              }}
-            />
-            Satellietwaarnemingen tonen
-          </label>
-          <p id="waarnemingen-toelichting" className={styles.checkboxToelichting}>
-            Nodig voor de laag ‘Warmtebronnen’. ‘Laatste officiële meldingen’ werkt zonder
-            dit vinkje.
-          </p>
           <p className={styles.status} aria-live="polite">
             {waarnemingenLaden
               ? "Waarnemingen laden…"
@@ -365,26 +345,8 @@ export default function Tool({ embed }: { embed: boolean }) {
         {/* Zichtbare laagkeuze bovenaan de kaart, met exact dezelfde woorden als
             op /start. Wisselen zet ?laag= (shallow) zodat de link deelbaar
             blijft; dit stuurt uitsluitend de SVG-kaart (niet /rook). */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            flexWrap: "wrap",
-            margin: "6px 0 0",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "'Poppins', sans-serif",
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              lineHeight: 1.5,
-              color: "var(--tekst-zacht)",
-            }}
-          >
-            Kaartlaag:
-          </span>
+        <div className={styles.keuzebalkRij}>
+          <span className={styles.keuzebalkLabel}>Kaartlaag:</span>
           <div className="toggle" role="group" aria-label="Kies de kaartlaag">
             {(["gevaar", "alle", "officieel"] as KaartLaag[]).map((k) => (
               <button
@@ -398,16 +360,7 @@ export default function Tool({ embed }: { embed: boolean }) {
             ))}
           </div>
         </div>
-        <p
-          style={{
-            margin: "10px 0 0",
-            fontSize: "0.92rem",
-            lineHeight: 1.6,
-            color: "var(--tekst)",
-          }}
-        >
-          {LAAG_UITLEG[laag]}
-        </p>
+        <p className={styles.laagUitleg}>{LAAG_UITLEG[laag]}</p>
 
         <FranceKaart
           niveaus={niveaus}
@@ -425,7 +378,6 @@ export default function Tool({ embed }: { embed: boolean }) {
             setGekozenWaarnemingId((huidig) => (huidig === id ? null : id));
           }}
           beginWeergave={KAART_INTENTIES[laag].weergave}
-          onVraagWaarnemingen={() => setToonWaarnemingen(true)}
           zoomNaarDeps={zoomDeps}
         />
 
@@ -433,19 +385,14 @@ export default function Tool({ embed }: { embed: boolean }) {
             departementkleur is een verwachting, de bolletjes en pins zijn
             gemeten warmte en meldingen van de afgelopen 24 uur. */}
         <div className="kaart-laaguitleg">
+          {/* Eén onderscheidsregel; de diepere uitleg staat achter de [i]-knop. */}
           <p className="laag-onderscheid">
-            De <strong>kleur</strong> van elk departement toont het verwachte brandgevaar
+            De <strong>kleur</strong> van elk departement is de verwachting van Météo-France
             <InfoKnop
               kop={UITLEG.verwachtBrandgevaar.kop}
               tekst={UITLEG.verwachtBrandgevaar.tekst}
-            />{" "}
-            — een voorspelling van Météo-France. De <strong>bolletjes en pins</strong> tonen
-            gemeten warmte en officiële meldingen van de afgelopen 24 uur. Dat zijn twee losse
-            gegevensbronnen die los van elkaar gelezen moeten worden.
-          </p>
-          <p className="laag-onderscheid">
-            De cijfers in de bolletjes zijn het aantal satellietmetingen in dat gebied — niet
-            het aantal branden.
+            />; de <strong>bolletjes en pins</strong> zijn gemeten warmte en officiële meldingen
+            van de afgelopen 24 uur — losse bronnen, en de cijfers tellen metingen, geen branden.
           </p>
         </div>
 

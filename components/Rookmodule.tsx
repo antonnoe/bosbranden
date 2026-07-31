@@ -17,6 +17,8 @@ import Voortgang from "@/components/Voortgang";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import { LegUit, type LegUitMeting } from "@/components/LegUit";
 import Postcode from "@/components/Postcode";
+import InfoKnop from "@/components/InfoKnop";
+import { UITLEG } from "@/data/uitleg";
 import styles from "@/components/Rookmodule.module.css";
 
 const DEG = Math.PI / 180;
@@ -536,9 +538,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                     type="button"
                     className={`${styles.keuzeKnop} ${styles.tijdKnop} ${styles.tijdVerwacht} ${uur > 0 ? styles.keuzeActief : ""}`}
                     aria-pressed={uur > 0}
-                    onClick={() => setUur(12)}
+                    onClick={() => setUur(24)}
                   >
-                    <span className={styles.knopTitel}>Komende 12 uur</span>
+                    <span className={styles.knopTitel}>Komende 24 uur</span>
                     <span className={styles.knopOnder}>verwacht</span>
                   </button>
                 </div>
@@ -630,30 +632,39 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
           <section className="sectie" aria-labelledby="kaders-titel">
             <h2 id="kaders-titel">Belangrijk om te weten</h2>
+            {/* De noodregel en 'geen bevestigde brand' blijven altijd zichtbaar;
+                de overige leeswijzers staan één klik dieper. */}
             <ul className={styles.kaders}>
-              <li>
-                <strong>Dit is geen rookmodel.</strong> Het is de berekende windbaan vanaf
-                gedetecteerde hittebronnen. Werkelijke rook stijgt, mengt, slaat neer en wordt door
-                neerslag uitgewassen; dat zit hier niet in.
-              </li>
               <li>
                 Een VIIRS-detectie is een gemeten thermische anomalie — een satellietwaarneming van
                 een hittebron — en <strong>niet automatisch een door de autoriteiten bevestigde
                 natuurbrand</strong>.
               </li>
               <li>
-                <strong>De onzekerheid groeit met de tijd.</strong> Voorbij 12 uur is het beeld
-                indicatief.
-              </li>
-              <li>
-                De kegel toont de onzekerheid over de <strong>richting</strong>, niet de hoeveelheid
-                rook.
-              </li>
-              <li>
                 <strong>Zie je rook of vuur: bel 18 of 112</strong> (doven en slechthorenden: 114).
                 Volg altijd FR-Alert en de instructies van prefectuur en mairie.
               </li>
             </ul>
+            <details className={styles.kadersMeer}>
+              <summary className={styles.kadersMeerSummary}>
+                Meer over hoe u dit leest
+              </summary>
+              <ul className={styles.kaders}>
+                <li>
+                  <strong>Dit is geen rookmodel.</strong> Het is de berekende windbaan vanaf
+                  gedetecteerde hittebronnen. Werkelijke rook stijgt, mengt, slaat neer en wordt door
+                  neerslag uitgewassen; dat zit hier niet in.
+                </li>
+                <li>
+                  <strong>De onzekerheid groeit met de tijd.</strong> Voorbij 12 uur is het beeld
+                  indicatief.
+                </li>
+                <li>
+                  De kegel toont de onzekerheid over de <strong>richting</strong>, niet de hoeveelheid
+                  rook.
+                </li>
+              </ul>
+            </details>
           </section>
 
           <p className={styles.bronregel}>
@@ -741,30 +752,48 @@ function postcodeUitspraakOnveilig(
 
 // ---- Gedeelde detailinhoud (popup breed + schuifpaneel smal) ----
 
+// Eén kort voorbehoud onder de details; de uitgebreide cluster- en FRP-uitleg
+// staat achter de InfoKnop-jes bij de labels en achter 'Leg uit' (P3.4).
 const PLUIM_NOOT =
-  "Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is geen " +
-  "bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden en vaste " +
-  "industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet het verbrande oppervlak.";
+  "Dit is een gemeten warmtebron, geen door de autoriteiten bevestigde brand.";
 
 function PluimDetails({ pluim }: { pluim: Pluim }) {
   return (
     <div className={styles.detailGrid}>
-      <span className={styles.detailLabel}>Detecties</span>
-      <span>{pluim.detecties} VIIRS-detecties in dit cluster</span>
+      <div className={styles.detailRij}>
+        <span className={styles.detailLabel}>
+          Metingen
+          <InfoKnop kop={UITLEG.cluster.kop} tekst={UITLEG.cluster.tekst} />
+        </span>
+        <span className={styles.detailWaarde}>{pluim.detecties} metingen op deze plek</span>
+      </div>
       {pluim.frp != null && (
-        <>
-          <span className={styles.detailLabel}>FRP (som)</span>
-          <span>{formatteerGetal(pluim.frp)} MW</span>
-        </>
+        <div className={styles.detailRij}>
+          <span className={styles.detailLabel}>
+            Sterkte van de warmtebron (FRP)
+            <InfoKnop kop={UITLEG.frp.kop} tekst={UITLEG.frp.tekst} />
+          </span>
+          <span className={`${styles.detailWaarde} ${styles.detailGetal}`}>
+            {formatteerGetal(pluim.frp)} MW
+          </span>
+        </div>
       )}
-      <span className={styles.detailLabel}>Laatste detectie</span>
-      <span>{volledigeDatum(pluim.laatsteDetectie)}</span>
-      <span className={styles.detailLabel}>Driftrichting</span>
-      <span>{pluim.richting || "onbekend"}</span>
-      <span className={styles.detailLabel}>Afgelegd (leefniveau)</span>
-      <span>{pluim.kmLeefniveau} km in 24 uur</span>
-      <span className={styles.detailLabel}>Afgelegd (op hoogte)</span>
-      <span>{pluim.kmOphoogte} km in 24 uur</span>
+      <div className={styles.detailRij}>
+        <span className={styles.detailLabel}>Laatste meting</span>
+        <span className={styles.detailWaarde}>{volledigeDatum(pluim.laatsteDetectie)}</span>
+      </div>
+      <div className={styles.detailRij}>
+        <span className={styles.detailLabel}>Waar de lucht heen waait</span>
+        <span className={styles.detailWaarde}>{pluim.richting || "onbekend"}</span>
+      </div>
+      <div className={styles.detailRij}>
+        <span className={styles.detailLabel}>Afstand bij de grond in 24 uur</span>
+        <span className={`${styles.detailWaarde} ${styles.detailGetal}`}>{pluim.kmLeefniveau} km</span>
+      </div>
+      <div className={styles.detailRij}>
+        <span className={styles.detailLabel}>Afstand hoog in de lucht in 24 uur</span>
+        <span className={`${styles.detailWaarde} ${styles.detailGetal}`}>{pluim.kmOphoogte} km</span>
+      </div>
     </div>
   );
 }

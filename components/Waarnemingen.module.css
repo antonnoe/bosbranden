@@ -17,29 +17,30 @@
   background: rgba(128, 0, 0, 0.035);
 }
 
-.checkbox {
-  display: inline-flex;
+/* Keuzebalk-rij (label + toggle): dezelfde opmaak als de dagkeuze erboven, zodat
+   beide balken één geheel vormen. Voorheen stonden deze stijlen inline in
+   Tool.tsx (P3.9). */
+.keuzebalkRij {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 0.92rem;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 6px 0 0;
 }
 
-.checkbox input {
-  width: 17px;
-  height: 17px;
-  accent-color: var(--merk);
-}
-
-/* Toelichting die specifiek bij het satellietwaarnemingen-vinkje hoort
-   (voorheen een globale ::after-hack in layout.tsx). */
-.checkboxToelichting {
-  flex: 0 0 100%;
-  margin: 0;
-  max-width: 640px;
+.keuzebalkLabel {
+  font-family: "Poppins", sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
   color: var(--tekst-zacht);
-  font-size: 0.75rem;
-  line-height: 1.4;
+}
+
+.laagUitleg {
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--tekst);
 }
 
 .status {

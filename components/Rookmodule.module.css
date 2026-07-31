@@ -246,11 +246,20 @@
 
 /* ---- Detailrooster (gedeeld: sheet) ---- */
 .detailGrid {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin: 10px 0;
   font-size: 0.92rem;
+}
+
+/* Label boven, waarde eronder: de lekentaal-labels zijn langer dan de oude
+   jargonlabels en zouden in een tweekolomsraster de waardekolom platdrukken.
+   Gestapeld leest het ook rustiger. */
+.detailRij {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .detailLabel {
@@ -258,6 +267,15 @@
   font-size: 0.82rem;
   font-weight: 600;
   color: var(--tekst-zacht);
+}
+
+.detailWaarde {
+  color: var(--tekst);
+}
+
+/* Getal + eenheid nooit afbreken (voorheen brak "150 km in 24 uur"). */
+.detailGetal {
+  white-space: nowrap;
 }
 
 .paneelNoot {
@@ -481,6 +499,28 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+
+/* Inklapbare 'meer'-leeswijzers onder de altijd zichtbare voorbehouden. */
+.kadersMeer {
+  margin: 10px 0 0;
+}
+
+.kadersMeerSummary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--merk);
+  cursor: pointer;
+}
+
+.kadersMeerSummary:focus-visible {
+  outline: 2px solid var(--merk);
+  outline-offset: 2px;
 }
 
 .legendaInhoud i {
