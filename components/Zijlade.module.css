@@ -205,19 +205,21 @@
    houden ze hun eigen breedte en blijven ze compact links (zie media-query). */
 .mobielNavKnop {
   flex: 1 1 0;
+  min-width: 0;
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 12px;
+  padding: 8px 8px;
   border: 1.5px solid var(--rand);
   border-radius: 8px;
   background: var(--kaart);
   color: var(--tekst);
   font-family: "Poppins", sans-serif;
-  font-size: 0.92rem;
+  font-size: 0.85rem;
   font-weight: 600;
   line-height: 1.5;
+  white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
 }
@@ -234,8 +236,15 @@
   cursor: default;
 }
 
-/* Leesmateriaal-knop rechts (icoon met hoek-tellerbadge). */
-.leesIcoon {
+/* Lade-knoppen rechts in de kop (Nieuws / Uitleg & bronnen). Onder 768px compacte
+   icoonknoppen met badge; boven 768px met tekstlabel (zie media-query). */
+.ladeKnoppen {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+}
+
+.ladeKnop {
   position: relative;
   flex: 0 0 auto;
   min-width: 44px;
@@ -243,23 +252,40 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   border: 1.5px solid var(--rand);
   border-radius: 8px;
   background: var(--kaart);
   color: var(--merk);
+  font-family: "Poppins", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
 }
 
-.leesIcoon:focus-visible {
+.ladeKnop:focus-visible {
   outline: 2px solid var(--merk);
   outline-offset: 2px;
 }
 
-/* Label van de leesknop: verborgen onder 768px, zichtbaar erboven (media-query
-   onderaan). Het leesmateriaal mag op een breed scherm niet achter een woordloos
-   icoon verdwijnen. */
-.leesLabel {
+/* Actief onderdeel (lade open op dit onderdeel): massief merk. */
+.ladeKnopActief {
+  background: var(--merk);
+  border-color: var(--merk);
+  color: #ffffff;
+}
+
+.ladeIcoon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Label verborgen onder 768px, zichtbaar erboven; het leesmateriaal mag op een
+   breed scherm niet achter een woordloos icoon verdwijnen. */
+.ladeLabel {
   display: none;
+  white-space: nowrap;
 }
 
 .leesBadge {
@@ -358,18 +384,17 @@
     flex: 0 0 auto;
   }
 
-  /* Leesknop krijgt het label "Uitleg & bronnen" erbij. */
-  .leesIcoon {
-    gap: 8px;
+  /* Lade-knoppen krijgen hun tekstlabel; het icoon vervalt. */
+  .ladeKnop {
     padding: 8px 14px;
-    font-family: "Poppins", sans-serif;
-    font-size: 0.85rem;
-    font-weight: 600;
   }
 
-  .leesLabel {
+  .ladeIcoon {
+    display: none;
+  }
+
+  .ladeLabel {
     display: inline;
-    white-space: nowrap;
   }
 
   /* Met een zichtbaar label wordt de teller een inline pil achter het label,
