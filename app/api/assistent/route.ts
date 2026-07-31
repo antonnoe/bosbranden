@@ -63,7 +63,7 @@ export async function POST(request: Request) {
       }
       const antwoord = await uitlegGecachet(meting.id, meting.waargenomenOp, () => {
         const context = bouwUitlegContext(meting);
-        const userText = `${context}\n\nVRAAG: Duid deze cijfers in twee à drie korte zinnen voor een gewone lezer, met een schaalreferentie voor FRP.`;
+        const userText = `${context}\n\nVRAAG: Duid deze cijfers in twee à drie korte zinnen voor een gewone lezer. Neem de regel Grootteorde letterlijk over als schaalreferentie en bedenk zelf geen vergelijking.`;
         return genereer(userText);
       });
       return NextResponse.json({ antwoord, bron: "model" });

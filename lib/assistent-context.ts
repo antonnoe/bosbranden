@@ -146,6 +146,17 @@ export function formatteerMetingTijdstip(iso: string | undefined): string {
   return `Tijdstip van de meting: ${tekst}.`;
 }
 
+// Vaste schaalvergelijking voor een FRP-waarde (fix 2). De grenzen liggen in code
+// vast, niet bij het model; de uitkomst gaat als voorgekauwde regel mee zodat het
+// model zelf nooit een categorie hoeft te bedenken (35 MW is klein — geen
+// "middelgrote bosbrand"). Grenzen: <10 / 10–100 / 100–500 / >500 MW.
+export function grootteordeFrp(frp: number): string {
+  if (frp < 10) return "klein, vergelijkbaar met een brandende schuur of een klein perceel";
+  if (frp < 100) return "beperkt van omvang";
+  if (frp <= 500) return "aanzienlijk";
+  return "zeer groot";
+}
+
 // ---- Duiding-context: alles rond een postcode -----------------------------
 export async function bouwDuidingContext(
   postcode: string,
@@ -278,11 +289,12 @@ export function bouwUitlegContext(m: MetingPayload): string {
   regels.push(`Departement: ${depNaam}.`);
   regels.push(formatteerMetingTijdstip(m.waargenomenOp));
   if (m.frp !== undefined) {
-    regels.push(
-      m.frp === null
-        ? "Gemeten warmtevermogen (FRP): onbekend."
-        : `Gemeten warmtevermogen (FRP): ${m.frp} MW.`
-    );
+    if (m.frp === null) {
+      regels.push("Gemeten warmtevermogen (FRP): onbekend.");
+    } else {
+      regels.push(`Gemeten warmtevermogen (FRP): ${m.frp} MW.`);
+      regels.push(`Grootteorde: ${m.frp} MW — ${grootteordeFrp(m.frp)}.`);
+    }
   }
   if (m.betrouwbaarheid) {
     regels.push(`Betrouwbaarheid van de meting: ${m.betrouwbaarheid}.`);
