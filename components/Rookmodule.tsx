@@ -21,11 +21,6 @@ import styles from "@/components/Rookmodule.module.css";
 const DEG = Math.PI / 180;
 const AARDE_KM = 6371;
 
-// Tijdschuif: −12 uur (terugblik) t/m +24 uur (vooruitblik). De grens tussen
-// gemeten en verwachte wind ligt altijd bij nu (0), waar de schuif ook staat.
-const SCHUIF_MIN = -12;
-const SCHUIF_MAX = 24;
-
 const LAAD_FASEN = [
   "Satellietwaarnemingen ophalen bij NASA FIRMS…",
   "Windveld ophalen bij Open-Meteo…",
@@ -515,14 +510,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kaart, gezochtePostcode]);
 
-  const startHref = (() => {
-    const params = new URLSearchParams();
-    if (embed) params.set("embed", "1");
-    if (postcode.trim()) params.set("postcode", postcode.trim());
-    const qs = params.toString();
-    return qs ? `/start?${qs}` : "/start";
-  })();
-
   const toonDekking = toonSatelliet && !!satelliet;
 
   return (
@@ -535,9 +522,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
           </a>
         </div>
       )}
-      <a className="terug-overzicht" href={startHref}>
-        ← Terug naar overzicht
-      </a>
       {!embed && (
         <header className="site-kop">
           <h1>Verwachte rookverplaatsing</h1>
@@ -1027,18 +1011,6 @@ function bouwPluimGeo(
   return { solid, dashed, kegel, eind: [latE, lonE] };
 }
 
-function tijdLabel(uur: number): string {
-  if (uur === 0) return "nu";
-  if (uur < 0) return `−${-uur} u`;
-  return `+${uur} u`;
-}
-
-function horizonTekst(uur: number): string {
-  if (uur === 0) return "Toont: nu";
-  if (uur < 0) return `Toont: ${-uur} uur geleden`;
-  return `Toont: verwachte positie over ${uur} uur`;
-}
-
 function bouwKegelGeo(
   punten: Array<[number, number]>,
   halveBreedtesKm: number[]
@@ -1143,26 +1115,6 @@ function volledigeDatum(iso: string): string {
     timeStyle: "short",
     timeZone: "Europe/Paris",
   }).format(d);
-}
-
-function satellietDatum(datum: string): string {
-  const d = new Date(`${datum}T12:00:00Z`);
-  if (Number.isNaN(d.getTime())) return datum;
-  const vandaag = new Date();
-  const dagen = Math.round(
-    (Date.parse(`${isoDag(vandaag)}T00:00:00Z`) - Date.parse(`${datum}T00:00:00Z`)) / 86_400_000
-  );
-  const woord = dagen === 0 ? "vandaag" : dagen === 1 ? "gisteren" : dagen === 2 ? "eergisteren" : null;
-  const volledig = new Intl.DateTimeFormat("nl-NL", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  }).format(d);
-  return woord ? `${woord}` : volledig;
-}
-
-function isoDag(d: Date): string {
-  return d.toISOString().slice(0, 10);
 }
 
 function formatteerGetal(waarde: number): string {

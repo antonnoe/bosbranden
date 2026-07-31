@@ -1,10 +1,23 @@
-/* Kleur als ROL, niet als tint. Drie rollen; niets heeft twee rollen.
+/* Kleur als ROL, niet als tint. Niets heeft twee rollen. Naast de neutrale
+   basis (tekst, vlakken, randen) zijn er vier betekenis-rollen:
+     - merk         → chrome: koppen, rail, knoppen, links, randen (nooit data)
+     - gevaarniveau → Météo des forêts, niveau 1 t/m 4 (--niveau-1..4)
+     - kaartdata    → meting op de kaart: rook (grijs) en hittebron (rood)
+     - officieel    → FR-Alert: een bron met gezag, geen meting, geen niveau
+   Rood is uitsluitend hittebron en gevaarniveau 4; officieel is bewust een
+   eigen hue (diep indigo), niet rood.
    In de embed staan deze tokens op .if-dossier-wrapper (host-schil); in deze
    standalone-app is :root het equivalente wortelbereik. */
 :root {
   /* rol 1 — merk: chrome (koppen, rail, knoppen, links, randen), nooit data */
   --merk: #800000;
   --merk-vlak: #f4ecea;
+
+  /* Tekst óp een bordeaux vlak. Solide waarden — nooit opacity op letters
+     (opacity op letters was de leesbaarheidsbug). Primaire tekst is wit,
+     secundaire tekst een gedempte lichtroze tint. */
+  --op-merk: #ffffff;
+  --op-merk-zacht: #e3d2d2;
 
   /* merk-alias + alpha-varianten. Uitsluitend voor RANDEN en VLAKKEN —
      nooit voor letters (opacity op letters was de leesbaarheidsbug). */
@@ -36,9 +49,21 @@
   --rook-gemeten: #3f3733; /* houtskool */
   --rook-verwacht: #c2560f;
   --hittebron: #e8202a;
+  --hittebron-diep: #a5121a; /* hover/selectie van een hittebron-datapunt */
+
+  /* rol 4 — officieel: FR-Alert. Bewust een eigen hue (diep indigo), zodat een
+     officiële melding zichtbaar iets anders is dan een meting of een niveau.
+     Nooit rood (rood is hittebron/gevaarniveau 4). */
+  --officieel: #3b3a8c;
+  --officieel-vlak: #ececf5;
 
   /* Donkere merk-tint voor een link-hover (solide, geen opacity op letters). */
   --merk-diep: #5c0000;
+
+  /* Hoogte van de onderbalk van if-mobiel. De host (if-mobiel) overschrijft
+     deze op zijn eigen schil (.if-dossier-wrapper); standalone geldt deze
+     expliciete fallback, zodat de onderrand-reservering niet verspringt. */
+  --if-onderbalk: 56px;
 }
 
 * {
@@ -147,25 +172,6 @@ a:hover {
   .omhulsel {
     padding-bottom: calc(28px + var(--if-onderbalk, 56px) + env(safe-area-inset-bottom, 0px));
   }
-}
-
-/* Discrete terugverwijzing naar /start; klein en rustig, geen hoofdknop. */
-.terug-overzicht {
-  display: inline-block;
-  margin-bottom: 12px;
-  font-size: 0.85rem;
-  color: var(--tekst-zacht);
-  text-decoration: none;
-}
-
-.terug-overzicht:hover {
-  color: var(--primair);
-  text-decoration: underline;
-}
-
-.embed .terug-overzicht {
-  margin-bottom: 8px;
-  font-size: 0.8rem;
 }
 
 /* Embed-modus: één gecentreerde kolom, compact genoeg voor een iframe van

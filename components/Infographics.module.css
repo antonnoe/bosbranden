@@ -9,7 +9,7 @@
   margin: 0 0 16px;
   font-size: 0.86rem;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--op-merk-zacht);
 }
 
 .figuur {
