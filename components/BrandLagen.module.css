@@ -1,3 +1,7 @@
+/* Kaartlaag-CSS. De merk-hue is getokeniseerd (#800000 -> var(--merk),
+   #5f0000 -> var(--merk-diep)); de fijne rgba(128,0,0,·)-tinten (0,025/0,045/
+   0,07/0,14/0,2) hebben geen tokenstap en blijven bewust literal (randen en
+   vlakken, nooit tekst). De officieel-rol volgt --officieel/--officieel-vlak. */
 .lagenFilter {
   margin: 0 0 10px;
   padding: 9px 10px;
@@ -11,7 +15,7 @@
   margin-bottom: 6px;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #5f0000;
+  color: var(--merk-diep);
 }
 
 .lagenKnoppen {
@@ -26,7 +30,7 @@
   border: 1px solid rgba(128, 0, 0, 0.2);
   border-radius: 7px;
   background: #fff;
-  color: #800000;
+  color: var(--merk);
   font: inherit;
   font-size: 0.76rem;
   font-weight: 650;
@@ -41,9 +45,9 @@
 }
 
 .lagenKnoppen button[aria-pressed="true"] {
-  background: #800000;
+  background: var(--merk);
   color: #fff;
-  border-color: #800000;
+  border-color: var(--merk);
 }
 
 .lagenUitleg {
@@ -93,7 +97,7 @@
 .afgelopenSchakel input {
   width: 16px;
   height: 16px;
-  accent-color: #800000;
+  accent-color: var(--merk);
   cursor: pointer;
 }
 
@@ -150,7 +154,7 @@
 }
 
 .officieelPopup h3 {
-  color: #800000;
+  color: var(--merk);
 }
 
 .officieelBadge {
@@ -181,7 +185,7 @@
 }
 
 .technischeDuiding strong {
-  color: #800000;
+  color: var(--merk);
 }
 
 /* Conclusie in gewone taal, vóór het technische deel. Iets groter en zwaarder
@@ -196,7 +200,7 @@
   margin: 8px 0 2px;
   padding-top: 7px;
   border-top: 1px solid rgba(128, 0, 0, 0.14);
-  color: #800000;
+  color: var(--merk);
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;

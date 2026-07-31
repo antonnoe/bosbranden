@@ -49,6 +49,7 @@
   --rook-gemeten: #3f3733; /* houtskool */
   --rook-verwacht: #c2560f;
   --hittebron: #e8202a;
+  --hittebron-diep: #a5121a; /* hover/selectie van een hittebron-datapunt */
 
   /* rol 4 — officieel: FR-Alert. Bewust een eigen hue (diep indigo), zodat een
      officiële melding zichtbaar iets anders is dan een meting of een niveau.

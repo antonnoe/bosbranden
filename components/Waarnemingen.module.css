@@ -1,3 +1,9 @@
+/* Kaart-CSS (brandkaart). De merk-hue is getokeniseerd: solide #800000 ->
+   var(--merk), en de twee alpha-stappen die een token hebben (0,08 -> --primair-08,
+   0,3 -> --primair-30). De overige rgba(128,0,0,·)-tinten (0,025 t/m 0,32) hebben
+   geen overeenkomstige tokenstap en blijven bewust literal — de ramp is klein
+   gehouden; nieuwe alpha-tokens toevoegen zou meer ruis geven dan winst. Deze
+   waarden zijn uitsluitend randen, vlakken en schaduwen (nooit tekst). */
 .bediening {
   display: flex;
   align-items: center;
@@ -22,7 +28,7 @@
 .checkbox input {
   width: 17px;
   height: 17px;
-  accent-color: #800000;
+  accent-color: var(--merk);
 }
 
 /* Toelichting die specifiek bij het satellietwaarnemingen-vinkje hoort
@@ -97,9 +103,9 @@
   flex: 0 0 auto;
   min-height: 32px;
   padding: 4px 12px;
-  border: 1px solid rgba(128, 0, 0, 0.3);
+  border: 1px solid var(--primair-30);
   border-radius: 7px;
-  background: #800000;
+  background: var(--merk);
   color: #fff;
   font: inherit;
   font-weight: 600;
@@ -127,7 +133,7 @@
   position: absolute;
   z-index: 14;
   pointer-events: none;
-  border: 1.5px dashed #800000;
+  border: 1.5px dashed var(--merk);
   background: rgba(128, 0, 0, 0.1);
   border-radius: 2px;
 }
@@ -152,7 +158,7 @@
   border: 0;
   border-right: 1px solid rgba(128, 0, 0, 0.14);
   background: #fff;
-  color: #800000;
+  color: var(--merk);
   font: inherit;
   font-size: 1.25rem;
   font-weight: 600;
@@ -166,7 +172,7 @@
 
 .zoomBediening button:hover:not(:disabled),
 .zoomBediening button:focus-visible {
-  background: rgba(128, 0, 0, 0.08);
+  background: var(--primair-08);
   outline: none;
 }
 
@@ -211,7 +217,7 @@
 .mapPin:hover path,
 .mapPin:focus-visible path,
 .mapPinSelected path {
-  fill: #5f0000;
+  fill: var(--hittebron-diep);
   stroke-width: 3.2;
 }
 
@@ -256,7 +262,7 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #800000;
+  color: var(--merk);
   font: inherit;
   font-size: 1.5rem;
   line-height: 1;
@@ -265,7 +271,7 @@
 
 .popupSluit:hover,
 .popupSluit:focus-visible {
-  background: rgba(128, 0, 0, 0.08);
+  background: var(--primair-08);
   outline: none;
 }
 
@@ -281,7 +287,7 @@
   border: 1px solid rgba(128, 0, 0, 0.32);
   border-radius: 8px;
   background: #fff;
-  color: #800000;
+  color: var(--merk);
   font: inherit;
   font-weight: 600;
   line-height: 1;
@@ -290,7 +296,7 @@
 
 .popupSluitOnder:hover,
 .popupSluitOnder:focus-visible {
-  background: rgba(128, 0, 0, 0.08);
+  background: var(--primair-08);
   outline: none;
 }
 
@@ -356,7 +362,7 @@
 
 .nieuwsKop h3 {
   margin: 0;
-  color: #800000;
+  color: var(--merk);
 }
 
 .nieuwsKop p {
