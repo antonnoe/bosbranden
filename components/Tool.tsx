@@ -345,26 +345,8 @@ export default function Tool({ embed }: { embed: boolean }) {
         {/* Zichtbare laagkeuze bovenaan de kaart, met exact dezelfde woorden als
             op /start. Wisselen zet ?laag= (shallow) zodat de link deelbaar
             blijft; dit stuurt uitsluitend de SVG-kaart (niet /rook). */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            flexWrap: "wrap",
-            margin: "6px 0 0",
-          }}
-        >
-          <span
-            style={{
-              fontFamily: "'Poppins', sans-serif",
-              fontSize: "0.85rem",
-              fontWeight: 600,
-              lineHeight: 1.5,
-              color: "var(--tekst-zacht)",
-            }}
-          >
-            Kaartlaag:
-          </span>
+        <div className={styles.keuzebalkRij}>
+          <span className={styles.keuzebalkLabel}>Kaartlaag:</span>
           <div className="toggle" role="group" aria-label="Kies de kaartlaag">
             {(["gevaar", "alle", "officieel"] as KaartLaag[]).map((k) => (
               <button
@@ -378,16 +360,7 @@ export default function Tool({ embed }: { embed: boolean }) {
             ))}
           </div>
         </div>
-        <p
-          style={{
-            margin: "10px 0 0",
-            fontSize: "0.92rem",
-            lineHeight: 1.6,
-            color: "var(--tekst)",
-          }}
-        >
-          {LAAG_UITLEG[laag]}
-        </p>
+        <p className={styles.laagUitleg}>{LAAG_UITLEG[laag]}</p>
 
         <FranceKaart
           niveaus={niveaus}
