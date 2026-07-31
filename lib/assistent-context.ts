@@ -328,3 +328,66 @@ export function bouwUitlegContext(m: MetingPayload): string {
     regels.join("\n- ")
   );
 }
+
+// Deterministische "Leg uit"-tekst, uitsluitend uit de getypeerde velden — geen
+// model (fix 4). Dit is de terugval wanneer de modeluitvoer wordt afgekeurd:
+// dezelfde velden, dezelfde volgorde, altijd correct. Alleen aanwezige velden
+// komen erin; het verplichte voorbehoud staat er altijd bij.
+export function deterministischeUitleg(m: MetingPayload): string {
+  const depNaam = m.departementCode
+    ? DEP_BY_CODE[m.departementCode]?.naam ?? `departement ${m.departementCode}`
+    : "een onbekend departement";
+
+  const zinnen: string[] = [];
+  if (m.soort === "cluster") {
+    zinnen.push(
+      `Dit is een groep van ${m.aantal ?? "meerdere"} satellietmetingen dicht bij elkaar in ${depNaam} (een cluster).`
+    );
+  } else if (m.soort === "pluim") {
+    zinnen.push(
+      `Dit is een berekende windbaan vanaf een hittebron in ${depNaam}, op basis van ${m.aantal ?? "meerdere"} satellietdetecties.`
+    );
+  } else {
+    zinnen.push(`Dit is één losse satellietmeting in ${depNaam}.`);
+  }
+
+  if (m.waargenomenOp) {
+    const d = new Date(m.waargenomenOp);
+    if (!Number.isNaN(d.getTime())) {
+      const t = new Intl.DateTimeFormat("nl-NL", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone: "Europe/Paris",
+      }).format(d);
+      zinnen.push(`De meting is gedaan op ${t}.`);
+    }
+  }
+
+  if (typeof m.frp === "number") {
+    zinnen.push(`Het gemeten warmtevermogen is ${m.frp} MW — ${grootteordeFrp(m.frp)}.`);
+  }
+
+  if (m.betrouwbaarheid) {
+    const b =
+      m.betrouwbaarheid === "hoog"
+        ? "hoog; het instrument is zekerder van deze meting"
+        : "nominaal; de gewone, standaardklasse";
+    zinnen.push(`De betrouwbaarheid van de meting is ${b}.`);
+  }
+
+  if (m.cluster === true) {
+    zinnen.push("De meting hoort bij een ruimtelijk en in tijd samenhangend cluster.");
+  } else if (m.cluster === false) {
+    zinnen.push("Het is een losse meting, die niet bij een samenhangend cluster hoort.");
+  }
+
+  if (m.soort === "pluim" && m.richting) {
+    zinnen.push(`De berekende windbaan drijft naar ${m.richting} (de kant waar de rook naartoe gaat).`);
+  }
+
+  zinnen.push(
+    "Een satellietmeting is een waarneming van warmte, geen door de autoriteiten bevestigde brand; industriële warmtebronnen worden niet uitgesloten."
+  );
+
+  return zinnen.join(" ");
+}

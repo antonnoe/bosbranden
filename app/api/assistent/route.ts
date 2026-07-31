@@ -12,11 +12,12 @@ import { unstable_cache } from "next/cache";
 import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEMPROMPT } from "@/data/assistent-prompt";
 import { NOODANTWOORD } from "@/data/noodsignalen";
-import { bevatNoodsignaal, filterUrls } from "@/lib/assistent-filter";
+import { bevatNoodsignaal, filterUrls, bevatOnbekendeGetallen } from "@/lib/assistent-filter";
 import { verbruikLimiet, leesIp, LIMIET_MELDING } from "@/lib/assistent-limiet";
 import {
   bouwDuidingContext,
   bouwUitlegContext,
+  deterministischeUitleg,
   leesMetingPayload,
 } from "@/lib/assistent-context";
 
@@ -26,6 +27,7 @@ export const maxDuration = 30;
 const MODEL = "claude-haiku-4-5";
 const MAX_TOKENS = 400; // korte antwoorden zijn hier een kwaliteitseis (requirement 6)
 const MAX_VRAAG = 500;
+const MAX_UITLEG_TEKENS = 700; // "twee à drie korte zinnen"; langer = verdacht (fix 4)
 
 export async function POST(request: Request) {
   let body: Record<string, unknown>;
@@ -61,12 +63,25 @@ export async function POST(request: Request) {
       if (!meting) {
         return NextResponse.json({ antwoord: "Geen geldige meetgegevens." }, { status: 400 });
       }
-      const antwoord = await uitlegGecachet(meting.id, meting.waargenomenOp, () => {
+      const resultaat = await uitlegGecachet(meting.id, meting.waargenomenOp, async () => {
         const context = bouwUitlegContext(meting);
         const userText = `${context}\n\nVRAAG: Duid deze cijfers in twee à drie korte zinnen voor een gewone lezer. Neem de regel Grootteorde letterlijk over als schaalreferentie en bedenk zelf geen vergelijking.`;
-        return genereer(userText);
+        const rauw = await genereer(userText);
+        // Cijfercontrole op de uitvoer (fix 4, het echte vangnet): een leeg, te
+        // lang of getallen-/datum-verzinnend antwoord wordt afgekeurd en vervangen
+        // door een deterministische tekst uit dezelfde getypeerde velden.
+        const leeg = rauw.trim().length === 0;
+        const teLang = rauw.length > MAX_UITLEG_TEKENS;
+        if (leeg || teLang || bevatOnbekendeGetallen(rauw, context)) {
+          const reden = leeg ? "leeg" : teLang ? "te lang" : "onbekend getal of datum";
+          console.warn(
+            `[assistent] Leg uit afgekeurd (${reden}) voor meting ${meting.id}; deterministische terugval gebruikt.`
+          );
+          return { antwoord: deterministischeUitleg(meting), bron: "vast" as const };
+        }
+        return { antwoord: rauw, bron: "model" as const };
       });
-      return NextResponse.json({ antwoord, bron: "model" });
+      return NextResponse.json(resultaat);
     }
 
     // ---- 3. Duiding-modus (postcode) ----
@@ -135,11 +150,15 @@ function duidingGecachet(postcode: string, basisUrl: string): Promise<string> {
   )();
 }
 
+type UitlegResultaat = { antwoord: string; bron: "model" | "vast" };
+
 function uitlegGecachet(
   id: string,
   waargenomenOp: string | undefined,
-  maak: () => Promise<string>
-): Promise<string> {
+  maak: () => Promise<UitlegResultaat>
+): Promise<UitlegResultaat> {
+  // Cache-sleutel v2: de context is gewijzigd (tijdstip, Grootteorde, cijfer-
+  // controle), dus oude v1-antwoorden mogen niet blijven hangen.
   const dag = (waargenomenOp ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10);
-  return unstable_cache(maak, ["assistent-uitleg-v1", id, dag], { revalidate: 86400 })();
+  return unstable_cache(maak, ["assistent-uitleg-v2", id, dag], { revalidate: 86400 })();
 }
