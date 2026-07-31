@@ -192,14 +192,6 @@ export default function Start({ embed }: { embed: boolean }) {
       <EmbedHoogte actief={embed} />
 
       {!embed && (
-        <div>
-          <a className="terug-pagina-knop" href="https://nederlanders.fr/page/bosbranden">
-            ← Terug naar de pagina
-          </a>
-        </div>
-      )}
-
-      {!embed && (
         <header className="site-kop">
           <h1>Weer en waarschuwingen Frankrijk</h1>
           <p>Twee vragen: is er nú iets gemeten, en wordt het morgen gevaarlijk?</p>
@@ -387,7 +379,7 @@ export default function Start({ embed }: { embed: boolean }) {
         {!embed && (
           <p style={{ margin: "8px 0 0" }}>
             <a href="https://www.nederlanders.fr/page/bosbranden">
-              Terug naar de pagina op Nederlanders.fr
+              Deze tool staat ook op nederlanders.fr
             </a>
           </p>
         )}

@@ -516,13 +516,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     <div className="omhulsel">
       <EmbedHoogte actief={embed} />
       {!embed && (
-        <div>
-          <a className="terug-pagina-knop" href="https://nederlanders.fr/page/bosbranden">
-            ← Terug naar de pagina
-          </a>
-        </div>
-      )}
-      {!embed && (
         <header className="site-kop">
           <h1>Verwachte rookverplaatsing</h1>
           <p>
@@ -780,18 +773,15 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             {data?.bijgewerkt ? ` Gegevens opgehaald: ${volledigeDatum(data.bijgewerkt)}.` : ""}
           </p>
 
-          <footer className="site-voet">
-            <p style={{ margin: 0 }}>
-              <a href={embed ? "/?embed=1" : "/"}>← Terug naar Brandrisico Frankrijk</a>
-            </p>
-            {!embed && (
-              <p style={{ margin: "8px 0 0" }}>
+          {!embed && (
+            <footer className="site-voet">
+              <p style={{ margin: 0 }}>
                 <a href="https://www.nederlanders.fr/page/bosbranden">
-                  Terug naar de pagina op Nederlanders.fr
+                  Deze tool staat ook op nederlanders.fr
                 </a>
               </p>
-            )}
-          </footer>
+            </footer>
+          )}
         </>
       )}
     </div>
