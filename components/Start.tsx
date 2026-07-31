@@ -25,13 +25,15 @@ const LAAD_FASEN = [
 const GEDUPEERD_URL =
   "https://infofrankrijk.com/gedupeerd-door-natuurgeweld-in-frankrijk-uw-verzekering-goed-regelen/";
 
-// Ernst-accent voor de border-left, gelijk aan de bestaande tegelaccenten.
+// Ernst-accent voor de border-left: één ramp in de gevaarniveau-kleuren, zodat
+// de linkerrand van elk blok altijd hetzelfde betekent — gevaarniveau, nooit
+// merk. Ernst 0 / geen data blijft neutraal grijs.
 const ERNST_ACCENT: Record<number, string> = {
   0: "var(--geen-data)",
-  1: "rgba(128, 0, 0, 0.25)",
-  2: "rgba(128, 0, 0, 0.5)",
-  3: "#b00020",
-  4: "#e8202a",
+  1: "var(--niveau-1)",
+  2: "var(--niveau-2)",
+  3: "var(--niveau-3)",
+  4: "var(--niveau-4)",
 };
 
 type NiveauPaar = { j1: number | null; j2: number | null };
