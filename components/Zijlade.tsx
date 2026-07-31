@@ -248,7 +248,10 @@ export default function Zijlade() {
           />
         )}
 
-        {/* Paneel (schuift uit vanaf de rechterrand). */}
+        {/* Paneel (schuift uit vanaf de rechterrand). Met de lade dicht staat het
+            paneel op inert (naast aria-hidden), zodat Tab er geen enkel element in
+            bereikt terwijl het weggeschoven is (1.4). Escape/overlay/veeg en het
+            terugzetten van de focus blijven ongewijzigd. */}
         <div
           id="app-zijkolom"
           className={`${styles.paneel} ${open ? styles.paneelOpen : ""}`}
@@ -257,6 +260,7 @@ export default function Zijlade() {
           role="region"
           aria-label={paneel === "uitleg" ? "Uitleg & bronnen" : "Nieuws"}
           aria-hidden={!open}
+          inert={!open}
           onTouchStart={opVeegStart}
           onTouchEnd={opVeegEind}
         >
