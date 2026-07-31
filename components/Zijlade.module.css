@@ -1,22 +1,21 @@
-/* Uitschuifbare zijlade. De schil beslaat ALLEEN het paneel + de rail (een
+/* Uitschuifbare lade + navigatie. De schil beslaat ALLEEN het paneel (een
    rechterstrook), niet de hele viewport — zo ligt er geen klik-blokkerend vlak
-   over de pagina. pointer-events staat uit op de schil en de rail-container en
-   AAN op de losse tabbladen en het paneel; met de lade dicht is dus uitsluitend
-   de rail klikgevoelig. De schil valt buiten het gemeten omhulsel, dus het
-   openen/sluiten van een paneel verandert de embed-hoogtemelding niet. Wit wordt
-   technisch afgedwongen; huisstijl #800000, Poppins koppen, Mulish tekst. */
+   over de pagina. pointer-events staat uit op de schil en AAN op het paneel; met
+   de lade dicht vangt de schil dus niets. De schil valt buiten het gemeten
+   omhulsel, dus het openen/sluiten van een paneel verandert de embed-hoogte
+   niet. De navigatierij (.navKop) staat los bovenaan het contentgebied, op alle
+   breedtes. Wit wordt technisch afgedwongen; huisstijl #800000, Poppins koppen,
+   Mulish tekst. */
 
 .schil {
-  --rail: 46px;
-  /* Ruim paneel: hier gaan straks Nederlandse samenvattingen in. Op schermen
-     breder dan 700px twee keer zo breed als voorheen (322 → 644). Onder 700px
-     wordt het paneel schermbreed (zie de media-query onderaan). */
+  /* Ruim paneel: hier gaan Nederlandse samenvattingen in. Onder 768px wordt het
+     paneel smaller (zie de media-query onderaan). */
   --paneel-breedte: 644px;
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
-  width: calc(var(--paneel-breedte) + var(--rail));
+  width: var(--paneel-breedte);
   max-width: 100%;
   overflow: hidden;
   pointer-events: none;
@@ -39,14 +38,14 @@
   pointer-events: auto;
 }
 
-/* ---- Paneel: links van de rail, schuift uit ---- */
+/* ---- Paneel: schuift uit vanaf de rechterrand ---- */
 .paneel {
   position: absolute;
   top: 0;
   bottom: 0;
-  right: var(--rail);
+  right: 0;
   width: var(--paneel-breedte);
-  max-width: calc(100% - var(--rail));
+  max-width: 100%;
   pointer-events: auto;
   display: flex;
   flex-direction: row;
@@ -55,7 +54,7 @@
   color: #ffffff;
   border-left: 1px solid rgba(255, 255, 255, 0.16);
   box-shadow: -8px 0 28px rgba(0, 0, 0, 0.3);
-  transform: translateX(calc(100% + var(--rail)));
+  transform: translateX(100%);
   transition: transform 0.28s ease;
 }
 
@@ -120,32 +119,8 @@
   letter-spacing: 0.04em;
 }
 
-/* ---- Rail: altijd zichtbaar aan de rechterrand, verticaal gecentreerd ---- */
-.rail {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  transform: translateY(-50%);
-  width: var(--rail);
-  max-height: 96vh;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 6px;
-  pointer-events: none; /* alleen de tabbladen vangen klikken */
-}
-
-/* ---- Railgroepen: "Waar ben ik" (navigatie) en "Lees erbij" (panelen) ---- */
-.railGroep {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  pointer-events: none; /* alleen de tabbladen erin vangen klikken */
-}
-
-/* Tellerpil op het Nieuws-tabblad (rechtop, ook in een verticaal tabblad). */
+/* Tellerpil op de Nieuws-knop in de lade (wit vlak, bordeaux cijfer). */
 .telPil {
-  writing-mode: horizontal-tb;
   background: #fff;
   color: #800000;
   border: 1px solid rgba(128, 0, 0, 0.3);
@@ -156,154 +131,9 @@
   line-height: 1.5;
 }
 
-/* ---- Tabblad (gemeenschappelijk maatwerk) ----
-   Alle vijf tabs delen afmetingen, radius (6px 0 0 6px) en letterstijl. Het
-   verschil tussen de twee groepen zit in de VORM, niet in de kleur:
-     massief (navigatie) = bordeaux vlak, witte tekst, geen zichtbare rand;
-     omlijnd (lade)       = wit vlak, bordeaux tekst en 1,5px bordeaux rand.
-   Massief = je gaat naar een pagina; omlijnd = er schuift een lade uit over de
-   huidige pagina. De 1,5px rand staat op álle tabs (transparant bij massief),
-   zodat de afmetingen exact gelijk blijven. Minstens 44px in de korte richting. */
-.tab {
-  pointer-events: auto;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  box-sizing: border-box;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 14px 5px;
-  border: 1.5px solid transparent;
-  border-radius: 6px 0 0 6px;
-  font-family: "Poppins", sans-serif;
-  font-size: 0.86rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  box-shadow: -3px 0 12px rgba(0, 0, 0, 0.26);
-}
-
-/* Chevron/pijl: minstens even groot als de labeltekst, met ruimte ernaast. */
-.tabPaneel::before,
-.tabNav::before {
-  writing-mode: horizontal-tb;
-  font-size: 1rem;
-  line-height: 1;
-}
-
-/* ---- Groep NAVIGATIE ("Waar ben ik") — massief ---- */
-.tabNav {
-  background: #800000;
-  color: #ffffff;
-  border-color: #800000;
-}
-
-.tabNav:hover {
-  background: #9a1f1f;
-  border-color: #9a1f1f;
-}
-
-.tabNav:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: -6px;
-}
-
-.tabNav::before {
-  content: "→";
-  color: #ffffff;
-}
-
-/* HUIDIGE ROUTE (aria-current, niet aanklikbaar): massief met een witte
-   markeerstreep aan de rail-zijde — nooit gedimd of grijs. */
-.tabHier {
-  cursor: default;
-  box-shadow: inset -4px 0 0 0 #ffffff, -3px 0 12px rgba(0, 0, 0, 0.26);
-}
-
-.tabHier::before {
-  content: "●";
-  color: #ffffff;
-}
-
-.tabHier:hover {
-  background: #800000;
-  border-color: #800000;
-}
-
-/* ---- Groep LADE ("Lees erbij") — omlijnd ---- */
-.tabPaneel {
-  background: #ffffff;
-  color: #800000;
-  border-color: rgba(128, 0, 0, 0.35);
-}
-
-.tabPaneel:hover {
-  background: rgba(128, 0, 0, 0.06);
-  border-color: rgba(128, 0, 0, 0.5);
-}
-
-.tabPaneel:focus-visible {
-  outline: 3px solid #800000;
-  outline-offset: -6px;
-}
-
-/* Eén chevron die naar het paneel wijst (dicht) en bij het openen 180° draait. */
-.tabPaneel::before {
-  content: "‹";
-  color: #800000;
-  transform: rotate(0deg);
-  transition: transform 0.28s ease;
-}
-
-/* OPEN LADE (actief): omgekeerd naar massief bordeaux, zodat zichtbaar is welke
-   lade openstaat. Chevron gedraaid en wit. */
-.tabActief {
-  background: #800000;
-  color: #ffffff;
-  border-color: #800000;
-}
-
-.tabActief::before {
-  color: #ffffff;
-  transform: rotate(180deg);
-}
-
-.tabActief:hover {
-  background: #800000;
-  border-color: #800000;
-}
-
-.tabActief:focus-visible {
-  outline: 3px solid #ffffff;
-  outline-offset: -6px;
-}
-
-/* Reduced motion: geen draai-animatie, maar wél de eindstand behouden. */
-@media (prefers-reduced-motion: reduce) {
-  .tabPaneel::before {
-    transition: none;
-  }
-}
-
-/* ---- Scheiding tussen de twee railgroepen ----
-   Geen groepslabels meer; alleen witruimte plus één kort horizontaal streepje
-   (28px, 1px) tussen "Rookpaden" en "Nieuws". Met de rail-gap van 6px komt de
-   witruimte op ~12px boven en onder. */
-.scheiding {
-  width: 28px;
-  height: 1px;
-  align-self: center;
-  margin: 6px auto;
-  background: rgba(128, 0, 0, 0.3);
-}
-
 /* ---- Interne tabs binnen de Verantwoording-lade (Bronnen · Duiding ·
-   Infographics), op de #800000-paneelachtergrond. De opdracht noemt donkere
-   kleuren (rand #800000, tekst rgba(51,39,39,.6)); op de bordeaux achtergrond
-   zijn die naar wit/lichtwit vertaald zodat ze leesbaar blijven. Actieve tab:
-   witte onderstreep (3px) + vetter; inactieve tab: lichtwitte tekst. ---- */
+   Infographics), op de #800000-paneelachtergrond. Actieve tab: witte onderstreep
+   (3px) + vetter; inactieve tab: gedempte witte tekst (solide token). ---- */
 .uitlegTabs {
   display: flex;
   gap: 18px;
@@ -341,21 +171,28 @@
 }
 
 /* ====================================================================
-   Mobiele navigatie (< 768px). De verticale rail vervalt volledig; navigatie
-   gaat via een segmented control (Start/Kaart) bovenaan het contentgebied en
-   één leesmateriaal-icoon dat de lade opent. Standaard (desktop) zijn al deze
-   onderdelen verborgen; hun uiterlijk is alleen < 768px zichtbaar.
+   Navigatierij (.navKop): één patroon op alle breedtes. De segmented control
+   (Start / Kaart) links, de leesmateriaal-knop rechts. Sticky bovenaan het
+   contentgebied, uitgelijnd met de contentkolom (max-width als .omhulsel).
    ==================================================================== */
-.mobielKop {
-  display: none;
+.navKop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 8px 20px;
+  background: var(--pagina);
+  border-bottom: 1px solid var(--rand);
 }
 
-.mobielSluit {
-  display: none;
-}
-
-.mobielLadeSchakel {
-  display: none;
+:global(.embed) .navKop {
+  max-width: 750px;
+  padding-left: 10px;
+  padding-right: 10px;
 }
 
 .mobielNav {
@@ -364,7 +201,8 @@
   gap: 8px;
 }
 
-/* Segmented control: actief massief bordeaux, inactief wit met rand. */
+/* Segmented control: onder 768px vullen de twee knoppen de rij; boven 768px
+   houden ze hun eigen breedte en blijven ze compact links (zie media-query). */
 .mobielNavKnop {
   flex: 1 1 0;
   min-height: 44px;
@@ -396,7 +234,7 @@
   cursor: default;
 }
 
-/* Leesmateriaal-icoon rechtsboven, met tellerbadge. */
+/* Leesmateriaal-knop rechts (icoon met hoek-tellerbadge). */
 .leesIcoon {
   position: relative;
   flex: 0 0 auto;
@@ -437,8 +275,9 @@
   line-height: 1;
 }
 
-/* Mobiele ✕ rechtsboven in de lade. */
+/* ✕ rechtsboven in de lade (onder 768px zichtbaar). */
 .mobielSluit {
+  display: none;
   position: absolute;
   top: 8px;
   right: 8px;
@@ -465,7 +304,14 @@
   outline-offset: -4px;
 }
 
-/* Mobiele schakel Nieuws / Verantwoording binnen de lade. */
+/* Schakel Nieuws / Verantwoording binnen de lade — op alle breedtes zichtbaar
+   (de enige manier om tussen beide te wisselen). */
+.mobielLadeSchakel {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
 .mobielLadeKnop {
   flex: 1 1 0;
   min-height: 44px;
@@ -496,28 +342,23 @@
   color: #800000;
 }
 
-/* ---- Onder 768px: rail weg, mobiele kop aan, lade schermvullend maar boven de
-   onderbalk van if-mobiel (host kan --if-onderbalk zetten; anders 56px) plus de
-   safe-area, zodat de host-navigatie altijd bereikbaar blijft. ---- */
+/* ====================================================================
+   Boven 768px: segmented control compact links (i.p.v. de volle rij vullen),
+   zodat de leesknop rechts komt te staan.
+   ==================================================================== */
+@media (min-width: 769px) {
+  .mobielNavKnop {
+    flex: 0 0 auto;
+  }
+}
+
+/* ====================================================================
+   Onder 768px: lade schermvullend (maar boven de onderbalk van if-mobiel: host
+   kan --if-onderbalk zetten, anders 56px, plus de safe-area), ✕ zichtbaar, de
+   linker sluitrand vervalt.
+   ==================================================================== */
 @media (max-width: 768px) {
-  .mobielKop {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 900;
-    padding: 8px 12px;
-    background: var(--pagina);
-    border-bottom: 1px solid var(--rand);
-  }
-
-  .rail {
-    display: none;
-  }
-
   .schil {
-    --rail: 0px;
     width: 100%;
     bottom: calc(var(--if-onderbalk, 56px) + env(safe-area-inset-bottom, 0px));
   }
@@ -526,7 +367,6 @@
      tikken naast de lade (op de kaart) hem sluit — naast de ✕ en Escape. */
   .paneel {
     width: min(440px, calc(100% - 48px));
-    max-width: none;
     right: 0;
   }
 
@@ -544,11 +384,9 @@
     display: inline-flex;
   }
 
+  /* Ruimte naast de ✕ rechtsboven. */
   .mobielLadeSchakel {
-    display: flex;
-    gap: 8px;
-    margin: 0 0 14px;
-    padding-right: 52px; /* ruimte naast de ✕ rechtsboven */
+    padding-right: 52px;
   }
 
   .paneelInhoud {
