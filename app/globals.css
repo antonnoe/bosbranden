@@ -211,13 +211,13 @@ a:hover {
 .embed .bron-regel {
   margin-top: 6px;
   margin-bottom: 0;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }
 
 .embed .disclaimer {
   margin-top: 8px;
   padding: 8px 12px;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }
 
 .embed .site-voet {
@@ -370,7 +370,7 @@ a:hover {
 
 .niveau-blok .blok-dag {
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -502,6 +502,32 @@ a:hover {
   border-radius: 4px;
   display: inline-block;
   border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+/* Inklapbare legenda (zelfde patroon en vraag als op /rook). */
+.legenda-details {
+  margin-top: 10px;
+}
+
+.legenda-samenvatting {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--merk);
+  cursor: pointer;
+}
+
+.legenda-samenvatting:focus-visible {
+  outline: 2px solid var(--merk);
+  outline-offset: 2px;
+}
+
+.legenda-details .legenda {
+  margin-top: 8px;
 }
 
 .dep-paneel {

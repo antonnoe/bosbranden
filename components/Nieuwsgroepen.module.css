@@ -11,7 +11,7 @@
 
 .status {
   margin: 8px 0;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   line-height: 1.6;
 }
 
@@ -32,7 +32,7 @@
 .groepKop {
   margin: 0 0 6px;
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -69,7 +69,7 @@
 .meta {
   display: block;
   margin-top: 3px;
-  font-size: 0.74rem;
+  font-size: 0.85rem;
 }
 
 .paywall {
@@ -81,7 +81,7 @@
   margin-top: 14px;
   padding-top: 8px;
   border-top: 1px solid currentColor;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
 }
 
 .bronnen summary {
@@ -110,7 +110,7 @@
 
 .bronMeta {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
 }
 
 .ok {
@@ -222,7 +222,7 @@
   margin: 0 0 10px;
   padding: 7px 9px;
   border-radius: 7px;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   background: rgba(128, 0, 0, 0.06);
 }
@@ -270,7 +270,7 @@
 .vertaalMislukt {
   display: block;
   margin-top: 2px;
-  font-size: 0.74rem;
+  font-size: 0.85rem;
   font-style: italic;
 }
 
@@ -285,7 +285,7 @@
 /* ---- Vertaalnoot onderaan de kolom (H6) ---- */
 .vertaalNoot {
   margin: 12px 0 0;
-  font-size: 0.74rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   font-style: italic;
 }
@@ -389,13 +389,13 @@
 
 .detailBron {
   margin: 10px 0 2px;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
 .detailLink {
   display: inline-block;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
@@ -421,5 +421,5 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }

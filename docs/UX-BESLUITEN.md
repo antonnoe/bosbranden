@@ -68,18 +68,23 @@ PR waarin het werk zit.
 | # | Bevinding | Status | PR |
 |---|---|---|---|
 | 3.1 | Satellietbeeld eruit (optie B) | klaar | PR 3 |
-| 3.2 | De twee kaarten gelijktrekken (zoomknoppen, sluiten, legenda, uitlegregel) | open | PR 6 |
+| 3.2 | De twee kaarten gelijktrekken (zoomknoppen, sluiten, legenda, uitlegregel) | klaar | PR 6 |
 | 3.3 | Eén schakelaar per bedoeling | klaar | PR 5 |
 | 3.4 | Voorbehoud achter het antwoord (behalve noodregel en warmte-detectie) | klaar | PR 5 |
 | 3.5 | Tijdknoppen dekken het 24-uursvenster | klaar | PR 5 |
 | 3.6 | Lekentaal in de detaillabels; getal niet laten afbreken | klaar | PR 5 |
 | 3.7 | Kleurrol herstellen (ernst-ramp naar `--niveau-1..4`, `#b00020` weg) | klaar | eerdere ronde (PR #7) |
-| 3.8 | Eén typografische schaal (vier stappen, ondergrens 0,85rem) | open | PR 6 |
+| 3.8 | Eén typografische schaal (vier stappen, ondergrens 0,85rem) | klaar | PR 6 |
 | 3.9 | Eén keuzebalk-component (inline stijlen naar een klasse) | klaar | PR 5 |
 
-De omvangrijkste twee P3-bevindingen (3.2 kaartpariteit en 3.8 typografische
-schaal) raken veel schermen en vragen visuele controle; ze staan daarom in een
-eigen PR 6 in plaats van meegepropt in PR 5.
+Alle zestien bevindingen zijn afgerond. De omvangrijkste twee (3.2 kaartpariteit
+en 3.8 typografische schaal) stonden in een eigen PR 6 met visuele controle.
+
+Twee bewuste uitzonderingen op de ondergrens van 0,85rem (P3.8): de compacte
+onderschriften op de tijd-/laagknoppen in de rookmodule (0,76rem) en het
+telbadge op de nieuws-lade (0,68rem) — dat is knop- respectievelijk
+teller-chrome, geen leestekst. Uppercase-labels staan op de labelmaat 0,78rem;
+de niveaubloklabels blijven op 0,85rem (niet kleiner dan voorheen).
 
 De bevinding over het gesloten paneel is in het assessment zowel onder P1 (1.4)
 als onder P3 (P3.4) genoteerd; het is één stuk werk en staat hier één keer, als

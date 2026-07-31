@@ -94,18 +94,18 @@
 }
 
 .clusterMeetingen strong {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 }
 
 .clusterMeetingen span {
   margin-top: 1px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
 }
 
 .clusterMeer {
   margin: 7px 0 0;
-  font-size: 0.74rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
 }
 
@@ -114,7 +114,7 @@
   border: 1px solid rgba(128, 0, 0, 0.14);
   border-radius: 8px;
   background: rgba(128, 0, 0, 0.025);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.55;
 }
 
@@ -151,7 +151,7 @@
 
 .nieuwsSamenvatting p {
   margin: 2px 0 0;
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   line-height: 1.4;
   color: var(--tekst-zacht);
 }
@@ -164,7 +164,7 @@
   background: #fff;
   color: #800000;
   font: inherit;
-  font-size: 0.77rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }

@@ -468,15 +468,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 {postcodeUitspraak(postcodeAntwoord, gezochtePostcode, pluimen.length)}
               </p>
             )}
-            {postcodeAntwoord?.status === "ok" && (
-              <button
-                type="button"
-                className={styles.heelFrankrijk}
-                onClick={toonHeelFrankrijk}
-              >
-                ↔ Toon weer heel Frankrijk
-              </button>
-            )}
           </section>
 
           <section className="sectie" aria-labelledby="kaart-titel">
@@ -555,6 +546,17 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 ariaLabel="Kaart van Frankrijk met de berekende windbanen vanaf hittebronnen"
                 onKaart={onKaart}
               />
+
+              {/* On-map 'Heel Frankrijk'-reset, net onder de Leaflet-zoomknoppen,
+                  zodat de kaart dezelfde weg terug biedt als de startkaart (P3.2). */}
+              <button
+                type="button"
+                className={styles.kaartReset}
+                aria-label="Toon heel Frankrijk"
+                onClick={toonHeelFrankrijk}
+              >
+                Heel Frankrijk
+              </button>
 
               {/* Popup (breed scherm): eigen overlay, geklemd binnen het kaartvlak */}
               {!smal && gekozen && klikPunt && (

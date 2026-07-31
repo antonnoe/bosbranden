@@ -32,7 +32,7 @@
 .standDatum {
   margin: 0 0 8px;
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: #ffffff;
 }
@@ -51,7 +51,7 @@
 .standKop {
   margin: 0 0 5px;
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #ffffff;
 }
@@ -117,7 +117,7 @@
 .standBron {
   white-space: nowrap;
   font-family: "Poppins", sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
@@ -135,7 +135,7 @@
 
 .standPraktisch {
   font-family: "Poppins", sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
@@ -181,14 +181,14 @@
 
 .verantwoordingGrens {
   margin: 0 0 4px;
-  font-size: 0.79rem;
+  font-size: 0.85rem;
   line-height: 1.8;
   color: var(--op-merk-zacht);
 }
 
 .verantwoordingSlot {
   margin: 2px 0 0;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.8;
   color: var(--op-merk-zacht);
   font-style: italic;

@@ -13,7 +13,7 @@
 .lagenTitel {
   display: block;
   margin-bottom: 6px;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--merk-diep);
 }
@@ -32,7 +32,7 @@
   background: #fff;
   color: var(--merk);
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   font-weight: 650;
   line-height: 1.25;
   cursor: pointer;
@@ -52,7 +52,7 @@
 
 .lagenUitleg {
   margin: 7px 0 0;
-  font-size: 0.74rem;
+  font-size: 0.85rem;
   line-height: 1.45;
   color: var(--tekst-zacht);
 }
@@ -62,7 +62,7 @@
   padding: 7px 9px;
   border-left: 3px solid var(--officieel);
   background: var(--officieel-vlak);
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.45;
 }
 
@@ -74,7 +74,7 @@
   border-left: 4px solid #d9a400;
   border-radius: 8px;
   background: rgba(217, 164, 0, 0.1);
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: #5c4600;
 }
@@ -164,14 +164,14 @@
   border-radius: 999px;
   background: var(--officieel-vlak);
   color: var(--officieel);
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
 .officieelLink {
   display: inline-block;
   margin-top: 9px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 700;
 }
 
@@ -180,7 +180,7 @@
   padding: 8px 10px;
   border-radius: 7px;
   background: rgba(128, 0, 0, 0.045);
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.45;
 }
 
@@ -192,7 +192,7 @@
    zodat de lezer eerst het antwoord ziet. */
 .duidingConclusie {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.5;
 }
 
@@ -201,7 +201,7 @@
   padding-top: 7px;
   border-top: 1px solid rgba(128, 0, 0, 0.14);
   color: var(--merk);
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.02em;
