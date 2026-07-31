@@ -1155,7 +1155,7 @@ export default function FranceKaart({
                 </span>
                 {gekozenPunt.waarneming.frp !== null && (
                   <>
-                    <span className={styles.detailLabel}>FRP</span>
+                    <span className={styles.detailLabel}>Sterkte van de warmtebron (FRP)</span>
                     <span>
                       {formatteerGetal(gekozenPunt.waarneming.frp)} MW
                       <InfoKnop kop={UITLEG.frp.kop} tekst={UITLEG.frp.tekst} />
