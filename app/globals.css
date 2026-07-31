@@ -1,4 +1,11 @@
-/* Kleur als ROL, niet als tint. Drie rollen; niets heeft twee rollen.
+/* Kleur als ROL, niet als tint. Niets heeft twee rollen. Naast de neutrale
+   basis (tekst, vlakken, randen) zijn er vier betekenis-rollen:
+     - merk         → chrome: koppen, rail, knoppen, links, randen (nooit data)
+     - gevaarniveau → Météo des forêts, niveau 1 t/m 4 (--niveau-1..4)
+     - kaartdata    → meting op de kaart: rook (grijs) en hittebron (rood)
+     - officieel    → FR-Alert: een bron met gezag, geen meting, geen niveau
+   Rood is uitsluitend hittebron en gevaarniveau 4; officieel is bewust een
+   eigen hue (diep indigo), niet rood.
    In de embed staan deze tokens op .if-dossier-wrapper (host-schil); in deze
    standalone-app is :root het equivalente wortelbereik. */
 :root {
@@ -42,6 +49,12 @@
   --rook-gemeten: #3f3733; /* houtskool */
   --rook-verwacht: #c2560f;
   --hittebron: #e8202a;
+
+  /* rol 4 — officieel: FR-Alert. Bewust een eigen hue (diep indigo), zodat een
+     officiële melding zichtbaar iets anders is dan een meting of een niveau.
+     Nooit rood (rood is hittebron/gevaarniveau 4). */
+  --officieel: #3b3a8c;
+  --officieel-vlak: #ececf5;
 
   /* Donkere merk-tint voor een link-hover (solide, geen opacity op letters). */
   --merk-diep: #5c0000;

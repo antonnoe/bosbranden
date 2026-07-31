@@ -526,7 +526,7 @@ export default function Tool({ embed }: { embed: boolean }) {
           <span>
             <i
               style={{
-                background: "#b00020",
+                background: "var(--officieel)",
                 borderRadius: "50% 50% 50% 0",
                 transform: "rotate(45deg)",
               }}

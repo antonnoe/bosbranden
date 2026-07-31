@@ -37,7 +37,7 @@
   font-family: "Poppins", sans-serif;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #b00020;
+  color: var(--tekst);
 }
 
 /* ---- Blokken: één kolom over de volle kolombreedte, gecentreerd. ----
@@ -128,7 +128,7 @@
   font-family: "Poppins", sans-serif;
   font-weight: 700;
   font-size: 1.4rem;
-  color: #b00020;
+  color: var(--hittebron);
   line-height: 1.2;
   margin: 10px 0 0;
 }
