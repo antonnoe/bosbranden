@@ -288,25 +288,40 @@ export function bouwUitlegContext(m: MetingPayload): string {
   regels.push(`Type: ${soortTekst}.`);
   regels.push(`Departement: ${depNaam}.`);
   regels.push(formatteerMetingTijdstip(m.waargenomenOp));
-  if (m.frp !== undefined) {
-    if (m.frp === null) {
-      regels.push("Gemeten warmtevermogen (FRP): onbekend.");
-    } else {
-      regels.push(`Gemeten warmtevermogen (FRP): ${m.frp} MW.`);
-      regels.push(`Grootteorde: ${m.frp} MW — ${grootteordeFrp(m.frp)}.`);
-    }
+  // Elk verwacht veld krijgt een regel, óók als het ontbreekt (fix 3). "niet
+  // meegegeven" houdt het model tegen om de leegte met andere getallen te vullen
+  // (bij de clusterpayload ontbrak betrouwbaarheid, vandaar dit vangnet).
+  if (m.frp === undefined) {
+    regels.push("Gemeten warmtevermogen (FRP): niet meegegeven.");
+  } else if (m.frp === null) {
+    regels.push("Gemeten warmtevermogen (FRP): onbekend.");
+  } else {
+    regels.push(`Gemeten warmtevermogen (FRP): ${m.frp} MW.`);
+    regels.push(`Grootteorde: ${m.frp} MW — ${grootteordeFrp(m.frp)}.`);
   }
-  if (m.betrouwbaarheid) {
-    regels.push(`Betrouwbaarheid van de meting: ${m.betrouwbaarheid}.`);
-  }
-  if (m.cluster !== undefined) {
-    regels.push(
-      m.cluster
+
+  regels.push(
+    m.betrouwbaarheid
+      ? `Betrouwbaarheid van de meting: ${m.betrouwbaarheid}.`
+      : "Betrouwbaarheid van de meting: niet meegegeven."
+  );
+
+  regels.push(
+    m.cluster === undefined
+      ? "Clusterstatus: niet meegegeven."
+      : m.cluster
         ? "Clusterstatus: hoort bij een ruimtelijk en in tijd samenhangend cluster."
         : "Clusterstatus: losse meting, hoort niet bij een samenhangend cluster."
+  );
+
+  // Driftrichting is alleen zinvol bij een berekende windbaan (pluim).
+  if (m.soort === "pluim") {
+    regels.push(
+      m.richting
+        ? `Berekende driftrichting van de windbaan: ${m.richting}.`
+        : "Berekende driftrichting van de windbaan: niet meegegeven."
     );
   }
-  if (m.richting) regels.push(`Berekende driftrichting van de windbaan: ${m.richting}.`);
 
   return (
     `CONTEXT (één ${m.soort === "detectie" ? "satellietmeting" : m.soort} om te duiden):\n- ` +
