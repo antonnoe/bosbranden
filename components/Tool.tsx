@@ -385,19 +385,14 @@ export default function Tool({ embed }: { embed: boolean }) {
             departementkleur is een verwachting, de bolletjes en pins zijn
             gemeten warmte en meldingen van de afgelopen 24 uur. */}
         <div className="kaart-laaguitleg">
+          {/* Eén onderscheidsregel; de diepere uitleg staat achter de [i]-knop. */}
           <p className="laag-onderscheid">
-            De <strong>kleur</strong> van elk departement toont het verwachte brandgevaar
+            De <strong>kleur</strong> van elk departement is de verwachting van Météo-France
             <InfoKnop
               kop={UITLEG.verwachtBrandgevaar.kop}
               tekst={UITLEG.verwachtBrandgevaar.tekst}
-            />{" "}
-            — een voorspelling van Météo-France. De <strong>bolletjes en pins</strong> tonen
-            gemeten warmte en officiële meldingen van de afgelopen 24 uur. Dat zijn twee losse
-            gegevensbronnen die los van elkaar gelezen moeten worden.
-          </p>
-          <p className="laag-onderscheid">
-            De cijfers in de bolletjes zijn het aantal satellietmetingen in dat gebied — niet
-            het aantal branden.
+            />; de <strong>bolletjes en pins</strong> zijn gemeten warmte en officiële meldingen
+            van de afgelopen 24 uur — losse bronnen, en de cijfers tellen metingen, geen branden.
           </p>
         </div>
 

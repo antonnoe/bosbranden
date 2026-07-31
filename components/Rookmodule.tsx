@@ -632,30 +632,39 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
 
           <section className="sectie" aria-labelledby="kaders-titel">
             <h2 id="kaders-titel">Belangrijk om te weten</h2>
+            {/* De noodregel en 'geen bevestigde brand' blijven altijd zichtbaar;
+                de overige leeswijzers staan één klik dieper. */}
             <ul className={styles.kaders}>
-              <li>
-                <strong>Dit is geen rookmodel.</strong> Het is de berekende windbaan vanaf
-                gedetecteerde hittebronnen. Werkelijke rook stijgt, mengt, slaat neer en wordt door
-                neerslag uitgewassen; dat zit hier niet in.
-              </li>
               <li>
                 Een VIIRS-detectie is een gemeten thermische anomalie — een satellietwaarneming van
                 een hittebron — en <strong>niet automatisch een door de autoriteiten bevestigde
                 natuurbrand</strong>.
               </li>
               <li>
-                <strong>De onzekerheid groeit met de tijd.</strong> Voorbij 12 uur is het beeld
-                indicatief.
-              </li>
-              <li>
-                De kegel toont de onzekerheid over de <strong>richting</strong>, niet de hoeveelheid
-                rook.
-              </li>
-              <li>
                 <strong>Zie je rook of vuur: bel 18 of 112</strong> (doven en slechthorenden: 114).
                 Volg altijd FR-Alert en de instructies van prefectuur en mairie.
               </li>
             </ul>
+            <details className={styles.kadersMeer}>
+              <summary className={styles.kadersMeerSummary}>
+                Meer over hoe u dit leest
+              </summary>
+              <ul className={styles.kaders}>
+                <li>
+                  <strong>Dit is geen rookmodel.</strong> Het is de berekende windbaan vanaf
+                  gedetecteerde hittebronnen. Werkelijke rook stijgt, mengt, slaat neer en wordt door
+                  neerslag uitgewassen; dat zit hier niet in.
+                </li>
+                <li>
+                  <strong>De onzekerheid groeit met de tijd.</strong> Voorbij 12 uur is het beeld
+                  indicatief.
+                </li>
+                <li>
+                  De kegel toont de onzekerheid over de <strong>richting</strong>, niet de hoeveelheid
+                  rook.
+                </li>
+              </ul>
+            </details>
           </section>
 
           <p className={styles.bronregel}>
@@ -743,10 +752,10 @@ function postcodeUitspraakOnveilig(
 
 // ---- Gedeelde detailinhoud (popup breed + schuifpaneel smal) ----
 
+// Eén kort voorbehoud onder de details; de uitgebreide cluster- en FRP-uitleg
+// staat achter de InfoKnop-jes bij de labels en achter 'Leg uit' (P3.4).
 const PLUIM_NOOT =
-  "Deze meting hoort bij een ruimtelijk en in tijd samenhangend cluster. Een cluster is geen " +
-  "bevestigde natuurbrand: de filter maakt geen onderscheid tussen vegetatiebranden en vaste " +
-  "industriële warmtebronnen. FRP is het geschatte uitgestraalde vermogen, niet het verbrande oppervlak.";
+  "Dit is een gemeten warmtebron, geen door de autoriteiten bevestigde brand.";
 
 function PluimDetails({ pluim }: { pluim: Pluim }) {
   return (

@@ -501,6 +501,28 @@
   gap: 8px;
 }
 
+/* Inklapbare 'meer'-leeswijzers onder de altijd zichtbare voorbehouden. */
+.kadersMeer {
+  margin: 10px 0 0;
+}
+
+.kadersMeerSummary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-family: "Poppins", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--merk);
+  cursor: pointer;
+}
+
+.kadersMeerSummary:focus-visible {
+  outline: 2px solid var(--merk);
+  outline-offset: 2px;
+}
+
 .legendaInhoud i {
   flex: 0 0 auto;
   width: 18px;
