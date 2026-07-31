@@ -131,6 +131,21 @@ function niveauTekst(waarde: number | null | undefined): string {
   return n ? `${waarde} (${n.nl})` : "geen gegevens";
 }
 
+// Tijdstip van de meting, server-side geformatteerd in Europe/Paris. Ontbreekt
+// het veld of is het niet parseerbaar, dan geven we dat letterlijk aan zodat het
+// model de leegte niet zelf invult (fix 1/3).
+export function formatteerMetingTijdstip(iso: string | undefined): string {
+  if (!iso) return "Tijdstip van de meting: niet meegegeven.";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Tijdstip van de meting: niet meegegeven.";
+  const tekst = new Intl.DateTimeFormat("nl-NL", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(d);
+  return `Tijdstip van de meting: ${tekst}.`;
+}
+
 // ---- Duiding-context: alles rond een postcode -----------------------------
 export async function bouwDuidingContext(
   postcode: string,
@@ -261,6 +276,7 @@ export function bouwUitlegContext(m: MetingPayload): string {
   const regels: string[] = [];
   regels.push(`Type: ${soortTekst}.`);
   regels.push(`Departement: ${depNaam}.`);
+  regels.push(formatteerMetingTijdstip(m.waargenomenOp));
   if (m.frp !== undefined) {
     regels.push(
       m.frp === null
