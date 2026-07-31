@@ -14,6 +14,7 @@ import type { ModuleStatus } from "@/app/api/status/route";
 import type { WaarnemingenAntwoord } from "@/lib/waarnemingen";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import Voortgang from "@/components/Voortgang";
+import Postcode from "@/components/Postcode";
 import styles from "@/components/Start.module.css";
 
 const LAAD_FASEN = [
@@ -209,21 +210,12 @@ export default function Start({ embed }: { embed: boolean }) {
         <h2 id="start-postcode-titel" style={{ marginBottom: 6 }}>
           Uw postcode (optioneel)
         </h2>
-        <form className="postcode-vorm" onSubmit={(e) => e.preventDefault()}>
-          <label htmlFor="start-postcode" style={{ position: "absolute", left: "-9999px" }}>
-            Franse postcode
-          </label>
-          <input
-            id="start-postcode"
-            inputMode="numeric"
-            pattern="[0-9]{5}"
-            autoComplete="postal-code"
-            placeholder="bijv. 33000"
-            maxLength={5}
-            value={postcode}
-            onChange={(e) => setPostcode(e.target.value)}
-          />
-        </form>
+        <Postcode
+          waarde={postcode}
+          onWaarde={setPostcode}
+          modus="direct"
+          placeholder="bijv. 33000"
+        />
         {gevondenDep && (
           <p className={styles.gevondenDep}>
             Departement: <strong>{gevondenDep}</strong> — dit gaat mee als u een kaart opent.
