@@ -396,7 +396,11 @@ export default function Tool({ embed }: { embed: boolean }) {
           </p>
         </div>
 
-        <div className="legenda" aria-hidden="true">
+        {/* Legenda inklapbaar met dezelfde vraag als op /rook, zodat beide
+            kaarten hetzelfde aanvoelen (P3.2). */}
+        <details className="legenda-details">
+          <summary className="legenda-samenvatting">Wat betekenen de kleuren?</summary>
+          <div className="legenda" aria-hidden="true">
           {[1, 2, 3, 4].map((w) => (
             <span key={w}>
               <i style={{ background: NIVEAUS[w].kleur }} /> {NIVEAUS[w].nl}
@@ -433,7 +437,8 @@ export default function Tool({ embed }: { embed: boolean }) {
             />{" "}
             officiële FR-Alert-melding
           </span>
-        </div>
+          </div>
+        </details>
 
         {/* De uitkomst van zowel een pin- als een departementklik verschijnt nu
             als kaartpopup binnen FranceKaart, niet meer onder de kaart. */}

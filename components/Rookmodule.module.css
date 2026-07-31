@@ -25,26 +25,35 @@
 }
 
 /* Zichtbare weg terug naar heel Frankrijk na een postcode-zoom (C2). */
-.heelFrankrijk {
-  margin-top: 10px;
+/* On-map 'Heel Frankrijk'-reset, net onder de Leaflet-zoomknoppen (top-left).
+   Zelfde vorm als de zoomReset op de startkaart. */
+.kaartReset {
+  position: absolute;
+  z-index: 800;
+  top: 80px;
+  left: 10px;
   font-family: "Poppins", sans-serif;
-  font-size: 0.88rem;
-  font-weight: 500;
-  padding: 7px 14px;
-  border: 1.5px solid var(--primair-30);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid rgba(128, 0, 0, 0.28);
   border-radius: 8px;
-  background: #fff;
-  color: var(--primair);
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--merk);
+  box-shadow: 0 2px 8px rgba(45, 25, 25, 0.16);
   cursor: pointer;
 }
 
-.heelFrankrijk:hover {
-  background: var(--primair-04);
-  border-color: var(--primair-55);
+.kaartReset:hover,
+.kaartReset:focus-visible {
+  background: var(--primair-08);
+  outline: none;
 }
 
-.heelFrankrijk:focus-visible {
-  outline: 2px solid var(--primair);
+.kaartReset:focus-visible {
+  outline: 2px solid var(--merk);
   outline-offset: 2px;
 }
 
