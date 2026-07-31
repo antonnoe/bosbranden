@@ -140,32 +140,7 @@ a:hover {
   margin-right: auto;
 }
 
-/* Terugverwijzing naar de NING-pagina — gewone tekstlink in merk, geen grote
-   knop meer. Onder 768px verborgen: if-mobiel heeft zijn eigen terugnavigatie,
-   en twee terugknoppen met twee betekenissen is verwarrend. */
-.terug-pagina-knop {
-  display: inline-block;
-  margin-bottom: 18px;
-  color: var(--merk);
-  font-family: "Poppins", sans-serif;
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.5;
-  text-decoration: none;
-}
-
-.terug-pagina-knop:hover,
-.terug-pagina-knop:focus-visible {
-  color: var(--merk-diep);
-  text-decoration: underline;
-  outline: none;
-}
-
 @media (max-width: 768px) {
-  .terug-pagina-knop {
-    display: none;
-  }
-
   /* Reserveer onderaan ruimte voor de onderbalk van if-mobiel (host kan
      --if-onderbalk zetten; anders 56px) plus de safe-area, zodat de laatste
      regel content niet achter die balk verdwijnt. Geen eigen sticky element. */

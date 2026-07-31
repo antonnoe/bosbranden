@@ -223,13 +223,6 @@ export default function Tool({ embed }: { embed: boolean }) {
   return (
     <div className="omhulsel">
       <EmbedHoogte actief={embed} />
-      {!embed && (
-        <div>
-          <a className="terug-pagina-knop" href="https://nederlanders.fr/page/bosbranden">
-            ← Terug naar de pagina
-          </a>
-        </div>
-      )}
       {/* In embed verdwijnt de kopregel (de NING-pagina heeft een eigen titel),
           maar de introtekst eronder blijft staan. Standalone verandert niet. */}
       <header className="site-kop">
@@ -572,7 +565,7 @@ export default function Tool({ embed }: { embed: boolean }) {
         {!embed && (
           <p style={{ margin: "8px 0 0" }}>
             <a href="https://www.nederlanders.fr/page/bosbranden">
-              Terug naar de pagina op Nederlanders.fr
+              Deze tool staat ook op nederlanders.fr
             </a>
           </p>
         )}
