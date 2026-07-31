@@ -98,7 +98,6 @@ export default function FranceKaart({
   gekozenWaarneming,
   onKiesWaarneming,
   beginWeergave,
-  onVraagWaarnemingen,
   zoomNaarDeps,
 }: {
   niveaus: Niveaus;
@@ -111,8 +110,6 @@ export default function FranceKaart({
   onKiesWaarneming: (id: string) => void;
   // Beginlaag (uit de deep-link), expliciet op laagsleutel i.p.v. DOM-klik.
   beginWeergave?: Weergave;
-  // Vraag de ouder de satellietwaarnemingen aan te zetten (checkbox volgt de laag).
-  onVraagWaarnemingen?: () => void;
   // Departementcode(s) waar de camera na een geslaagde postcode-zoek naartoe
   // springt (C2). Elke nieuwe zoekopdracht krijgt een verse array-referentie,
   // ook bij dezelfde code, zodat opnieuw zoeken opnieuw inzoomt.
@@ -562,7 +559,6 @@ export default function FranceKaart({
   }
 
   // In-kaart-melding zodat geen enkele laag stil leeg blijft (D2).
-  const satellietUit = weergave !== "officieel" && !toonWaarnemingen;
   const geenHittebronnen =
     weergave !== "officieel" && toonWaarnemingen && waarnemingen.length === 0;
   const geenMeldingen =
@@ -986,16 +982,9 @@ export default function FranceKaart({
             />
           )}
 
-          {(satellietUit || geenHittebronnen || geenMeldingen) && (
+          {(geenHittebronnen || geenMeldingen) && (
             <div className={styles.laagMelding} role="status">
-              {satellietUit ? (
-                <>
-                  <span>Satellietwaarnemingen staan uit voor deze laag.</span>
-                  <button type="button" onClick={() => onVraagWaarnemingen?.()}>
-                    Aanzetten
-                  </button>
-                </>
-              ) : geenHittebronnen ? (
+              {geenHittebronnen ? (
                 <span>Geen satellietdetecties boven Frankrijk in de afgelopen 24 uur.</span>
               ) : (
                 <span>Geen officiële FR-Alert-meldingen op dit moment.</span>

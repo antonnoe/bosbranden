@@ -84,7 +84,6 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [waarnemingenData, setWaarnemingenData] = useState<WaarnemingenAntwoord | null>(null);
   const [waarnemingenLaden, setWaarnemingenLaden] = useState(true);
-  const [toonWaarnemingen, setToonWaarnemingen] = useState(true);
   const [gekozenWaarnemingId, setGekozenWaarnemingId] = useState<string | null>(null);
 
   const [postcode, setPostcode] = useState("");
@@ -93,9 +92,12 @@ export default function Tool({ embed }: { embed: boolean }) {
 
   const [echeance, setEcheance] = useState<"j1" | "j2">("j1");
   const [gekozenDep, setGekozenDep] = useState<string | null>(null);
-  // De zichtbare laagkeuze bovenaan de kaart is de bron van waarheid voor de
-  // kaartlaag; ze mapt op de bestaande kaartintenties (weergave + satelliet).
+  // De zichtbare laagkeuze bovenaan de kaart is de énige bron van waarheid voor
+  // de kaartlaag; ze mapt op de bestaande kaartintenties (weergave + satelliet).
+  // De satellietwaarnemingen volgen dus de laag — geen los vinkje dat de laag kan
+  // tegenspreken (P3.3).
   const [laag, setLaag] = useState<KaartLaag>("alle");
+  const toonWaarnemingen = KAART_INTENTIES[laag].satelliet;
   // Departementcode(s) waar de kaart naartoe zoomt na een geslaagde postcode-zoek
   // (C2). Verse array-referentie per zoekopdracht triggert FranceKaart opnieuw.
   const [zoomDeps, setZoomDeps] = useState<string[] | null>(null);
@@ -167,7 +169,6 @@ export default function Tool({ embed }: { embed: boolean }) {
     if (!raw) return; // geen deeplink → standaardlaag "alle"
     const gekozen = normaliseerLaag(raw);
     setLaag(gekozen);
-    setToonWaarnemingen(KAART_INTENTIES[gekozen].satelliet);
   }, []);
 
   // Laagkeuze bovenaan de kaart: zet de laag én werk ?laag= bij (shallow, geen
@@ -176,7 +177,7 @@ export default function Tool({ embed }: { embed: boolean }) {
   function kiesLaag(nieuw: KaartLaag) {
     if (nieuw === laag) return;
     setLaag(nieuw);
-    setToonWaarnemingen(KAART_INTENTIES[nieuw].satelliet);
+    setGekozenWaarnemingId(null); // een verborgen laag mag geen open meting-popup laten staan
     try {
       const params = new URLSearchParams(window.location.search);
       params.set("laag", nieuw);
@@ -330,27 +331,6 @@ export default function Tool({ embed }: { embed: boolean }) {
         </p>
 
         <div className={styles.bediening}>
-          <label className={styles.checkbox}>
-            <input
-              type="checkbox"
-              aria-describedby="waarnemingen-toelichting"
-              checked={
-                toonWaarnemingen &&
-                !!waarnemingenData?.beschikbaar &&
-                waarnemingen.length > 0
-              }
-              disabled={!waarnemingenData?.beschikbaar || waarnemingen.length === 0}
-              onChange={(e) => {
-                setToonWaarnemingen(e.target.checked);
-                if (!e.target.checked) setGekozenWaarnemingId(null);
-              }}
-            />
-            Satellietwaarnemingen tonen
-          </label>
-          <p id="waarnemingen-toelichting" className={styles.checkboxToelichting}>
-            Nodig voor de laag ‘Warmtebronnen’. ‘Laatste officiële meldingen’ werkt zonder
-            dit vinkje.
-          </p>
           <p className={styles.status} aria-live="polite">
             {waarnemingenLaden
               ? "Waarnemingen laden…"
@@ -425,7 +405,6 @@ export default function Tool({ embed }: { embed: boolean }) {
             setGekozenWaarnemingId((huidig) => (huidig === id ? null : id));
           }}
           beginWeergave={KAART_INTENTIES[laag].weergave}
-          onVraagWaarnemingen={() => setToonWaarnemingen(true)}
           zoomNaarDeps={zoomDeps}
         />
 
