@@ -33,7 +33,7 @@
   top: 80px;
   left: 10px;
   font-family: "Poppins", sans-serif;
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
   height: 34px;
@@ -273,7 +273,7 @@
 
 .detailLabel {
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: var(--tekst-zacht);
 }
@@ -289,7 +289,7 @@
 
 .paneelNoot {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
   line-height: 1.5;
 }
@@ -499,7 +499,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 0 12px 12px;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.5;
   color: var(--tekst);
 }

@@ -22,7 +22,7 @@
   display: block;
   margin: 0 0 6px;
   font-family: "Poppins", sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   font-weight: 600;
   color: #ffffff;
 }
@@ -74,7 +74,7 @@
   background: #ffffff;
   color: #7a1128;
   font-family: "Poppins", sans-serif;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
@@ -124,7 +124,7 @@
 
 .laden {
   margin: 12px 0 0;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   font-style: italic;
   color: var(--op-merk-zacht);
 }

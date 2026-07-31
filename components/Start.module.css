@@ -58,7 +58,7 @@
 
 .groepKop {
   font-family: "Poppins", sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -105,7 +105,7 @@
 .ernstMerk {
   flex: 0 0 auto;
   font-family: "Poppins", sans-serif;
-  font-size: 0.68rem;
+  font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -118,7 +118,7 @@
 /* Herkomstregel: bron · korrel · tijdvenster. */
 .herkomst {
   font-family: "Poppins", sans-serif;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
   margin: 3px 0 0;
 }
@@ -167,7 +167,7 @@
 
 .niveauBlokDag {
   font-family: "Poppins", sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;

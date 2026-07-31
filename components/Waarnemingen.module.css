@@ -45,7 +45,7 @@
 
 .status {
   margin: 0;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
 }
 
@@ -94,7 +94,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 2px 10px rgba(45, 25, 25, 0.16);
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.4;
   color: #332727;
   text-align: left;
@@ -184,14 +184,14 @@
 
 .zoomBediening .zoomReset {
   width: auto;
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   font-weight: 600;
   white-space: nowrap;
 }
 
 .zoomUitleg {
   margin: 5px 0 0;
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   line-height: 1.45;
   color: var(--tekst-zacht);
   text-align: center;
@@ -303,7 +303,7 @@
 
 .popupBron {
   margin: 0;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
 }
 
 .detailGrid {
@@ -322,7 +322,7 @@
 .coordRegel {
   display: block;
   margin-top: 2px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
 }
 
@@ -331,7 +331,7 @@
 .schaalReferentie {
   display: block;
   margin-top: 2px;
-  font-size: 0.72rem;
+  font-size: 0.85rem;
   line-height: 1.4;
   color: var(--tekst-zacht);
 }
@@ -340,7 +340,7 @@
   margin: 9px 0 0;
   padding-top: 8px;
   border-top: 1px solid rgba(128, 0, 0, 0.12);
-  font-size: 0.79rem;
+  font-size: 0.85rem;
   line-height: 1.5;
 }
 
@@ -368,7 +368,7 @@
 
 .nieuwsKop p {
   margin: 2px 0 0;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   line-height: 1.45;
   color: var(--tekst-zacht);
 }
@@ -379,7 +379,7 @@
   border: 1px solid rgba(128, 0, 0, 0.22);
   border-radius: 7px;
   background: #fff;
-  font-size: 0.76rem;
+  font-size: 0.85rem;
   line-height: 1.35;
   text-align: center;
   text-decoration: none;
@@ -423,20 +423,20 @@
 .nieuwsLijst span {
   display: block;
   margin-top: 2px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--tekst-zacht);
 }
 
 .nieuwsStatus {
   margin: 8px 0;
-  font-size: 0.84rem;
+  font-size: 0.85rem;
 }
 
 .nieuwsNoot {
   margin: 8px 0 0;
   padding-top: 8px;
   border-top: 1px solid rgba(128, 0, 0, 0.1);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   line-height: 1.45;
   color: var(--tekst-zacht);
 }
