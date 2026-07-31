@@ -1077,6 +1077,22 @@ export default function FranceKaart({
                       .join("_"),
                   aantal: clusterSelectie.punten.length,
                   departementCode: clusterSelectie.punten[0]?.waarneming.departementCode,
+                  // Tijdstip van de JONGSTE meting in het cluster en de som van de
+                  // bekende FRP-waarden — dezelfde velden die de popup al toont, zodat
+                  // de "Leg uit" niet zelf een datum of vermogen hoeft te verzinnen (fix 1).
+                  waargenomenOp: clusterSelectie.punten
+                    .map((p) => p.waarneming.waargenomenOp)
+                    .filter((d): d is string => typeof d === "string" && d.length > 0)
+                    .sort()
+                    .at(-1),
+                  frp: clusterSelectie.punten.some((p) => p.waarneming.frp != null)
+                    ? Math.round(
+                        clusterSelectie.punten.reduce(
+                          (s, p) => s + (p.waarneming.frp ?? 0),
+                          0
+                        ) * 10
+                      ) / 10
+                    : null,
                 }}
               />
               <button

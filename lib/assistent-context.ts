@@ -131,6 +131,32 @@ function niveauTekst(waarde: number | null | undefined): string {
   return n ? `${waarde} (${n.nl})` : "geen gegevens";
 }
 
+// Tijdstip van de meting, server-side geformatteerd in Europe/Paris. Ontbreekt
+// het veld of is het niet parseerbaar, dan geven we dat letterlijk aan zodat het
+// model de leegte niet zelf invult (fix 1/3).
+export function formatteerMetingTijdstip(iso: string | undefined): string {
+  if (!iso) return "Tijdstip van de meting: niet meegegeven.";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "Tijdstip van de meting: niet meegegeven.";
+  const tekst = new Intl.DateTimeFormat("nl-NL", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Europe/Paris",
+  }).format(d);
+  return `Tijdstip van de meting: ${tekst}.`;
+}
+
+// Vaste schaalvergelijking voor een FRP-waarde (fix 2). De grenzen liggen in code
+// vast, niet bij het model; de uitkomst gaat als voorgekauwde regel mee zodat het
+// model zelf nooit een categorie hoeft te bedenken (35 MW is klein — geen
+// "middelgrote bosbrand"). Grenzen: <10 / 10–100 / 100–500 / >500 MW.
+export function grootteordeFrp(frp: number): string {
+  if (frp < 10) return "klein, vergelijkbaar met een brandende schuur of een klein perceel";
+  if (frp < 100) return "beperkt van omvang";
+  if (frp <= 500) return "aanzienlijk";
+  return "zeer groot";
+}
+
 // ---- Duiding-context: alles rond een postcode -----------------------------
 export async function bouwDuidingContext(
   postcode: string,
@@ -261,27 +287,107 @@ export function bouwUitlegContext(m: MetingPayload): string {
   const regels: string[] = [];
   regels.push(`Type: ${soortTekst}.`);
   regels.push(`Departement: ${depNaam}.`);
-  if (m.frp !== undefined) {
-    regels.push(
-      m.frp === null
-        ? "Gemeten warmtevermogen (FRP): onbekend."
-        : `Gemeten warmtevermogen (FRP): ${m.frp} MW.`
-    );
+  regels.push(formatteerMetingTijdstip(m.waargenomenOp));
+  // Elk verwacht veld krijgt een regel, óók als het ontbreekt (fix 3). "niet
+  // meegegeven" houdt het model tegen om de leegte met andere getallen te vullen
+  // (bij de clusterpayload ontbrak betrouwbaarheid, vandaar dit vangnet).
+  if (m.frp === undefined) {
+    regels.push("Gemeten warmtevermogen (FRP): niet meegegeven.");
+  } else if (m.frp === null) {
+    regels.push("Gemeten warmtevermogen (FRP): onbekend.");
+  } else {
+    regels.push(`Gemeten warmtevermogen (FRP): ${m.frp} MW.`);
+    regels.push(`Grootteorde: ${m.frp} MW — ${grootteordeFrp(m.frp)}.`);
   }
-  if (m.betrouwbaarheid) {
-    regels.push(`Betrouwbaarheid van de meting: ${m.betrouwbaarheid}.`);
-  }
-  if (m.cluster !== undefined) {
-    regels.push(
-      m.cluster
+
+  regels.push(
+    m.betrouwbaarheid
+      ? `Betrouwbaarheid van de meting: ${m.betrouwbaarheid}.`
+      : "Betrouwbaarheid van de meting: niet meegegeven."
+  );
+
+  regels.push(
+    m.cluster === undefined
+      ? "Clusterstatus: niet meegegeven."
+      : m.cluster
         ? "Clusterstatus: hoort bij een ruimtelijk en in tijd samenhangend cluster."
         : "Clusterstatus: losse meting, hoort niet bij een samenhangend cluster."
+  );
+
+  // Driftrichting is alleen zinvol bij een berekende windbaan (pluim).
+  if (m.soort === "pluim") {
+    regels.push(
+      m.richting
+        ? `Berekende driftrichting van de windbaan: ${m.richting}.`
+        : "Berekende driftrichting van de windbaan: niet meegegeven."
     );
   }
-  if (m.richting) regels.push(`Berekende driftrichting van de windbaan: ${m.richting}.`);
 
   return (
     `CONTEXT (één ${m.soort === "detectie" ? "satellietmeting" : m.soort} om te duiden):\n- ` +
     regels.join("\n- ")
   );
+}
+
+// Deterministische "Leg uit"-tekst, uitsluitend uit de getypeerde velden — geen
+// model (fix 4). Dit is de terugval wanneer de modeluitvoer wordt afgekeurd:
+// dezelfde velden, dezelfde volgorde, altijd correct. Alleen aanwezige velden
+// komen erin; het verplichte voorbehoud staat er altijd bij.
+export function deterministischeUitleg(m: MetingPayload): string {
+  const depNaam = m.departementCode
+    ? DEP_BY_CODE[m.departementCode]?.naam ?? `departement ${m.departementCode}`
+    : "een onbekend departement";
+
+  const zinnen: string[] = [];
+  if (m.soort === "cluster") {
+    zinnen.push(
+      `Dit is een groep van ${m.aantal ?? "meerdere"} satellietmetingen dicht bij elkaar in ${depNaam} (een cluster).`
+    );
+  } else if (m.soort === "pluim") {
+    zinnen.push(
+      `Dit is een berekende windbaan vanaf een hittebron in ${depNaam}, op basis van ${m.aantal ?? "meerdere"} satellietdetecties.`
+    );
+  } else {
+    zinnen.push(`Dit is één losse satellietmeting in ${depNaam}.`);
+  }
+
+  if (m.waargenomenOp) {
+    const d = new Date(m.waargenomenOp);
+    if (!Number.isNaN(d.getTime())) {
+      const t = new Intl.DateTimeFormat("nl-NL", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone: "Europe/Paris",
+      }).format(d);
+      zinnen.push(`De meting is gedaan op ${t}.`);
+    }
+  }
+
+  if (typeof m.frp === "number") {
+    zinnen.push(`Het gemeten warmtevermogen is ${m.frp} MW — ${grootteordeFrp(m.frp)}.`);
+  }
+
+  if (m.betrouwbaarheid) {
+    const b =
+      m.betrouwbaarheid === "hoog"
+        ? "hoog; het instrument is zekerder van deze meting"
+        : "nominaal; de gewone, standaardklasse";
+    zinnen.push(`De betrouwbaarheid van de meting is ${b}.`);
+  }
+
+  if (m.cluster === true) {
+    zinnen.push("De meting hoort bij een ruimtelijk en in tijd samenhangend cluster.");
+  } else if (m.cluster === false) {
+    zinnen.push("Het is een losse meting, die niet bij een samenhangend cluster hoort.");
+  }
+
+  if (m.soort === "pluim" && m.richting) {
+    zinnen.push(`De berekende windbaan drijft naar ${m.richting} (de kant waar de rook naartoe gaat).`);
+  }
+
+  zinnen.push(
+    "Een satellietmeting is een waarneming van warmte, geen door de autoriteiten bevestigde brand; industriële warmtebronnen worden niet uitgesloten."
+  );
+
+  return zinnen.join(" ");
 }

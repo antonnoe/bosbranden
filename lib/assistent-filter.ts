@@ -5,6 +5,11 @@
 
 import { NOODSIGNAALWOORDEN } from "@/data/noodsignalen";
 
+// Cijfer-/datumcontrole op de uitvoer (fix 4). In een apart, alias-vrij bestand
+// zodat de node-test hem direct kan laden; hier her-geëxporteerd als deel van de
+// filter-API.
+export { bevatOnbekendeGetallen } from "./assistent-getallen";
+
 // Diakritische tekens weg + kleine letters + leestekens tot spaties, zodat
 // "flammes"/"flamme" en "évacuer"/"evacuer" gelijk matchen.
 export function normaliseer(tekst: string): string {
