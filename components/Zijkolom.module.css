@@ -5,7 +5,7 @@
 
 .leeg {
   margin: 0;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--op-merk-zacht);
   font-size: 0.86rem;
   line-height: 1.8;
 }
@@ -80,7 +80,7 @@
   content: "–";
   position: absolute;
   left: 0;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
 }
 
 /* ---- Bron- en praktische links: wit, hoog contrast tegen bordeaux ---- */
@@ -123,7 +123,7 @@
 
 .standBron::before {
   content: "· ";
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
   font-weight: 400;
 }
 
@@ -141,7 +141,7 @@
 
 .standPraktisch::before {
   content: "→ ";
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
   font-weight: 400;
 }
 
@@ -183,13 +183,13 @@
   margin: 0 0 4px;
   font-size: 0.79rem;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--op-merk-zacht);
 }
 
 .verantwoordingSlot {
   margin: 2px 0 0;
   font-size: 0.78rem;
   line-height: 1.8;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
   font-style: italic;
 }

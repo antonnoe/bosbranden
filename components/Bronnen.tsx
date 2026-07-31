@@ -98,7 +98,7 @@ export function ZijkolomBronnen() {
                 >
                   {laag}
                 </span>
-                <span style={{ display: "block", fontSize: "0.85rem", color: "rgba(255, 255, 255, 0.78)" }}>
+                <span style={{ display: "block", fontSize: "0.85rem", color: "var(--op-merk-zacht)" }}>
                   {bron}
                 </span>
               </span>

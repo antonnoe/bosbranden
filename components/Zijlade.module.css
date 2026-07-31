@@ -327,12 +327,12 @@
   border: 0;
   border-bottom: 3px solid transparent;
   background: transparent;
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
   cursor: pointer;
 }
 
 .uitlegTab:hover {
-  color: #ffffff;
+  color: var(--op-merk);
 }
 
 .uitlegTab:focus-visible {
@@ -341,7 +341,7 @@
 }
 
 .uitlegTabActief {
-  color: #ffffff;
+  color: var(--op-merk);
   font-weight: 600;
   border-bottom-color: #ffffff;
 }

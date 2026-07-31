@@ -6,6 +6,12 @@
   --merk: #800000;
   --merk-vlak: #f4ecea;
 
+  /* Tekst óp een bordeaux vlak. Solide waarden — nooit opacity op letters
+     (opacity op letters was de leesbaarheidsbug). Primaire tekst is wit,
+     secundaire tekst een gedempte lichtroze tint. */
+  --op-merk: #ffffff;
+  --op-merk-zacht: #e3d2d2;
+
   /* merk-alias + alpha-varianten. Uitsluitend voor RANDEN en VLAKKEN —
      nooit voor letters (opacity op letters was de leesbaarheidsbug). */
   --primair: #800000;
@@ -39,6 +45,11 @@
 
   /* Donkere merk-tint voor een link-hover (solide, geen opacity op letters). */
   --merk-diep: #5c0000;
+
+  /* Hoogte van de onderbalk van if-mobiel. De host (if-mobiel) overschrijft
+     deze op zijn eigen schil (.if-dossier-wrapper); standalone geldt deze
+     expliciete fallback, zodat de onderrand-reservering niet verspringt. */
+  --if-onderbalk: 56px;
 }
 
 * {

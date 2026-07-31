@@ -17,7 +17,7 @@
 
 .wrap[data-thema="donker"] .status,
 .waarschuwing {
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--op-merk-zacht);
 }
 
 /* ---- Groep ---- */
@@ -141,7 +141,7 @@
 
 .wrap[data-thema="donker"] .meta,
 .wrap[data-thema="donker"] .bronMeta {
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--op-merk-zacht);
 }
 
 .wrap[data-thema="donker"] .item + .item {
@@ -153,7 +153,7 @@
 }
 
 .wrap[data-thema="donker"] .waarschuwing {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--op-merk-zacht);
 }
 
 .wrap[data-thema="donker"] .ok {
@@ -275,7 +275,7 @@
 }
 
 .wrap[data-thema="donker"] .vertaalMislukt {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
 }
 
 .wrap[data-thema="licht"] .vertaalMislukt {
@@ -291,7 +291,7 @@
 }
 
 .wrap[data-thema="donker"] .vertaalNoot {
-  color: rgba(255, 255, 255, 0.78);
+  color: var(--op-merk-zacht);
 }
 
 .wrap[data-thema="licht"] .vertaalNoot {
