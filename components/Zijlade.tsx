@@ -38,6 +38,10 @@ export default function Zijlade() {
   const pathname = usePathname();
   const [paneel, setPaneel] = useState<PaneelSoort | null>(null);
   const [uitlegTab, setUitlegTab] = useState<UitlegTab>("bronnen");
+  // Welk onderdeel het laatst open stond (nieuws of uitleg). We onthouden alleen
+  // dít, niet DÁT de lade open was: bij het laden blijft de lade dicht (1.3), en
+  // pas bij het openen komt de bezoeker op zijn laatst gebruikte onderdeel.
+  const [laatstePaneel, setLaatstePaneel] = useState<PaneelSoort>("uitleg");
   const [query, setQuery] = useState("");
   const paneelRef = useRef<HTMLDivElement>(null);
   const schilRef = useRef<HTMLDivElement>(null);
@@ -46,39 +50,46 @@ export default function Zijlade() {
   // op de leesknop live blijft, óók als de lade dicht is.
   const nieuws = useNieuws();
 
-  // Bewaarde open-stand teruglezen (sessionStorage, geen cookies). Oude
-  // paneelwaarden (duiding/verantwoording/infographics) worden naar "uitleg"
-  // gemigreerd; de bijbehorende interne tab wordt hersteld, zodat bewaarde
-  // standen van vóór de samenvoeging niet breken.
+  // Bewaarde stand teruglezen (sessionStorage, geen cookies): alleen wélk
+  // onderdeel het laatst gebruikt is, NIET dat de lade open stond. De lade blijft
+  // dus dicht bij het laden (1.3). Oude paneelwaarden (duiding/verantwoording/
+  // infographics) worden naar "uitleg" gemigreerd; de bijbehorende interne tab
+  // wordt hersteld, zodat bewaarde standen van vóór de samenvoeging niet breken.
   useEffect(() => {
     try {
       const opgeslagen = sessionStorage.getItem(SLEUTEL);
       const soort = migreerPaneelSleutel(opgeslagen);
       if (soort) {
-        setPaneel(soort);
+        setLaatstePaneel(soort);
         if (soort === "uitleg") setUitlegTab(beginUitlegTab(opgeslagen));
       }
     } catch {
-      /* sessionStorage kan geblokkeerd zijn; dan blijft de lade dicht */
+      /* sessionStorage kan geblokkeerd zijn; dan geldt de standaard */
     }
   }, []);
+
+  // Zodra een onderdeel opengaat, onthouden we dat als laatst gebruikte onderdeel.
+  useEffect(() => {
+    if (paneel) setLaatstePaneel(paneel);
+  }, [paneel]);
 
   // Behoud embed/postcode in de navigatielinks; herlezen bij een routewissel.
   useEffect(() => {
     setQuery(typeof window !== "undefined" ? window.location.search : "");
   }, [pathname]);
 
-  // Stand bewaren. Voor het uitleg-paneel bewaren we de actieve interne tab als
-  // sleutelwaarde; migreerPaneelSleutel mapt die bij terugkeer weer op "uitleg"
-  // en beginUitlegTab herstelt de tab. Een dichte lade bewaart "dicht".
+  // Laatst gebruikte onderdeel bewaren (onafhankelijk van open/dicht). Voor het
+  // uitleg-paneel bewaren we de actieve interne tab als sleutelwaarde;
+  // migreerPaneelSleutel mapt die bij terugkeer weer op "uitleg" en beginUitlegTab
+  // herstelt de tab.
   useEffect(() => {
     try {
-      const teBewaren = paneel === "uitleg" ? uitlegTab : paneel ?? "dicht";
+      const teBewaren = laatstePaneel === "uitleg" ? uitlegTab : laatstePaneel;
       sessionStorage.setItem(SLEUTEL, teBewaren);
     } catch {
       /* stil */
     }
-  }, [paneel, uitlegTab]);
+  }, [laatstePaneel, uitlegTab]);
 
   // Escape-sluiten en focus naar het paneel bij openen. Klikken náást het paneel
   // gaat via de overlay (onder), niet via een document-listener: zo sluit één
@@ -153,7 +164,7 @@ export default function Zijlade() {
           aria-label="Lees erbij: nieuws en verantwoording"
           aria-expanded={open}
           aria-controls="app-zijkolom"
-          onClick={() => setPaneel((h) => (h ? null : "uitleg"))}
+          onClick={() => setPaneel((h) => (h ? null : laatstePaneel))}
         >
           <svg
             viewBox="0 0 24 24"
