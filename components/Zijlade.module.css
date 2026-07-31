@@ -156,12 +156,6 @@
   line-height: 1.5;
 }
 
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
 /* ---- Tabblad (gemeenschappelijk maatwerk) ----
    Alle vijf tabs delen afmetingen, radius (6px 0 0 6px) en letterstijl. Het
    verschil tussen de twee groepen zit in de VORM, niet in de kleur:
