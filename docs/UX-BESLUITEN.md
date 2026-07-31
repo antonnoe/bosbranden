@@ -59,15 +59,15 @@ PR waarin het werk zit.
 
 | # | Bevinding | Status | PR |
 |---|---|---|---|
-| 2.1 | Eén postcodecomponent voor de pagina's; antwoord reist mee | open | PR 4 |
-| 2.2 | `/rook` en `/` renderen direct; data schuift in | open | PR 4 |
-| 2.3 | Kerncijfer "wat geldt bij mij" (75 km vanaf departementmiddelpunt) | open | PR 4 |
+| 2.1 | Eén postcodecomponent voor de pagina's; antwoord reist mee | klaar | PR 4 |
+| 2.2 | `/rook` en `/` renderen direct; data schuift in | klaar | PR 4 |
+| 2.3 | Kerncijfer "wat geldt bij mij" (75 km vanaf departementmiddelpunt) | klaar | PR 4 |
 
 ### P3 — hygiëne
 
 | # | Bevinding | Status | PR |
 |---|---|---|---|
-| 3.1 | Satellietbeeld eruit (optie B) | in behandeling | PR 3 |
+| 3.1 | Satellietbeeld eruit (optie B) | klaar | PR 3 |
 | 3.2 | De twee kaarten gelijktrekken (zoomknoppen, sluiten, legenda, uitlegregel) | open | PR 5 |
 | 3.3 | Eén schakelaar per bedoeling | open | PR 5 |
 | 3.4 | Voorbehoud achter het antwoord (behalve noodregel en warmte-detectie) | open | PR 5 |

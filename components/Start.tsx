@@ -9,6 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { MODULES, GROEP_KOPPEN, ROOK_ACTIE, type Tijdgroep } from "@/lib/modules";
 import { departementVoorPostcode, DEP_BY_CODE } from "@/lib/departements";
+import { departementenBinnenStraal } from "@/lib/departement-middelpunt";
 import { NIVEAUS, GEEN_DATA_KLEUR } from "@/lib/niveaus";
 import type { ModuleStatus } from "@/app/api/status/route";
 import type { WaarnemingenAntwoord } from "@/lib/waarnemingen";
@@ -149,6 +150,20 @@ export default function Start({ embed }: { embed: boolean }) {
       ? postcodeResultaat.departementen.map((d) => d.naam).join(" / ")
       : null;
 
+  // "In en rond uw departement": de departementen waarvan het middelpunt binnen
+  // 75 km van dat van de gekozen departement(en) ligt. Zo telt ook een brand net
+  // over de departementsgrens mee — voor een grensbewoner is dat wat er "bij mij"
+  // geldt. Zonder postcode blijft het nationaal.
+  const OMGEVING_KM = 75;
+  const omgevingsCodes = useMemo(() => {
+    if (!gekozenCodes) return null;
+    const set = new Set<string>();
+    for (const code of gekozenCodes) {
+      for (const buur of departementenBinnenStraal(code, OMGEVING_KM)) set.add(buur);
+    }
+    return [...set];
+  }, [gekozenCodes]);
+
   const statusVoor = (id: string): ModuleStatus | null =>
     statussen?.find((s) => s.id === id) ?? null;
 
@@ -177,8 +192,8 @@ export default function Start({ embed }: { embed: boolean }) {
   const dangerNiveaus = danger?.niveaus ?? null;
   const dangerBeschikbaar = !!dangerNiveaus && Object.keys(dangerNiveaus).length > 0;
   const brandgevaar = useMemo(
-    () => hoogsteNiveaus(dangerNiveaus, gekozenCodes),
-    [dangerNiveaus, gekozenCodes]
+    () => hoogsteNiveaus(dangerNiveaus, omgevingsCodes),
+    [dangerNiveaus, omgevingsCodes]
   );
   // Nationaal zwaarste voor de optionele kopregel onder de h1.
   const nationaalZwaarste = useMemo(() => zwaarsteDepMorgen(dangerNiveaus), [dangerNiveaus]);
@@ -307,7 +322,7 @@ export default function Start({ embed }: { embed: boolean }) {
                 </div>
                 <p className={styles.blokUitleg}>
                   Dit gaat over de kans dat er iets ontstaat — er brandt nu niets.
-                  {gekozenNaam ? ` Geldt voor uw departement ${gekozenNaam}.` : ""}
+                  {gekozenNaam ? ` Geldt in en rond uw departement ${gekozenNaam}.` : ""}
                 </p>
               </>
             ) : (
