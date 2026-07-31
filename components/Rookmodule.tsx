@@ -447,15 +447,19 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         </header>
       )}
 
+      {/* De schil (postcodecheck + kaart + bediening) verschijnt meteen; de
+          berekende windbanen schuiven binnen zodra de data er is. Tijdens het
+          laden staat er een slanke voortgangsregel boven de schil, net als op de
+          startkaart. */}
       {laden && <Voortgang fasen={LAAD_FASEN} />}
 
-      {!laden && fout && (
+      {fout && (
         <div className="sectie">
           <p className="fout-melding">{fout}</p>
         </div>
       )}
 
-      {!laden && !fout && (
+      {!fout && (
         <>
           <section className="sectie" aria-labelledby="postcode-titel">
             <h2 id="postcode-titel">Komt die rook naar mij toe?</h2>
