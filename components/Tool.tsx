@@ -217,14 +217,6 @@ export default function Tool({ embed }: { embed: boolean }) {
     }
   }, [zoekresultaat, gezocht]);
 
-  const startHref = (() => {
-    const params = new URLSearchParams();
-    if (embed) params.set("embed", "1");
-    if (postcode.trim()) params.set("postcode", postcode.trim());
-    const qs = params.toString();
-    return qs ? `/start?${qs}` : "/start";
-  })();
-
   const niveaus = data?.niveaus ?? {};
   const waarnemingen = waarnemingenData?.waarnemingen ?? [];
 
@@ -238,9 +230,6 @@ export default function Tool({ embed }: { embed: boolean }) {
           </a>
         </div>
       )}
-      <a className="terug-overzicht" href={startHref}>
-        ← Terug naar overzicht
-      </a>
       {/* In embed verdwijnt de kopregel (de NING-pagina heeft een eigen titel),
           maar de introtekst eronder blijft staan. Standalone verandert niet. */}
       <header className="site-kop">

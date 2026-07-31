@@ -510,14 +510,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kaart, gezochtePostcode]);
 
-  const startHref = (() => {
-    const params = new URLSearchParams();
-    if (embed) params.set("embed", "1");
-    if (postcode.trim()) params.set("postcode", postcode.trim());
-    const qs = params.toString();
-    return qs ? `/start?${qs}` : "/start";
-  })();
-
   const toonDekking = toonSatelliet && !!satelliet;
 
   return (
@@ -530,9 +522,6 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
           </a>
         </div>
       )}
-      <a className="terug-overzicht" href={startHref}>
-        ← Terug naar overzicht
-      </a>
       {!embed && (
         <header className="site-kop">
           <h1>Verwachte rookverplaatsing</h1>

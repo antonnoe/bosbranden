@@ -174,25 +174,6 @@ a:hover {
   }
 }
 
-/* Discrete terugverwijzing naar /start; klein en rustig, geen hoofdknop. */
-.terug-overzicht {
-  display: inline-block;
-  margin-bottom: 12px;
-  font-size: 0.85rem;
-  color: var(--tekst-zacht);
-  text-decoration: none;
-}
-
-.terug-overzicht:hover {
-  color: var(--primair);
-  text-decoration: underline;
-}
-
-.embed .terug-overzicht {
-  margin-bottom: 8px;
-  font-size: 0.8rem;
-}
-
 /* Embed-modus: één gecentreerde kolom, compact genoeg voor een iframe van
    750×1100px. Compliance-elementen (bron, updatedatum, disclaimer) blijven
    volledig zichtbaar. */
