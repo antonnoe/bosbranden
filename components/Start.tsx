@@ -9,11 +9,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { MODULES, GROEP_KOPPEN, ROOK_ACTIE, type Tijdgroep } from "@/lib/modules";
 import { departementVoorPostcode, DEP_BY_CODE } from "@/lib/departements";
+import { departementenBinnenStraal } from "@/lib/departement-middelpunt";
 import { NIVEAUS, GEEN_DATA_KLEUR } from "@/lib/niveaus";
 import type { ModuleStatus } from "@/app/api/status/route";
 import type { WaarnemingenAntwoord } from "@/lib/waarnemingen";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import Voortgang from "@/components/Voortgang";
+import Postcode from "@/components/Postcode";
 import styles from "@/components/Start.module.css";
 
 const LAAD_FASEN = [
@@ -148,6 +150,20 @@ export default function Start({ embed }: { embed: boolean }) {
       ? postcodeResultaat.departementen.map((d) => d.naam).join(" / ")
       : null;
 
+  // "In en rond uw departement": de departementen waarvan het middelpunt binnen
+  // 75 km van dat van de gekozen departement(en) ligt. Zo telt ook een brand net
+  // over de departementsgrens mee — voor een grensbewoner is dat wat er "bij mij"
+  // geldt. Zonder postcode blijft het nationaal.
+  const OMGEVING_KM = 75;
+  const omgevingsCodes = useMemo(() => {
+    if (!gekozenCodes) return null;
+    const set = new Set<string>();
+    for (const code of gekozenCodes) {
+      for (const buur of departementenBinnenStraal(code, OMGEVING_KM)) set.add(buur);
+    }
+    return [...set];
+  }, [gekozenCodes]);
+
   const statusVoor = (id: string): ModuleStatus | null =>
     statussen?.find((s) => s.id === id) ?? null;
 
@@ -176,8 +192,8 @@ export default function Start({ embed }: { embed: boolean }) {
   const dangerNiveaus = danger?.niveaus ?? null;
   const dangerBeschikbaar = !!dangerNiveaus && Object.keys(dangerNiveaus).length > 0;
   const brandgevaar = useMemo(
-    () => hoogsteNiveaus(dangerNiveaus, gekozenCodes),
-    [dangerNiveaus, gekozenCodes]
+    () => hoogsteNiveaus(dangerNiveaus, omgevingsCodes),
+    [dangerNiveaus, omgevingsCodes]
   );
   // Nationaal zwaarste voor de optionele kopregel onder de h1.
   const nationaalZwaarste = useMemo(() => zwaarsteDepMorgen(dangerNiveaus), [dangerNiveaus]);
@@ -209,21 +225,12 @@ export default function Start({ embed }: { embed: boolean }) {
         <h2 id="start-postcode-titel" style={{ marginBottom: 6 }}>
           Uw postcode (optioneel)
         </h2>
-        <form className="postcode-vorm" onSubmit={(e) => e.preventDefault()}>
-          <label htmlFor="start-postcode" style={{ position: "absolute", left: "-9999px" }}>
-            Franse postcode
-          </label>
-          <input
-            id="start-postcode"
-            inputMode="numeric"
-            pattern="[0-9]{5}"
-            autoComplete="postal-code"
-            placeholder="bijv. 33000"
-            maxLength={5}
-            value={postcode}
-            onChange={(e) => setPostcode(e.target.value)}
-          />
-        </form>
+        <Postcode
+          waarde={postcode}
+          onWaarde={setPostcode}
+          modus="direct"
+          placeholder="bijv. 33000"
+        />
         {gevondenDep && (
           <p className={styles.gevondenDep}>
             Departement: <strong>{gevondenDep}</strong> — dit gaat mee als u een kaart opent.
@@ -315,7 +322,7 @@ export default function Start({ embed }: { embed: boolean }) {
                 </div>
                 <p className={styles.blokUitleg}>
                   Dit gaat over de kans dat er iets ontstaat — er brandt nu niets.
-                  {gekozenNaam ? ` Geldt voor uw departement ${gekozenNaam}.` : ""}
+                  {gekozenNaam ? ` Geldt in en rond uw departement ${gekozenNaam}.` : ""}
                 </p>
               </>
             ) : (

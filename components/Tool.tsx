@@ -12,6 +12,7 @@ import NiveauBlok from "@/components/NiveauBlok";
 import InfoKnop from "@/components/InfoKnop";
 import { UITLEG } from "@/data/uitleg";
 import FranceKaart from "@/components/FranceKaart";
+import Postcode from "@/components/Postcode";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import { normaliseerLaag, LAAG_LABELS, LAAG_UITLEG, type KaartLaag } from "@/lib/kaartlaag";
 import styles from "@/components/Waarnemingen.module.css";
@@ -200,21 +201,12 @@ export default function Tool({ embed }: { embed: boolean }) {
     [gezocht]
   );
 
-  // C1 + C2: bij een geslaagde postcode-zoek schrijven we de postcode in de URL
-  // (replaceState — geen nieuwe geschiedenis-entry) zodat hij navigatie én
-  // verversen overleeft en de link deelbaar is, en zoomen we de kaart naar het
-  // bijbehorende departement. Loopt ook bij het laden vanuit ?postcode=.
+  // C2: bij een geslaagde postcode-zoek zoomt de kaart naar het bijbehorende
+  // departement. Loopt ook bij het laden vanuit ?postcode=. De postcode zelf
+  // wordt door het Postcode-veld in de URL geschreven (replaceState).
   useEffect(() => {
     if (zoekresultaat?.type !== "ok" || !gezocht) return;
     setZoomDeps(zoekresultaat.departementen.map((d) => d.code));
-    try {
-      const params = new URLSearchParams(window.location.search);
-      params.set("postcode", gezocht);
-      const qs = params.toString();
-      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-    } catch {
-      /* history kan in een sandbox geblokkeerd zijn; dan blijft alleen de zoom */
-    }
   }, [zoekresultaat, gezocht]);
 
   const niveaus = data?.niveaus ?? {};
@@ -249,40 +241,19 @@ export default function Tool({ embed }: { embed: boolean }) {
           Vul een Franse postcode in (5 cijfers) en bekijk het gevaarniveau voor dat
           departement.
         </p>
-        <form
-          className="postcode-vorm"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            // Valideer vóór het opzoeken: precies vijf cijfers, geen stille afwijzing.
-            const cijfers = postcode.replace(/\D/g, "");
-            if (cijfers.length !== 5) {
-              setInvoerMelding("Een Franse postcode heeft vijf cijfers.");
-              setGezocht(null);
-              return;
-            }
+        <Postcode
+          waarde={postcode}
+          onWaarde={setPostcode}
+          knopLabel="Toon gevaarniveau"
+          onZoek={(cijfers) => {
             setInvoerMelding(null);
             setGezocht(cijfers);
           }}
-        >
-          <label htmlFor="postcode" style={{ position: "absolute", left: "-9999px" }}>
-            Franse postcode
-          </label>
-          <input
-            id="postcode"
-            name="postcode"
-            inputMode="numeric"
-            pattern="[0-9]{5}"
-            autoComplete="postal-code"
-            placeholder="bijv. 66000"
-            maxLength={5}
-            value={postcode}
-            onChange={(e) => setPostcode(e.target.value)}
-          />
-          <button className="knop" type="submit">
-            Toon gevaarniveau
-          </button>
-        </form>
+          onFout={(melding) => {
+            setInvoerMelding(melding);
+            setGezocht(null);
+          }}
+        />
 
         {invoerMelding && (
           <p className="fout-melding" role="alert">

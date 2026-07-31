@@ -16,6 +16,7 @@ import { geoBoundsVoorCodes } from "@/lib/departement-bbox";
 import Voortgang from "@/components/Voortgang";
 import EmbedHoogte from "@/components/EmbedHoogte";
 import { LegUit, type LegUitMeting } from "@/components/LegUit";
+import Postcode from "@/components/Postcode";
 import styles from "@/components/Rookmodule.module.css";
 
 const DEG = Math.PI / 180;
@@ -339,37 +340,15 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
     ]);
   }
 
-  // C1: schrijf de postcode in de URL (replaceState, geen geschiedenis-entry),
-  // met behoud van embed. Zo overleeft hij navigatie én verversen.
-  function schrijfPostcodeInUrl(pc: string) {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      params.set("postcode", pc);
-      const qs = params.toString();
-      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-    } catch {
-      /* history kan geblokkeerd zijn; dan blijft alleen de zoom */
-    }
-  }
-
-  async function zoekPostcode(e: React.FormEvent) {
-    e.preventDefault();
-    // Valideer vóór het ophalen: precies vijf cijfers, geen stille afwijzing.
-    const cijfers = postcode.replace(/\D/g, "");
-    if (cijfers.length !== 5) {
-      setPostcodeAntwoord({
-        status: "fout",
-        tekst: "Een Franse postcode heeft vijf cijfers.",
-      });
-      return;
-    }
+  // Het gedeelde Postcode-veld valideert en schrijft de postcode in de URL; hier
+  // resteert het zoomen naar het departement en het ophalen van het antwoord.
+  async function zoekPostcode(cijfers: string) {
     setGezochtePostcode(cijfers);
-    // C1/C2: URL bijwerken en naar het departement zoomen zodra de invoer geldig
-    // is — zichtbaar dat de klik iets deed, ook als er geen pluim in de buurt is.
-    const res = departementVoorPostcode(cijfers);
-    if (res.type === "ok") {
-      schrijfPostcodeInUrl(cijfers);
-      zoomNaarDepartement(res.departementen.map((d) => d.code));
+    // C2: naar het departement zoomen zodra de invoer geldig is — zichtbaar dat
+    // de zoekopdracht iets deed, ook als er geen pluim in de buurt is.
+    const dep = departementVoorPostcode(cijfers);
+    if (dep.type === "ok") {
+      zoomNaarDepartement(dep.departementen.map((d) => d.code));
     }
     setPostcodeLaden(true);
     setPostcodeAntwoord(null);
@@ -447,15 +426,19 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
         </header>
       )}
 
+      {/* De schil (postcodecheck + kaart + bediening) verschijnt meteen; de
+          berekende windbanen schuiven binnen zodra de data er is. Tijdens het
+          laden staat er een slanke voortgangsregel boven de schil, net als op de
+          startkaart. */}
       {laden && <Voortgang fasen={LAAD_FASEN} />}
 
-      {!laden && fout && (
+      {fout && (
         <div className="sectie">
           <p className="fout-melding">{fout}</p>
         </div>
       )}
 
-      {!laden && !fout && (
+      {!fout && (
         <>
           <section className="sectie" aria-labelledby="postcode-titel">
             <h2 id="postcode-titel">Komt die rook naar mij toe?</h2>
@@ -463,24 +446,16 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
               Vul een Franse postcode in (5 cijfers). Dan berekenen we of een van de berekende
               windbanen in de komende 24 uur boven uw departement komt.
             </p>
-            <form className="postcode-vorm" noValidate onSubmit={zoekPostcode}>
-              <label htmlFor="rook-postcode" style={{ position: "absolute", left: "-9999px" }}>
-                Franse postcode
-              </label>
-              <input
-                id="rook-postcode"
-                inputMode="numeric"
-                pattern="[0-9]{5}"
-                autoComplete="postal-code"
-                placeholder="bijv. 11000"
-                maxLength={5}
-                value={postcode}
-                onChange={(e) => setPostcode(e.target.value)}
-              />
-              <button className="knop" type="submit" disabled={postcodeLaden}>
-                {postcodeLaden ? "Berekenen…" : "Bekijk mijn departement"}
-              </button>
-            </form>
+            <Postcode
+              waarde={postcode}
+              onWaarde={setPostcode}
+              knopLabel="Bekijk mijn departement"
+              placeholder="bijv. 11000"
+              bezig={postcodeLaden}
+              bezigLabel="Berekenen…"
+              onZoek={zoekPostcode}
+              onFout={(melding) => setPostcodeAntwoord({ status: "fout", tekst: melding })}
+            />
             {postcodeAntwoord && (
               <p
                 className={`${styles.postcodeAntwoord} ${
