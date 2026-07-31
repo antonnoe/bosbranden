@@ -1,13 +1,12 @@
 "use client";
 
 // Uitschuifbare lade + navigatie — één instantie in de gedeelde schil
-// (app-layout), op ELKE route. Eén navigatiepatroon op alle breedtes: een
-// segmented control (Start · Kaart) plus één leesmateriaal-knop die de lade
-// opent. Rookpaden is geen navigatiedoel; /rook blijft als URL bereikbaar (via
-// het hittebronnenblok). Achter de leesknop komen Nieuws en Verantwoording
-// samen in één lade, met interne tabs Bronnen · Duiding · Infographics. De schil
-// beslaat alleen het paneel (geen viewport-vullende laag); pointer-events staat
-// uit op de schil en aan op het paneel.
+// (app-layout), op ELKE route. Eén navigatiepatroon op alle breedtes: links een
+// segmented control met DRIE doelen (Start · Kaart · Rookpaden), rechts twee
+// knoppen die de lade openen (Nieuws met teller, Uitleg & bronnen). Achter
+// "Uitleg & bronnen" komen Bronnen, Duiding en Infographics samen in één lade met
+// interne tabs. De schil beslaat alleen het paneel (geen viewport-vullende laag);
+// pointer-events staat uit op de schil en aan op het paneel.
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -27,27 +26,61 @@ import styles from "@/components/Zijlade.module.css";
 
 const SLEUTEL = "bosbranden-zijkolom";
 
-// Interne tabs binnen de Verantwoording-lade, in vaste volgorde (Bronnen eerst).
+// Interne tabs binnen de "Uitleg & bronnen"-lade, in vaste volgorde (Bronnen eerst).
 const UITLEG_TABS: { id: UitlegTab; label: string }[] = [
   { id: "bronnen", label: "Bronnen" },
   { id: "duiding", label: "Duiding" },
   { id: "infographics", label: "Infographics" },
 ];
 
+const NIEUWS_ICOON = (
+  <svg
+    viewBox="0 0 24 24"
+    width="22"
+    height="22"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 5h13v14H5a1 1 0 0 1-1-1z" />
+    <path d="M17 8h3v9a2 2 0 0 1-2 2" />
+    <path d="M7 8h7M7 12h7M7 16h4" />
+  </svg>
+);
+
+const UITLEG_ICOON = (
+  <svg
+    viewBox="0 0 24 24"
+    width="22"
+    height="22"
+    aria-hidden="true"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
+    <path d="M9 8h6M9 12h6M9 16h4" />
+  </svg>
+);
+
 export default function Zijlade() {
   const pathname = usePathname();
   const [paneel, setPaneel] = useState<PaneelSoort | null>(null);
   const [uitlegTab, setUitlegTab] = useState<UitlegTab>("bronnen");
   // Welk onderdeel het laatst open stond (nieuws of uitleg). We onthouden alleen
-  // dít, niet DÁT de lade open was: bij het laden blijft de lade dicht (1.3), en
-  // pas bij het openen komt de bezoeker op zijn laatst gebruikte onderdeel.
+  // dít, niet DÁT de lade open was: bij het laden blijft de lade dicht (1.3).
   const [laatstePaneel, setLaatstePaneel] = useState<PaneelSoort>("uitleg");
   const [query, setQuery] = useState("");
   const paneelRef = useRef<HTMLDivElement>(null);
   const schilRef = useRef<HTMLDivElement>(null);
 
   // Nieuws wordt op schilniveau opgehaald en zichzelf ververst, zodat de teller
-  // op de leesknop live blijft, óók als de lade dicht is.
+  // op de Nieuws-knop live blijft, óók als de lade dicht is.
   const nieuws = useNieuws();
 
   // Bewaarde stand teruglezen (sessionStorage, geen cookies): alleen wélk
@@ -79,9 +112,7 @@ export default function Zijlade() {
   }, [pathname]);
 
   // Laatst gebruikte onderdeel bewaren (onafhankelijk van open/dicht). Voor het
-  // uitleg-paneel bewaren we de actieve interne tab als sleutelwaarde;
-  // migreerPaneelSleutel mapt die bij terugkeer weer op "uitleg" en beginUitlegTab
-  // herstelt de tab.
+  // uitleg-paneel bewaren we de actieve interne tab als sleutelwaarde.
   useEffect(() => {
     try {
       const teBewaren = laatstePaneel === "uitleg" ? uitlegTab : laatstePaneel;
@@ -135,7 +166,8 @@ export default function Zijlade() {
   const open = paneel !== null;
 
   // Navigatieknop (segmented control): interne route; op de eigen route een
-  // niet-klikbare markering, anders een Link die een open lade sluit.
+  // niet-klikbare markering met aria-current, anders een Link die een open lade
+  // sluit.
   function navKnop(pad: string, label: string) {
     return pathname === pad ? (
       <span className={`${styles.mobielNavKnop} ${styles.mobielNavActief}`} aria-current="page">
@@ -148,47 +180,60 @@ export default function Zijlade() {
     );
   }
 
+  // Lade-knop (Nieuws / Uitleg & bronnen): opent de lade op dat onderdeel, of sluit
+  // als het al open is. Boven 768px met tekstlabel, eronder als icoon met badge;
+  // de aria-label houdt beide leesbaar (de zichtbare tekst is aria-hidden zodat er
+  // niets dubbel wordt voorgelezen).
+  function ladeKnop(
+    soort: PaneelSoort,
+    label: string,
+    icoon: React.ReactNode,
+    teller?: React.ReactNode
+  ) {
+    const actief = paneel === soort;
+    return (
+      <button
+        type="button"
+        className={`${styles.ladeKnop} ${actief ? styles.ladeKnopActief : ""}`}
+        aria-expanded={actief}
+        aria-controls="app-zijkolom"
+        aria-label={label}
+        title={label}
+        onClick={() => setPaneel((h) => (h === soort ? null : soort))}
+      >
+        <span className={styles.ladeIcoon} aria-hidden="true">
+          {icoon}
+        </span>
+        <span className={styles.ladeLabel} aria-hidden="true">
+          {label}
+        </span>
+        {teller}
+      </button>
+    );
+  }
+
   return (
     <>
-      {/* Navigatierij bovenaan op ALLE breedtes: de segmented control (Start /
-          Kaart) links, de leesmateriaal-knop rechts. Sticky bovenaan het
-          contentgebied. */}
+      {/* Navigatierij bovenaan op ALLE breedtes: links de segmented control
+          (Start / Kaart / Rookpaden), rechts de twee lade-knoppen. Sticky bovenaan
+          het contentgebied. */}
       <div className={styles.navKop}>
         <div className={styles.mobielNav} role="group" aria-label="Navigatie">
           {navKnop("/start", "Start")}
           {navKnop("/", "Kaart")}
+          {navKnop("/rook", "Rookpaden")}
         </div>
-        <button
-          type="button"
-          className={styles.leesIcoon}
-          aria-label="Lees erbij: nieuws en verantwoording"
-          aria-expanded={open}
-          aria-controls="app-zijkolom"
-          onClick={() => setPaneel((h) => (h ? null : laatstePaneel))}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="22"
-            height="22"
-            aria-hidden="true"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
-            <path d="M9 8h6M9 12h6M9 16h4" />
-          </svg>
-          {/* Zichtbaar label boven 768px (CSS). aria-hidden zodat de aria-label
-              van de knop niet dubbel wordt voorgelezen. */}
-          <span className={styles.leesLabel} aria-hidden="true">
-            Uitleg &amp; bronnen
-          </span>
-          {nieuws.data && nieuws.aantal > 0 ? (
-            <span className={styles.leesBadge}>{nieuws.aantal}</span>
-          ) : null}
-        </button>
+        <div className={styles.ladeKnoppen} role="group" aria-label="Lees erbij">
+          {ladeKnop(
+            "nieuws",
+            "Nieuws",
+            NIEUWS_ICOON,
+            nieuws.data && nieuws.aantal > 0 ? (
+              <span className={styles.leesBadge}>{nieuws.aantal}</span>
+            ) : null
+          )}
+          {ladeKnop("uitleg", "Uitleg & bronnen", UITLEG_ICOON)}
+        </div>
       </div>
 
       <div className={styles.schil} ref={schilRef}>
@@ -210,7 +255,7 @@ export default function Zijlade() {
           ref={paneelRef}
           tabIndex={-1}
           role="region"
-          aria-label={paneel === "uitleg" ? "Verantwoording" : "Nieuws"}
+          aria-label={paneel === "uitleg" ? "Uitleg & bronnen" : "Nieuws"}
           aria-hidden={!open}
           onTouchStart={opVeegStart}
           onTouchEnd={opVeegEind}
@@ -243,8 +288,9 @@ export default function Zijlade() {
             </button>
           )}
           <div className={styles.paneelInhoud}>
-            {/* Schakel Nieuws / Verantwoording binnen de lade — op alle breedtes
-                de manier om tussen beide te wisselen. */}
+            {/* Schakel Nieuws / Uitleg & bronnen binnen de lade — op alle breedtes
+                de manier om te wisselen terwijl de lade open is (de kop-knoppen
+                zitten dan achter de lade). */}
             <div className={styles.mobielLadeSchakel} role="group" aria-label="Kies onderdeel">
               <button
                 type="button"
@@ -263,7 +309,7 @@ export default function Zijlade() {
                 aria-pressed={paneel === "uitleg"}
                 onClick={() => setPaneel("uitleg")}
               >
-                Verantwoording
+                Uitleg &amp; bronnen
               </button>
             </div>
             {paneel === "nieuws" && <ZijkolomNieuws haal={nieuws} />}
