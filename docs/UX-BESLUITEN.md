@@ -117,6 +117,17 @@ blok); het voorbehoud staat eronder als eigen regel in `--tekst-zacht`, kleiner
 zichtbaar (vast besluit, zie "Genomen besluiten"), maar wordt niet meer als deel
 van de meting gelezen. Gecontroleerd op 375/768/1440 en `?embed=1`.
 
+### Correctie: kopregel zei "nu", maar Météo-France geeft een verwachting
+
+De kopregel zei "Hoogste brandgevaar **nu**: niveau 3 in Aude", terwijl het
+Brandgevaar-blok eronder onder "STRAKS — VERWACHT" staat en hoog (3) voor
+**morgen** meldt. "nu" verwarde meting met verwachting. De kopregel neemt de
+dagaanduiding nu uit hetzelfde veld als de blokjes: "Hoogste brandgevaar
+**morgen**: niveau 3 in Aude (Météo-France)", en "overmorgen" wanneer het hoogste
+niveau op dag 2 (`j2`) valt. Bij een gelijk hoogste niveau op beide dagen wint de
+dichtstbijzijnde dag (morgen). Bij ontbrekende data (buiten het seizoen) is de
+bron leeg en beweert de kopregel niets — hij verschijnt dan niet.
+
 ## De "Leg uit"-bug en de vier fixes
 
 Vóór deze ronde bleek de AI-uitlegknop ("Leg uit") datums, betrouwbaarheids-
