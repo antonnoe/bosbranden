@@ -128,6 +128,19 @@ niveau op dag 2 (`j2`) valt. Bij een gelijk hoogste niveau op beide dagen wint d
 dichtstbijzijnde dag (morgen). Bij ontbrekende data (buiten het seizoen) is de
 bron leeg en beweert de kopregel niets — hij verschijnt dan niet.
 
+## Navigatie — de twee lade-knoppen onderscheidbaar op mobiel
+
+Onder 768px tonen de twee lade-knoppen rechts in de navigatie alleen een icoon
+(het tekstlabel is verborgen; boven 768px staat het label er wél). De twee iconen
+— een krant (Nieuws) en een document-met-lijnen (Uitleg & bronnen) — leken op dat
+formaat te veel op elkaar. Het Uitleg-icoon is nu een info-cirkel (ⓘ), een heel
+ander silhouet dan de krant, en de Nieuws-knop houdt zijn telbadge (het aantal
+recente berichten, hoekbadge onder 768px, inline pil erboven). De `aria-label`
+blijft in beide gevallen de volledige naam ("Nieuws" / "Uitleg & bronnen"), zodat
+schermlezers niets missen. Tekstlabels voor beide knoppen pasten niet op 375px
+naast de driedelige segmented control (Start · Kaart · Rookpaden), vandaar de
+icoon-met-badge-oplossing. Gecontroleerd op 375/768/1440 en `?embed=1`.
+
 ## De "Leg uit"-bug en de vier fixes
 
 Vóór deze ronde bleek de AI-uitlegknop ("Leg uit") datums, betrouwbaarheids-
