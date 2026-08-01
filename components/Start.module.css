@@ -140,6 +140,25 @@
   color: var(--tekst);
 }
 
+/* Dataregel Hittebronnen ("Meeste warmte gemeten in: …"): eigen onderwerp,
+   in de niveaukleur van het gemelde niveau (kleur komt inline mee). */
+.hittebronDataregel {
+  margin: 8px 0 0;
+  font-family: "Poppins", sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+/* Voorbehoud onder de dataregel: geen deel van de meting, dus zachter en op
+   de typografische ondergrens (0,85rem). Eigen regel, blijft direct zichtbaar. */
+.voorbehoud {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--tekst-zacht);
+}
+
 .blokStatus {
   margin: 8px 0 0;
   font-size: 0.9rem;

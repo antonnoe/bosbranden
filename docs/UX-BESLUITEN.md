@@ -108,6 +108,15 @@ was niets recht te trekken. (De interne hittebronnen-samenvatting in
 `/api/status` bevat nog "zwaarst getroffen", maar die tekst wordt nergens
 getoond.)
 
+In hetzelfde blok stonden de dataregel en het voorbehoud als één doorlopende
+zin ("Zwaarst: Var. Een detectie is een waarneming van warmte, geen bevestigde
+brand."). Die zijn nu twee elementen: "Meeste warmte gemeten in: Var" staat in
+de niveaukleur van het gemelde niveau (gelijk aan het linker-randaccent van het
+blok); het voorbehoud staat eronder als eigen regel in `--tekst-zacht`, kleiner
+(0,85rem, de typografische ondergrens uit P3.8). Het voorbehoud blijft direct
+zichtbaar (vast besluit, zie "Genomen besluiten"), maar wordt niet meer als deel
+van de meting gelezen. Gecontroleerd op 375/768/1440 en `?embed=1`.
+
 ## De "Leg uit"-bug en de vier fixes
 
 Vóór deze ronde bleek de AI-uitlegknop ("Leg uit") datums, betrouwbaarheids-

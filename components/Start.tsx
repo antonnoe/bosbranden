@@ -276,9 +276,20 @@ export default function Start({ embed }: { embed: boolean }) {
                 <p className={styles.kerncijfer}>
                   {aantalDetecties} {aantalDetecties === 1 ? "detectie" : "detecties"}
                 </p>
-                <p className={styles.blokUitleg}>
-                  {zwaarsteNaam ? `Meeste warmte gemeten in: ${zwaarsteNaam}. ` : ""}Een detectie is
-                  een waarneming van warmte, geen bevestigde brand.
+                {/* Dataregel in de niveaukleur van het gemelde niveau (gelijk
+                    aan het linker-randaccent van het blok). */}
+                {zwaarsteNaam && (
+                  <p
+                    className={styles.hittebronDataregel}
+                    style={{ color: NIVEAUS[hittebronnenErnst]?.kleur ?? GEEN_DATA_KLEUR }}
+                  >
+                    Meeste warmte gemeten in: {zwaarsteNaam}
+                  </p>
+                )}
+                {/* Voorbehoud als eigen regel, zachter en kleiner: blijft direct
+                    zichtbaar, maar wordt niet meer als deel van de meting gelezen. */}
+                <p className={styles.voorbehoud}>
+                  Een detectie is een waarneming van warmte, geen bevestigde brand.
                 </p>
               </>
             ) : (
