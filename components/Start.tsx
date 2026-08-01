@@ -214,10 +214,13 @@ export default function Start({ embed }: { embed: boolean }) {
         </header>
       )}
 
-      {/* Optionele kopregel bij een verhoogd nationaal gevaarniveau (ernst ≥ 3). */}
+      {/* Optionele kopregel bij een verhoogd nationaal gevaarniveau (ernst ≥ 3).
+          Noemt expliciet onderwerp (brandgevaar) én bron (Météo-France), zodat
+          hij niet te verwarren is met de gemeten hittebronnen verderop. */}
       {nationaalZwaarste && nationaalZwaarste.niveau >= 3 && (
         <p className={styles.zwaarsteRegel}>
-          Op dit moment het zwaarste: niveau {nationaalZwaarste.niveau} in {nationaalZwaarste.naam}.
+          Hoogste brandgevaar nu: niveau {nationaalZwaarste.niveau} in {nationaalZwaarste.naam}{" "}
+          (Météo-France).
         </p>
       )}
 
@@ -273,9 +276,20 @@ export default function Start({ embed }: { embed: boolean }) {
                 <p className={styles.kerncijfer}>
                   {aantalDetecties} {aantalDetecties === 1 ? "detectie" : "detecties"}
                 </p>
-                <p className={styles.blokUitleg}>
-                  {zwaarsteNaam ? `Zwaarst: ${zwaarsteNaam}. ` : ""}Een detectie is een waarneming
-                  van warmte, geen bevestigde brand.
+                {/* Dataregel in de niveaukleur van het gemelde niveau (gelijk
+                    aan het linker-randaccent van het blok). */}
+                {zwaarsteNaam && (
+                  <p
+                    className={styles.hittebronDataregel}
+                    style={{ color: NIVEAUS[hittebronnenErnst]?.kleur ?? GEEN_DATA_KLEUR }}
+                  >
+                    Meeste warmte gemeten in: {zwaarsteNaam}
+                  </p>
+                )}
+                {/* Voorbehoud als eigen regel, zachter en kleiner: blijft direct
+                    zichtbaar, maar wordt niet meer als deel van de meting gelezen. */}
+                <p className={styles.voorbehoud}>
+                  Een detectie is een waarneming van warmte, geen bevestigde brand.
                 </p>
               </>
             ) : (
