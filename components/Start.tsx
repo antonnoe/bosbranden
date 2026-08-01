@@ -195,8 +195,8 @@ export default function Start({ embed }: { embed: boolean }) {
     () => hoogsteNiveaus(dangerNiveaus, omgevingsCodes),
     [dangerNiveaus, omgevingsCodes]
   );
-  // Nationaal zwaarste voor de optionele kopregel onder de h1.
-  const nationaalZwaarste = useMemo(() => zwaarsteDepMorgen(dangerNiveaus), [dangerNiveaus]);
+  // Nationaal zwaarste verwachting (met dag) voor de optionele kopregel onder de h1.
+  const nationaalZwaarste = useMemo(() => zwaarsteDepVerwacht(dangerNiveaus), [dangerNiveaus]);
 
   // ---- FR-Alert ----
   const frAlertStatus = statusVoor("waarschuwingen");
@@ -215,12 +215,14 @@ export default function Start({ embed }: { embed: boolean }) {
       )}
 
       {/* Optionele kopregel bij een verhoogd nationaal gevaarniveau (ernst ≥ 3).
-          Noemt expliciet onderwerp (brandgevaar) én bron (Météo-France), zodat
-          hij niet te verwarren is met de gemeten hittebronnen verderop. */}
+          Noemt onderwerp (brandgevaar), dag (morgen/overmorgen — Météo-France geeft
+          een verwachting, geen meting) én bron, zodat hij niet te verwarren is met
+          de gemeten hittebronnen verderop. Bij ontbrekende data (buiten het seizoen)
+          is nationaalZwaarste null en beweert de regel niets. */}
       {nationaalZwaarste && nationaalZwaarste.niveau >= 3 && (
         <p className={styles.zwaarsteRegel}>
-          Hoogste brandgevaar nu: niveau {nationaalZwaarste.niveau} in {nationaalZwaarste.naam}{" "}
-          (Météo-France).
+          Hoogste brandgevaar {nationaalZwaarste.dag}: niveau {nationaalZwaarste.niveau} in{" "}
+          {nationaalZwaarste.naam} (Météo-France).
         </p>
       )}
 
@@ -492,20 +494,25 @@ function hoogsteNiveaus(
   return { j1: max((p) => p.j1), j2: max((p) => p.j2) };
 }
 
-// Het departement met het hoogste niveau voor morgen (j1), met naam.
-function zwaarsteDepMorgen(
+// Het departement met het hoogste verwachte niveau, met de dag waarop dat niveau
+// valt (morgen = j1, overmorgen = j2) — dezelfde velden als de Brandgevaar-blokjes.
+// Bij een gelijk hoogste niveau op beide dagen wint de dichtstbijzijnde dag
+// (morgen). null wanneer er geen enkel verhoogd niveau bekend is (bijv. buiten het
+// seizoen), zodat de kopregel dan niets beweert.
+function zwaarsteDepVerwacht(
   niveaus: Record<string, NiveauPaar> | null
-): { naam: string; niveau: number } | null {
+): { naam: string; niveau: number; dag: "morgen" | "overmorgen" } | null {
   if (!niveaus) return null;
-  let besteCode: string | null = null;
+  const entries = Object.entries(niveaus);
   let hoogste = 0;
-  for (const [code, paar] of Object.entries(niveaus)) {
-    const j1 = paar.j1 ?? 0;
-    if (j1 > hoogste) {
-      hoogste = j1;
-      besteCode = code;
-    }
+  for (const [, paar] of entries) {
+    hoogste = Math.max(hoogste, paar.j1 ?? 0, paar.j2 ?? 0);
   }
-  if (!besteCode || hoogste === 0) return null;
-  return { naam: DEP_BY_CODE[besteCode]?.naam ?? `departement ${besteCode}`, niveau: hoogste };
+  if (hoogste === 0) return null;
+  const naamVoor = (code: string) => DEP_BY_CODE[code]?.naam ?? `departement ${code}`;
+  // Valt het hoogste niveau al op morgen, noem dan morgen (de dichtstbijzijnde dag).
+  const opMorgen = entries.find(([, paar]) => (paar.j1 ?? 0) === hoogste);
+  if (opMorgen) return { naam: naamVoor(opMorgen[0]), niveau: hoogste, dag: "morgen" };
+  const opOvermorgen = entries.find(([, paar]) => (paar.j2 ?? 0) === hoogste);
+  return { naam: naamVoor(opOvermorgen![0]), niveau: hoogste, dag: "overmorgen" };
 }

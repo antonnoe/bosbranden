@@ -51,6 +51,8 @@ const NIEUWS_ICOON = (
   </svg>
 );
 
+// Info-cirkel (ⓘ) — bewust een heel andere silhouet dan het nieuws-icoon, zodat de
+// twee lade-knoppen op mobiel (icoon-only) niet meer op elkaar lijken.
 const UITLEG_ICOON = (
   <svg
     viewBox="0 0 24 24"
@@ -63,8 +65,9 @@ const UITLEG_ICOON = (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z" />
-    <path d="M9 8h6M9 12h6M9 16h4" />
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5" />
+    <path d="M12 7.5h.01" />
   </svg>
 );
 
