@@ -214,10 +214,13 @@ export default function Start({ embed }: { embed: boolean }) {
         </header>
       )}
 
-      {/* Optionele kopregel bij een verhoogd nationaal gevaarniveau (ernst ≥ 3). */}
+      {/* Optionele kopregel bij een verhoogd nationaal gevaarniveau (ernst ≥ 3).
+          Noemt expliciet onderwerp (brandgevaar) én bron (Météo-France), zodat
+          hij niet te verwarren is met de gemeten hittebronnen verderop. */}
       {nationaalZwaarste && nationaalZwaarste.niveau >= 3 && (
         <p className={styles.zwaarsteRegel}>
-          Op dit moment het zwaarste: niveau {nationaalZwaarste.niveau} in {nationaalZwaarste.naam}.
+          Hoogste brandgevaar nu: niveau {nationaalZwaarste.niveau} in {nationaalZwaarste.naam}{" "}
+          (Météo-France).
         </p>
       )}
 
@@ -274,8 +277,8 @@ export default function Start({ embed }: { embed: boolean }) {
                   {aantalDetecties} {aantalDetecties === 1 ? "detectie" : "detecties"}
                 </p>
                 <p className={styles.blokUitleg}>
-                  {zwaarsteNaam ? `Zwaarst: ${zwaarsteNaam}. ` : ""}Een detectie is een waarneming
-                  van warmte, geen bevestigde brand.
+                  {zwaarsteNaam ? `Meeste warmte gemeten in: ${zwaarsteNaam}. ` : ""}Een detectie is
+                  een waarneming van warmte, geen bevestigde brand.
                 </p>
               </>
             ) : (
