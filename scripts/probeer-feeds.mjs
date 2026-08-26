@@ -52,7 +52,8 @@ function leesBronnen() {
   for (const blok of tekst.split(/\{\s*\n/).slice(1)) {
     const naam = blok.match(/naam:\s*"([^"]+)"/)?.[1];
     const url = blok.match(/url:\s*"([^"]+)"/)?.[1];
-    if (naam && url) bronnen.push({ naam, url });
+    const actief = /actief:\s*true/.test(blok);
+    if (naam && url) bronnen.push({ naam, url, actief });
   }
   return bronnen;
 }
@@ -210,13 +211,19 @@ console.log(`Feedcontrole — ${bronnen.length} bron(nen)\n${"=".repeat(64)}\n`)
 const uitslagen = [];
 
 for (const bron of bronnen) {
-  console.log(bron.naam);
+  console.log(`${bron.naam}${bron.actief ? "" : "   (staat uit)"}`);
   console.log(`  ingesteld: ${bron.url}`);
   const eerste = await beoordeelFeed(bron.url);
   console.log(`  → ${eerste.oordeel}: ${eerste.detail}`);
 
   if (eerste.oordeel.startsWith("WERKT")) {
-    uitslagen.push({ naam: bron.naam, status: "in orde", vervanger: null, uaProbleem: !!eerste.uaProbleem });
+    uitslagen.push({
+      naam: bron.naam,
+      status: bron.actief ? "in orde" : "werkt weer",
+      vervanger: null,
+      uaProbleem: !!eerste.uaProbleem,
+      actief: bron.actief,
+    });
     console.log("");
     continue;
   }
@@ -270,9 +277,15 @@ for (const bron of bronnen) {
   if (!beste) {
     const status = paginaGelezen === 0 ? "onbeslist" : "niets gevonden";
     console.log(`  geen enkele kandidaat leverde een feed (${gevonden.size} geprobeerd)`);
-    uitslagen.push({ naam: bron.naam, status, vervanger: null, uaProbleem: false });
+    uitslagen.push({ naam: bron.naam, status, vervanger: null, uaProbleem: false, actief: bron.actief });
   } else {
-    uitslagen.push({ naam: bron.naam, status: "vervanger", vervanger: beste, uaProbleem: beste.uaProbleem });
+    uitslagen.push({
+      naam: bron.naam,
+      status: "vervanger",
+      vervanger: beste,
+      uaProbleem: beste.uaProbleem,
+      actief: bron.actief,
+    });
   }
   console.log("");
 }
@@ -281,12 +294,20 @@ console.log("=".repeat(64));
 console.log("Samenvatting\n");
 
 const inOrde = uitslagen.filter((u) => u.status === "in orde");
+const werktWeer = uitslagen.filter((u) => u.status === "werkt weer");
 const vervangers = uitslagen.filter((u) => u.status === "vervanger");
 const nietsGevonden = uitslagen.filter((u) => u.status === "niets gevonden");
 const onbeslist = uitslagen.filter((u) => u.status === "onbeslist");
 
-console.log(`  in orde: ${inOrde.length} · nieuw adres: ${vervangers.length} · ` +
-  `niets gevonden: ${nietsGevonden.length} · onbeslist: ${onbeslist.length}\n`);
+console.log(`  in orde: ${inOrde.length} · werkt weer: ${werktWeer.length} · ` +
+  `nieuw adres: ${vervangers.length} · niets gevonden: ${nietsGevonden.length} · ` +
+  `onbeslist: ${onbeslist.length}\n`);
+
+if (werktWeer.length) {
+  console.log("STOND UIT MAAR WERKT WEER — zet actief: true in data/nieuwsbronnen.ts:");
+  for (const r of werktWeer) console.log(`  ${r.naam}`);
+  console.log("");
+}
 
 if (vervangers.length) {
   console.log("OVER TE NEMEN in data/nieuwsbronnen.ts (getest, werkt):");
@@ -294,6 +315,9 @@ if (vervangers.length) {
     console.log(`  ${r.naam}`);
     console.log(`      url: "${r.vervanger.url}",`);
     console.log(`      bevestigd: true,`);
+    if (!r.actief) console.log(`      actief: true,`);
+    console.log(`      // controleer of dit dezelfde bron is als hierboven bedoeld:`);
+    console.log(`      // een ander pad kan een andere sectie of zelfs de landelijke feed zijn.`);
     if (r.uaProbleem) {
       console.log(`      // LET OP: werkt niet met de user-agent die de route stuurt.`);
     }
@@ -302,6 +326,7 @@ if (vervangers.length) {
 }
 if (nietsGevonden.length) {
   console.log("SITE GELEZEN, GEEN WERKENDE FEED — kandidaat voor actief: false:");
+  console.log("(staat er al 'staat uit' bij, dan is er niets te doen)");
   for (const r of nietsGevonden) console.log(`  ${r.naam}`);
   console.log("");
 }

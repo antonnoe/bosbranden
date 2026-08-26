@@ -198,8 +198,8 @@ handmatige stap, geen redactie en geen knop om iets te publiceren.
 
 ### Hoe het loopt
 
-`data/nieuwsbronnen.ts` (de enige toegestane bronnenlijst)
-  → `/api/nieuws` haalt elke feed op (RSS 2.0 én Atom)
+`data/nieuwsbronnen.ts` (de enige toegestane bronnenlijst, `actief: true`)
+  → `/api/nieuws` haalt elke actieve feed op (RSS 2.0 én Atom)
   → drie poorten: host-allowlist, datumpoort (7 dagen), **onderwerpzeef**
   → twee groepen (officieel boven, pers eronder), hooguit 8 per groep
   → Nederlandse samenvatting per artikel via de samenvatdienst
@@ -249,6 +249,25 @@ In de sectie **Bronnen** onderaan het nieuws staat per bron hoeveel items de
 zeef tegenhield ("… buiten onderwerp"), zodat zichtbaar is of de zeef werkt of
 dat de feeds stilliggen.
 
+### Bronnen aan- en uitzetten
+
+Elke bron heeft `actief`. Een bron waarvan de feed is verdwenen zetten we op
+`false` in plaats van hem te verwijderen: de regel blijft staan met de reden
+erbij, zodat niemand later opnieuw uitzoekt wat al bekend is, en weer aanzetten
+één woord is. De route haalt alleen actieve bronnen op, en de host-allowlist
+wordt uit diezelfde verzameling opgebouwd — een uitgezette bron houdt dus geen
+domein open.
+
+**Stand van 26-08-2026.** Van de dertien bronnen werkten er nog twee. Drie
+France 3-feeds bleken alleen verhuisd van `/rss.xml` naar `/rss` en zijn
+hersteld; zeven bronnen leverden op geen enkel getest adres nog een feed en
+staan uit, elk met de reden op de regel zelf. Actief zijn nu: Atmo
+Nouvelle-Aquitaine (geldige feed, op dit moment leeg), France 3
+Nouvelle-Aquitaine, France 3 PACA, France 3 Paris Île-de-France, Sud Ouest en
+Midi Libre. De préfecture de la Gironde — de waardevolste bron voor deze tool —
+biedt geen feed meer aan; officiële waarschuwingen lopen intussen via
+`/api/fr-alert`.
+
 ### Bronstatus lezen
 
 Elke bron toont een van vier toestanden. Ze zijn met opzet uit elkaar getrokken:
@@ -287,9 +306,16 @@ Wat je met de uitslag doet:
 | uitslag | wat het betekent | actie in `data/nieuwsbronnen.ts` |
 | --- | --- | --- |
 | `in orde` | het ingestelde adres werkt | niets; eventueel `bevestigd: true` |
+| `werkt weer` | een uitgezette bron levert weer een feed | `actief: true` |
 | `nieuw adres` | een geteste kandidaat levert een werkende feed | `url` vervangen, `bevestigd: true` |
 | `niets gevonden` | de site is gelezen en biedt geen werkende feed | `actief: false` |
 | `onbeslist` | de site liet de controle niet toe (403, time-out) | **niets** — zie hieronder |
+
+Een gevonden adres is niet blind over te nemen: controleer of het dezelfde bron
+is. Bij de controle van 26-08-2026 leverde de sectie Seine-et-Marne van Le
+Parisien een 404, terwijl het beproefde `…/leparisien/rss` wél werkte — maar dat
+is de landelijke feed, een andere bron, en bovendien zonder datums, waardoor de
+datumpoort er structureel elk item van weigert. Die is daarom niet overgenomen.
 
 `onbeslist` is met opzet een aparte uitkomst. Veel Franse nieuwssites weigeren
 niet-browserverkeer; dan krijgt de controle een 403 op zowel de feed als de

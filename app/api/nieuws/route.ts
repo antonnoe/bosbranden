@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { NIEUWSBRONNEN, type Nieuwsbron } from "@/data/nieuwsbronnen";
+import { ACTIEVE_BRONNEN, type Nieuwsbron } from "@/data/nieuwsbronnen";
 import {
   bepaalToestand,
   bouwAllowlist,
@@ -51,10 +51,12 @@ interface BronResultaat {
 export async function GET() {
   const nu = Date.now();
   const nuIso = new Date(nu).toISOString();
-  const allowlist = bouwAllowlist(NIEUWSBRONNEN);
+  // Allowlist én ophaallijst uit dezelfde verzameling: een uitgezette bron mag
+  // ook geen domein openhouden.
+  const allowlist = bouwAllowlist(ACTIEVE_BRONNEN);
 
   const resultaten = await Promise.all(
-    NIEUWSBRONNEN.map((bron) => haalBron(bron, allowlist, nu))
+    ACTIEVE_BRONNEN.map((bron) => haalBron(bron, allowlist, nu))
   );
 
   // Groepen samenstellen, chronologisch (nieuwste boven), max 8 per groep.

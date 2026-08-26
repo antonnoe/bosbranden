@@ -6,7 +6,7 @@
 // en dubbelingcontrole. Exit-code 1 bij een gefaalde assertie.
 
 import assert from "node:assert/strict";
-import { NIEUWSBRONNEN } from "../data/nieuwsbronnen.ts";
+import { ACTIEVE_BRONNEN, NIEUWSBRONNEN } from "../data/nieuwsbronnen.ts";
 import {
   bepaalToestand,
   bouwAllowlist,
@@ -18,7 +18,7 @@ import {
 } from "../lib/nieuws-filter.ts";
 import { kopDoorlaat } from "../lib/nieuws-thema.ts";
 
-const allowlist = bouwAllowlist(NIEUWSBRONNEN);
+const allowlist = bouwAllowlist(ACTIEVE_BRONNEN);
 const NU = Date.UTC(2026, 6, 27, 9, 0, 0); // 27-07-2026 (vast, tijdloze test)
 const dagen = (n: number) => new Date(NU - n * 24 * 60 * 60 * 1000).toISOString();
 
@@ -33,10 +33,30 @@ assert.equal(
   false,
   "aggregator-host buiten bestand (news.google.com) moet worden geweigerd"
 );
+// Subdomein-regel: de feed staat vaak op een ánder subdomein dan de artikelen
+// (feeds.voorbeeld.fr levert links naar www.voorbeeld.fr). Getest met een eigen
+// allowlist, niet met een bron uit het bestand: welke bronnen aan of uit staan
+// verandert, deze regel niet.
+const proefAllowlist = bouwAllowlist([
+  {
+    naam: "Proefbron",
+    url: "https://feeds.voorbeeld.fr/sectie",
+    soort: "pers",
+    paywall: false,
+    regio: "proef",
+    bevestigd: false,
+    actief: true,
+  },
+]);
 assert.equal(
-  hostToegestaan("https://leparisien.fr/seine-et-marne/feu.php", allowlist),
+  hostToegestaan("https://www.voorbeeld.fr/artikel.php", proefAllowlist),
   true,
-  "content-host leparisien.fr moet matchen met feed-host feeds.leparisien.fr"
+  "content-host moet matchen met de feed-host op hetzelfde registreerbare domein"
+);
+assert.equal(
+  hostToegestaan("https://voorbeeld.fr.kwaadaardig.com/artikel.php", proefAllowlist),
+  false,
+  "een domein dat het toegestane domein alleen als tekst bevat, moet worden geweigerd"
 );
 
 // --- 2. Datumpoort ----------------------------------------------------------
@@ -125,7 +145,32 @@ assert.equal(geweigerd.faitsDivers, 1, "(f) valt op de faits-divers-laag");
 assert.equal(ruwAantal, 6, "de feed bevatte zes items");
 assert.equal(naPoorten, 4, "vier items haalden host-allowlist én datumpoort");
 
-// --- 6. bepaalToestand ------------------------------------------------------
+// --- 6. Actieve bronnen ------------------------------------------------------
+// Een uitgezette bron mag niet worden opgehaald én mag geen domein openhouden:
+// de allowlist wordt uit dezelfde verzameling opgebouwd als de ophaallijst.
+assert.ok(ACTIEVE_BRONNEN.length > 0, "er moet minstens één actieve bron zijn");
+assert.ok(
+  ACTIEVE_BRONNEN.every((b) => b.actief),
+  "ACTIEVE_BRONNEN mag alleen bronnen met actief: true bevatten"
+);
+assert.ok(
+  NIEUWSBRONNEN.every((b) => b.actief || !b.bevestigd || b.naam.includes("Atmo")),
+  "een uitgezette bron hoort niet als bevestigd te blijven staan (Atmo is de gemotiveerde uitzondering)"
+);
+// Le Parisien staat uit; zijn domein mag daarom niet meer in de allowlist zitten.
+assert.equal(
+  hostToegestaan("https://www.leparisien.fr/seine-et-marne/artikel.php", allowlist),
+  false,
+  "domein van een uitgezette bron mag niet meer worden toegelaten"
+);
+// France 3 staat wél aan, met het herstelde adres.
+assert.equal(
+  hostToegestaan("https://france3-regions.francetvinfo.fr/nouvelle-aquitaine/incendie.html", allowlist),
+  true,
+  "domein van een actieve bron moet worden toegelaten"
+);
+
+// --- 7. bepaalToestand ------------------------------------------------------
 // "geslaagd" alléén verborg dat een URL wel bestaat maar geen feed teruggeeft.
 assert.equal(
   bepaalToestand(false, 0, 0),
@@ -148,4 +193,4 @@ assert.equal(
   "feed met recente items → geslaagd"
 );
 
-console.log("✓ alle 27 nieuwsfilter-tests geslaagd");
+console.log("✓ alle 33 nieuwsfilter-tests geslaagd");
