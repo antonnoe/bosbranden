@@ -8,7 +8,7 @@
 //     bronstatus. Twee thema's (donker = zijlade, licht = kaartblok).
 
 import { useEffect, useState, type ReactNode } from "react";
-import type { NieuwsAntwoord, NieuwsItem } from "@/lib/nieuws-filter";
+import type { BronToestand, NieuwsAntwoord, NieuwsItem } from "@/lib/nieuws-filter";
 import { CLIENT_VERVERS_MS, teOud } from "@/lib/nieuws-vers";
 import styles from "@/components/Nieuwsgroepen.module.css";
 
@@ -189,12 +189,10 @@ export function Nieuwsgroepen({
               <span className={styles.bronMeta}>
                 {b.soort === "officieel" ? "officieel" : "pers"}
                 {" · "}
-                <span className={b.ok ? styles.ok : styles.mislukt}>
-                  {b.ok ? "geslaagd" : "mislukt"}
-                </span>
+                <span className={toestandStijl(b.toestand)}>{toestandTekst(b.toestand)}</span>
                 {b.tijdstip ? ` om ${formatteerTijd(b.tijdstip)}` : ""}
-                {b.ok && b.aantal > 0 ? ` · ${b.aantal} getoond` : ""}
-                {b.ok && b.geweigerd > 0 ? ` · ${b.geweigerd} buiten onderwerp` : ""}
+                {b.aantal > 0 ? ` · ${b.aantal} getoond` : ""}
+                {b.geweigerd > 0 ? ` · ${b.geweigerd} buiten onderwerp` : ""}
                 {!b.bevestigd ? " · URL nog niet bevestigd" : ""}
               </span>
             </li>
@@ -398,6 +396,22 @@ function renderMarkdown(md: string): ReactNode[] {
   spoelPara("end");
   spoelLijst("end");
   return blokken;
+}
+
+// Wat de bezoeker per bron te lezen krijgt. "geen feed" is bewust expliciet:
+// dat betekent dat de URL wel bestaat maar geen feed teruggeeft, en dat is iets
+// anders dan een bron die even onbereikbaar is.
+function toestandTekst(toestand: BronToestand): string {
+  if (toestand === "geslaagd") return "geslaagd";
+  if (toestand === "niets-recents") return "niets binnen 7 dagen";
+  if (toestand === "geen-feed") return "geen feed op dit adres";
+  return "mislukt";
+}
+
+function toestandStijl(toestand: BronToestand): string {
+  if (toestand === "geslaagd") return styles.ok;
+  if (toestand === "niets-recents") return styles.bronMeta;
+  return styles.mislukt;
 }
 
 function formatteerDatum(iso: string): string {

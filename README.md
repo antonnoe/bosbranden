@@ -249,6 +249,31 @@ In de sectie **Bronnen** onderaan het nieuws staat per bron hoeveel items de
 zeef tegenhield ("… buiten onderwerp"), zodat zichtbaar is of de zeef werkt of
 dat de feeds stilliggen.
 
+### Bronstatus lezen
+
+Elke bron toont een van vier toestanden. Ze zijn met opzet uit elkaar getrokken:
+"geslaagd" alléén verborg dat een URL wél bestaat maar geen feed teruggeeft.
+
+| toestand | betekenis | wat te doen |
+| --- | --- | --- |
+| `geslaagd` | feed werkt en leverde items binnen zeven dagen | niets |
+| `niets binnen 7 dagen` | feed werkt, maar publiceert weinig | niets; normaal bij préfecture en Atmo |
+| `geen feed op dit adres` | HTTP 200, maar nul `<item>`/`<entry>` — meestal een HTML-pagina | URL vervangen |
+| `mislukt` | netwerkfout, time-out of HTTP-fout (403, 404) | URL vervangen of bron uitzetten |
+
+Een kapotte feed-URL opsporen zonder te gokken:
+
+```bash
+node scripts/probeer-feeds.mjs            # alle bronnen
+node scripts/probeer-feeds.mjs gironde    # alleen bronnen met "gironde" in de naam
+```
+
+Dat script test elke ingestelde URL en vraagt bij een kapotte de site *zelf* waar
+zijn feeds staan (de `<link rel="alternate" type="application/rss+xml">` in de
+HTML). Het raadt dus geen adressen — dat verbiedt de kop van
+`data/nieuwsbronnen.ts` ook uitdrukkelijk. Neem alleen over wat "WERKT" scoort,
+en zet `bevestigd: true` pas als je het met dit script hebt zien werken.
+
 Een term toevoegen? Zet hem in de juiste lijst in `lib/nieuws-thema.ts` en voeg
 een geval toe aan `scripts/test-nieuws-thema.ts`. Let op plaatsnamen die op
 landschap lijken: `landes` (het departement Landes), `bois` (Bois-Colombes) en

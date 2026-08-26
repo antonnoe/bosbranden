@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { NIEUWSBRONNEN, type Nieuwsbron } from "@/data/nieuwsbronnen";
 import {
+  bepaalToestand,
   bouwAllowlist,
   filterBron,
   legeTelling,
@@ -40,9 +41,11 @@ const FEED_TIMEOUT_MS = 8000;
 
 interface BronResultaat {
   bron: Nieuwsbron;
-  ok: boolean;
+  ok: boolean; // was de bron bereikbaar?
   items: NieuwsItem[];
   geweigerd: ZeefTelling;
+  ruwAantal: number;
+  naPoorten: number;
 }
 
 export async function GET() {
@@ -78,8 +81,10 @@ export async function GET() {
     regio: r.bron.regio,
     bevestigd: r.bron.bevestigd,
     ok: r.ok,
+    toestand: bepaalToestand(r.ok, r.ruwAantal, r.naPoorten),
     aantal: r.items.filter((item) => getoond.has(item)).length,
     geweigerd: totaalGeweigerd(r.geweigerd),
+    ruwAantal: r.ruwAantal,
     tijdstip: nuIso,
   }));
 
@@ -139,14 +144,14 @@ async function haalBron(
       next: { revalidate: FEED_REVALIDATE_S },
     });
     if (!reactie.ok) {
-      return { bron, ok: false, items: [], geweigerd: legeTelling() };
+      return { bron, ok: false, items: [], geweigerd: legeTelling(), ruwAantal: 0, naPoorten: 0 };
     }
     const xml = await reactie.text();
     const ruw = parseerFeed(xml);
-    const { items, geweigerd } = filterBron(ruw, bron, allowlist, nu);
-    return { bron, ok: true, items, geweigerd };
+    const { items, geweigerd, ruwAantal, naPoorten } = filterBron(ruw, bron, allowlist, nu);
+    return { bron, ok: true, items, geweigerd, ruwAantal, naPoorten };
   } catch {
-    return { bron, ok: false, items: [], geweigerd: legeTelling() };
+    return { bron, ok: false, items: [], geweigerd: legeTelling(), ruwAantal: 0, naPoorten: 0 };
   } finally {
     clearTimeout(timer);
   }

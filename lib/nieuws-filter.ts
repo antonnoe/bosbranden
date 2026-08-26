@@ -25,14 +25,27 @@ export interface NieuwsItem {
   vertaling?: "ok" | "mislukt"; // of de samenvatting lukte (H5)
 }
 
+// Wat er met een bron gebeurde. "geslaagd" alléén zei te weinig: een URL die een
+// gewone HTML-pagina teruggeeft levert HTTP 200 en nul items, en stond daarmee
+// als "geslaagd" in de lijst terwijl hij in werkelijkheid geen feed is. Precies
+// dat verborg op 26-08-2026 dat Atmo en ici.fr-landelijk wel bereikbaar waren
+// maar niets bruikbaars leverden.
+export type BronToestand =
+  | "mislukt" // netwerkfout, time-out of HTTP-fout
+  | "geen-feed" // HTTP 200, maar geen enkel <item>/<entry> — dit is geen feed
+  | "niets-recents" // feed werkt, maar niets binnen de datumpoort van 7 dagen
+  | "geslaagd"; // feed werkt en leverde items binnen de datumpoort
+
 export interface BronStatus {
   naam: string;
   soort: BronSoort;
   regio: string;
   bevestigd: boolean;
-  ok: boolean; // slaagde de laatste ophaalpoging?
+  ok: boolean; // was de bron bereikbaar? (toestand !== "mislukt")
+  toestand: BronToestand;
   aantal: number; // aantal getoonde items uit deze bron
   geweigerd: number; // aantal items dat de onderwerpzeef tegenhield
+  ruwAantal: number; // aantal items dat de feed zelf bevatte
   tijdstip: string | null; // ISO van de ophaalpoging
 }
 
@@ -157,6 +170,8 @@ export interface ZeefTelling {
 export interface BronFilterUitkomst {
   items: NieuwsItem[];
   geweigerd: ZeefTelling;
+  ruwAantal: number; // wat de feed zelf bevatte, vóór welke poort dan ook
+  naPoorten: number; // wat host-allowlist én datumpoort overleefde
 }
 
 export function legeTelling(): ZeefTelling {
@@ -180,10 +195,12 @@ export function filterBron(
   const gezien = new Set<string>();
   const uit: NieuwsItem[] = [];
   const geweigerd = legeTelling();
+  let naPoorten = 0;
 
   for (const item of ruw) {
     if (!hostToegestaan(item.url, allowlist)) continue; // host niet in bestand
     if (!binnenDatumpoort(item.gepubliceerdOp, nu)) continue; // datumpoort
+    naPoorten += 1;
 
     const oordeel = beoordeelKop(item.titel);
     if (!oordeel.door) {
@@ -205,7 +222,20 @@ export function filterBron(
     });
   }
 
-  return { items: uit, geweigerd };
+  return { items: uit, geweigerd, ruwAantal: ruw.length, naPoorten };
+}
+
+// Leidt de toestand af uit de tellingen. `bereikbaar` komt van de ophaalpoging
+// zelf (HTTP 200 zonder uitzondering); de rest volgt uit wat de feed bevatte.
+export function bepaalToestand(
+  bereikbaar: boolean,
+  ruwAantal: number,
+  naPoorten: number
+): BronToestand {
+  if (!bereikbaar) return "mislukt";
+  if (ruwAantal === 0) return "geen-feed";
+  if (naPoorten === 0) return "niets-recents";
+  return "geslaagd";
 }
 
 function tel(telling: ZeefTelling, grond: Weigergrond | null): void {

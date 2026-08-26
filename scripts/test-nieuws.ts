@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { NIEUWSBRONNEN } from "../data/nieuwsbronnen.ts";
 import {
+  bepaalToestand,
   bouwAllowlist,
   hostToegestaan,
   binnenDatumpoort,
@@ -99,7 +100,7 @@ const ruw: RuwItem[] = [
   },
 ];
 
-const { items: uit, geweigerd } = filterBron(ruw, bron, allowlist, NU);
+const { items: uit, geweigerd, ruwAantal, naPoorten } = filterBron(ruw, bron, allowlist, NU);
 assert.equal(uit.length, 1, "alleen het geldige item mag overblijven");
 assert.equal(uit[0].url, "https://www.sudouest.fr/gironde/incendie-a.php");
 assert.ok(
@@ -120,4 +121,31 @@ assert.equal(totaalGeweigerd(geweigerd), 3, "drie items moeten door de zeef zijn
 assert.equal(geweigerd.geenOnderwerp, 2, "(d) en (e) vallen op 'geen onderwerp'");
 assert.equal(geweigerd.faitsDivers, 1, "(f) valt op de faits-divers-laag");
 
-console.log("✓ alle 21 nieuwsfilter-tests geslaagd");
+// --- 5. Tellingen voor de bronstatus ---------------------------------------
+assert.equal(ruwAantal, 6, "de feed bevatte zes items");
+assert.equal(naPoorten, 4, "vier items haalden host-allowlist én datumpoort");
+
+// --- 6. bepaalToestand ------------------------------------------------------
+// "geslaagd" alléén verborg dat een URL wel bestaat maar geen feed teruggeeft.
+assert.equal(
+  bepaalToestand(false, 0, 0),
+  "mislukt",
+  "onbereikbaar → mislukt"
+);
+assert.equal(
+  bepaalToestand(true, 0, 0),
+  "geen-feed",
+  "HTTP 200 zonder items → geen feed op dit adres, niet 'geslaagd'"
+);
+assert.equal(
+  bepaalToestand(true, 20, 0),
+  "niets-recents",
+  "feed met items maar niets binnen de datumpoort → niets recents"
+);
+assert.equal(
+  bepaalToestand(true, 20, 5),
+  "geslaagd",
+  "feed met recente items → geslaagd"
+);
+
+console.log("✓ alle 27 nieuwsfilter-tests geslaagd");
