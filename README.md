@@ -286,9 +286,22 @@ Wat je met de uitslag doet:
 
 | uitslag | wat het betekent | actie in `data/nieuwsbronnen.ts` |
 | --- | --- | --- |
-| `WERKT` bij het ingestelde adres | bron is in orde | niets; eventueel `bevestigd: true` |
-| `WERKT` bij een kandidaat | er is een nieuw adres gevonden | `url` vervangen, `bevestigd: true` |
-| `geen werkend adres gevonden` | de site biedt hier geen feed meer | `actief: false` |
+| `in orde` | het ingestelde adres werkt | niets; eventueel `bevestigd: true` |
+| `nieuw adres` | een geteste kandidaat levert een werkende feed | `url` vervangen, `bevestigd: true` |
+| `niets gevonden` | de site is gelezen en biedt geen werkende feed | `actief: false` |
+| `onbeslist` | de site liet de controle niet toe (403, time-out) | **niets** — zie hieronder |
+
+`onbeslist` is met opzet een aparte uitkomst. Veel Franse nieuwssites weigeren
+niet-browserverkeer; dan krijgt de controle een 403 op zowel de feed als de
+pagina eromheen. Dat zegt niets over de bron — alleen dat er geen antwoord kwam.
+Een bron op `actief: false` zetten op grond van `onbeslist` is een bron
+weggooien zonder bewijs.
+
+De controle probeert elk adres twee keer: eerst met de user-agent die
+`app/api/nieuws/route.ts` zelf stuurt, daarna met een nette variant die zich
+netjes bekendmaakt. Lukt het alleen met de tweede, dan meldt de uitslag
+"UA-PROBLEEM" — dan ligt het niet aan het adres maar aan de user-agent van de
+route, en moet díé mee veranderen.
 
 Zet `bevestigd: true` nooit op goed vertrouwen — alleen als de feedcontrole het
 adres heeft zien werken.
