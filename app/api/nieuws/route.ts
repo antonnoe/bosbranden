@@ -3,16 +3,33 @@ import { NIEUWSBRONNEN, type Nieuwsbron } from "@/data/nieuwsbronnen";
 import {
   bouwAllowlist,
   filterBron,
+  legeTelling,
   MAX_PER_GROEP,
   parseerFeed,
   sorteerNieuwsteBoven,
+  totaalGeweigerd,
   type BronStatus,
   type NieuwsAntwoord,
   type NieuwsItem,
+  type ZeefTelling,
 } from "@/lib/nieuws-filter";
 import { haalSamenvattingen } from "@/lib/nieuws-samenvatting";
+import { NIEUWS_CDN_SWR_S, NIEUWS_CDN_MAXAGE_S, FEED_REVALIDATE_S } from "@/lib/nieuws-vers";
 
-export const revalidate = 900; // 15 minuten
+// GEEN route-revalidate meer. Die stond op 900 s en maakte van deze route een
+// ISR-pagina: Next bewaarde één gerenderd antwoord en serveerde dat bij de
+// eerstvolgende aanvraag ONGEWIJZIGD, waarna hij pas op de achtergrond
+// verversde. Op een tool met weinig verkeer betekent dat: wie na dagen stilte
+// de lade opent, krijgt de stand van de laatste bezoeker vóór hem, en pas bij
+// een tweede opening het verse antwoord. Precies het gedrag dat op 26-08-2026
+// werd waargenomen (eerst 1 augustus, daarna 26 augustus).
+//
+// De route is nu dynamisch: hij stelt het antwoord bij elke aanvraag opnieuw
+// samen. Dat is goedkoop, want de dure delen zitten in hun eigen caches die
+// blijven staan — de feeds via next.revalidate (FEED_REVALIDATE_S) en de
+// samenvattingen in de durable Data Cache. De CDN-vensters hieronder begrenzen
+// wat een bezoeker maximaal aan ouderdom kan zien.
+export const dynamic = "force-dynamic";
 // De samenvatdienst doet er ~9 s per artikel over; met parallelle aanroepen en
 // een fetch-timeout van 30 s mag de functie niet eerder afkappen dan die fetch.
 export const maxDuration = 60;
@@ -25,6 +42,7 @@ interface BronResultaat {
   bron: Nieuwsbron;
   ok: boolean;
   items: NieuwsItem[];
+  geweigerd: ZeefTelling;
 }
 
 export async function GET() {
@@ -61,6 +79,7 @@ export async function GET() {
     bevestigd: r.bron.bevestigd,
     ok: r.ok,
     aantal: r.items.filter((item) => getoond.has(item)).length,
+    geweigerd: totaalGeweigerd(r.geweigerd),
     tijdstip: nuIso,
   }));
 
@@ -76,7 +95,9 @@ export async function GET() {
 
   return NextResponse.json(antwoord, {
     headers: {
-      "Cache-Control": "public, s-maxage=900, stale-while-revalidate=900",
+      // Begrensd venster: hooguit NIEUWS_CDN_MAXAGE_S vers + NIEUWS_CDN_SWR_S
+      // stale. Samen ruim binnen het uur dat de zijlade als bovengrens hanteert.
+      "Cache-Control": `public, s-maxage=${NIEUWS_CDN_MAXAGE_S}, stale-while-revalidate=${NIEUWS_CDN_SWR_S}`,
     },
   });
 }
@@ -115,17 +136,17 @@ async function haalBron(
         Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
       },
       signal: controller.signal,
-      next: { revalidate: 900 },
+      next: { revalidate: FEED_REVALIDATE_S },
     });
     if (!reactie.ok) {
-      return { bron, ok: false, items: [] };
+      return { bron, ok: false, items: [], geweigerd: legeTelling() };
     }
     const xml = await reactie.text();
     const ruw = parseerFeed(xml);
-    const items = filterBron(ruw, bron, allowlist, nu);
-    return { bron, ok: true, items };
+    const { items, geweigerd } = filterBron(ruw, bron, allowlist, nu);
+    return { bron, ok: true, items, geweigerd };
   } catch {
-    return { bron, ok: false, items: [] };
+    return { bron, ok: false, items: [], geweigerd: legeTelling() };
   } finally {
     clearTimeout(timer);
   }

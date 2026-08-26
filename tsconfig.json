@@ -9,6 +9,10 @@
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
+    // Nodig omdat lib/nieuws-filter.ts zijn zeef importeert als "./nieuws-thema.ts".
+    // Met de expliciete extensie draaien de offline zelftests in scripts/ ook op
+    // kale node (--experimental-strip-types), dat geen tsconfig-paths kent.
+    "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",

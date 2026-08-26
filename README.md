@@ -190,6 +190,121 @@ Postcode-logica: eerste 2 cijfers = departementcode; `20xxx` toont
 Corse-du-Sud (2A) én Haute-Corse (2B); `97`/`98` geeft de melding dat de tool
 alleen Frankrijk métropole dekt.
 
+## Nieuwslade (zijlade → tab "Nieuws")
+
+De uitschuifbare zijlade heeft naast de kaart een tab **Nieuws** met automatisch
+opgehaald Frans nieuws over brandrisico. Volledig automatisch: er is geen
+handmatige stap, geen redactie en geen knop om iets te publiceren.
+
+### Hoe het loopt
+
+`data/nieuwsbronnen.ts` (de enige toegestane bronnenlijst)
+  → `/api/nieuws` haalt elke feed op (RSS 2.0 én Atom)
+  → drie poorten: host-allowlist, datumpoort (7 dagen), **onderwerpzeef**
+  → twee groepen (officieel boven, pers eronder), hooguit 8 per groep
+  → Nederlandse samenvatting per artikel via de samenvatdienst
+  → `components/Nieuws.tsx` toont het en ververst zichzelf.
+
+### De onderwerpzeef (`lib/nieuws-thema.ts`)
+
+De persfeeds zijn algemene *faits divers*-feeds. Het oorspronkelijke filter liet
+een kop door zodra er ergens "incendie" of "pompiers" in stond, en dat is te
+grof: op 26-08-2026 stonden er onder meer een vechtpartij in Monflanquin, twee
+uitgebrande auto's in Nîmes en een ziekenhuisbrand in Islamabad in de lade.
+
+De zeef is nu een expliciete laag met één regel:
+
+> Een kop komt door als hij een **kernterm** bevat, óf een **steunterm** samen
+> met een **natuurterm** — en daarna niet sneuvelt op de faits-divers-laag of de
+> buitenland-laag.
+
+- **Kerntermen** zijn ondubbelzinnig: `feu de forêt`, `météo des forêts`,
+  `débroussaillement`, `sécheresse`, `canicule`, `qualité de l'air`,
+  `arrêté préfectoral`, `zone sinistrée`, `fermeture de la chasse`, …
+  Zo'n term is alleen al genoeg.
+- **Steuntermen** zijn brandwoorden die óók bij een schuurbrand of een autobrand
+  voorkomen: `incendie`, `feu`, `flammes`, `fumée`, `pompiers`, `évacuation`.
+  Die tellen pas mee met een **natuurterm** erbij (`forêt`, `végétation`,
+  `broussailles`, `garrigue`, `maquis`, `pinède`, `dune`, `camping`, …).
+- **Faits-divers-laag**: misdaad en losse ongevallen eruit. Eén uitzondering: een
+  kernterm redt de kop, zodat *"Incendie de forêt : un homme en garde à vue"*
+  blijft staan.
+- **Buitenland-laag**: landen, inwonersnamen én hoofdsteden, Frans en
+  Nederlands. Redding alleen als de kop Frankrijk noemt.
+
+Overgenomen uit [`antonnoe/nlfr-menu`](https://github.com/antonnoe/nlfr-menu)
+(`lib/config.js` + `lib/feeds.js`), maar bewust **niet** één op één. Drie
+verschillen, omdat deze tool een engere scope heeft:
+
+| | nlfr-menu | deze tool |
+| --- | --- | --- |
+| `incendie` | insluitterm die altijd wint | steunterm; telt alleen mét natuurcontext |
+| onderwerppoort | negatief (alles mag, behalve…) | positief (moet aantoonbaar over het onderwerp gaan) |
+| buitenlandredding | Frankrijk, Nederland én de EU | alleen Frankrijk |
+
+**Bij twijfel eruit.** De zeef wordt niet opgerekt om de lade vol te krijgen. Is
+er niets, dan meldt de lade dat er niets binnen zeven dagen over dit onderwerp
+is verschenen — een lege lade met een nette melding is beter dan vervuiling.
+In de sectie **Bronnen** onderaan het nieuws staat per bron hoeveel items de
+zeef tegenhield ("… buiten onderwerp"), zodat zichtbaar is of de zeef werkt of
+dat de feeds stilliggen.
+
+Een term toevoegen? Zet hem in de juiste lijst in `lib/nieuws-thema.ts` en voeg
+een geval toe aan `scripts/test-nieuws-thema.ts`. Let op plaatsnamen die op
+landschap lijken: `landes` (het departement Landes), `bois` (Bois-Colombes) en
+kaal `champ` (Champs-Élysées) staan er bewust **niet** in — die maakten van een
+autobrand op de A63 een natuurbrand.
+
+### Verversing (`lib/nieuws-vers.ts`)
+
+Op 26-08-2026 toonde de lade bij de eerste opening items van 1 augustus, en pas
+bij de tweede opening de verse lichting. Dat was geen stilstaande vernieuwing
+maar een cache. `/api/nieuws` stond op `export const revalidate = 900`, waarmee
+Next er een ISR-route van maakt: in de bouwuitvoer verscheen hij als
+`○ (Static) — Revalidate 15m, Expire 1y`. ISR ververst **niet** uit zichzelf elke
+15 minuten; het venster zegt alleen dat een bezoeker ná 15 minuten de *oude*
+versie krijgt en daarmee een achtergrondvernieuwing aftrapt. Op een tool met
+weinig verkeer kan zo'n bewaarde versie dus weken blijven staan tot iemand hem
+aanraakt — en `Expire 1y` zegt hoe lang dat mag duren.
+
+De route is nu dynamisch (`export const dynamic = "force-dynamic"`, in de
+bouwuitvoer `ƒ (Dynamic)`). Dat is goedkoop, want de dure delen houden hun eigen
+cache: de feeds via `next.revalidate` en de samenvattingen in de durable Data
+Cache. Vier grenzen, alle vier in `lib/nieuws-vers.ts`:
+
+| grens | waarde | wat hij doet |
+| --- | --- | --- |
+| `FEED_REVALIDATE_S` | 15 min | hoe oud de feedgegevens mogen zijn |
+| `NIEUWS_CDN_MAXAGE_S` | 5 min | CDN serveert dit ongewijzigd |
+| `NIEUWS_CDN_SWR_S` | 5 min | daarna hooguit zo lang stale |
+| `MAX_LEEFTIJD_MS` | 1 uur | harde bovengrens die de lade zelf bewaakt |
+
+Normaal ziet een bezoeker dus iets van hooguit ± 25 minuten oud (10 minuten
+CDN-venster plus 15 minuten feedleeftijd). Blijkt een antwoord tóch ouder dan
+een uur, dan haalt de lade het eenmalig opnieuw op met een wegwerpparameter
+(`?vers=…`) die elke tussenliggende cache omzeilt.
+
+Een mislukte ophaalronde laat de vorige stand niet eindeloos staan: die stand
+veroudert mee, en boven het uur meldt de lade dat de berichten ouder dan een uur
+zijn en niet als de actuele stand mogen gelden. Het tijdstip van de laatste
+geslaagde ophaalronde staat **altijd** onder het nieuws, ook als alles goed gaat.
+
+Live nameten kan met:
+
+```bash
+npm run meet:cache -- https://bosbranden.vercel.app 3
+```
+
+Dat toont per ronde `x-vercel-cache`, `age`, `bijgewerkt` en de berekende
+leeftijd. Springt de leeftijd tussen ronde 1 en 2 met dagen, dan is de
+ISR-cache terug.
+
+### Huisstijl
+
+De lade is bordeaux `#800000` met wit afgedwongen (`data-thema="donker"` in
+`components/Nieuwsgroepen.module.css`); het kaartblok is `#800000` op licht.
+Alle kleuren staan expliciet, niets leunt op overerving.
+
 ## Deployment op Vercel
 
 1. Importeer deze repository in Vercel (framework: Next.js).
@@ -276,6 +391,16 @@ wat op NING staat.
 npm install
 METEOFRANCE_API_KEY=… FIRMS_MAP_KEY=… npm run dev
 ```
+
+Zelftests (offline, geen netwerk en geen sleutels nodig):
+
+```bash
+npm test
+```
+
+Dat draait de nieuwsfilters (`test-nieuws`), de onderwerpzeef
+(`test-nieuws-thema`), de versheidsgrenzen (`test-nieuws-vers`), de
+zijlade-migratie en de assistent-getallen.
 
 ## Overig
 

@@ -11,10 +11,11 @@ import {
   bouwAllowlist,
   hostToegestaan,
   binnenDatumpoort,
-  bevatTrefwoord,
   filterBron,
+  totaalGeweigerd,
   type RuwItem,
 } from "../lib/nieuws-filter.ts";
+import { kopDoorlaat } from "../lib/nieuws-thema.ts";
 
 const allowlist = bouwAllowlist(NIEUWSBRONNEN);
 const NU = Date.UTC(2026, 6, 27, 9, 0, 0); // 27-07-2026 (vast, tijdloze test)
@@ -43,10 +44,17 @@ assert.equal(binnenDatumpoort(dagen(6.5), NU), true, "6,5 dag oud → binnen poo
 assert.equal(binnenDatumpoort(dagen(8), NU), false, "8 dagen oud → geweigerd");
 assert.equal(binnenDatumpoort(null, NU), false, "geen datum → geweigerd");
 
-// --- 3. Trefwoordfilter -----------------------------------------------------
-assert.equal(bevatTrefwoord("Incendie de forêt près de Bordeaux"), true);
-assert.equal(bevatTrefwoord("Évacuation de trois communes"), true);
-assert.equal(bevatTrefwoord("Nouveau rond-point inauguré à Mérignac"), false);
+// --- 3. Onderwerpzeef (vervangt het oude losse trefwoordfilter) --------------
+// De diepe tests staan in scripts/test-nieuws-thema.ts; hier alleen dat
+// filterBron de zeef werkelijk aanroept.
+assert.equal(kopDoorlaat("Incendie de forêt près de Bordeaux"), true);
+assert.equal(kopDoorlaat("Évacuation de trois campings après un feu de végétation"), true);
+assert.equal(kopDoorlaat("Nouveau rond-point inauguré à Mérignac"), false);
+assert.equal(
+  kopDoorlaat("Nîmes : deux voitures incendiées dans la nuit"),
+  false,
+  "het oude filter liet dit door op 'incendie'; de zeef moet het weigeren"
+);
 
 // --- 4. filterBron: geïntegreerde weigertest --------------------------------
 const bron = NIEUWSBRONNEN.find((b) => b.naam.startsWith("Sud Ouest"))!;
@@ -69,15 +77,29 @@ const ruw: RuwItem[] = [
     url: "https://www.sudouest.fr/gironde/incendie-c.php",
     gepubliceerdOp: dagen(10),
   },
-  // (d) juiste host + recent maar geen trefwoord → GEWEIGERD (trefwoord)
+  // (d) juiste host + recent maar buiten het onderwerp → GEWEIGERD (zeef)
   {
     titel: "Un nouveau supermarché ouvre ses portes",
     url: "https://www.sudouest.fr/gironde/magasin-d.php",
     gepubliceerdOp: dagen(1),
   },
+  // (e) juiste host + recent + het woord "incendie", maar een autobrand
+  //     → GEWEIGERD (geen natuurcontext). Dit is het geval dat vóór de zeef
+  //     gewoon in de lade belandde.
+  {
+    titel: "Nîmes : deux voitures incendiées sur un parking",
+    url: "https://www.sudouest.fr/gard/voitures-e.php",
+    gepubliceerdOp: dagen(1),
+  },
+  // (f) juiste host + recent + faits divers → GEWEIGERD (faits-divers-laag)
+  {
+    titel: "Monflanquin : une rixe éclate, les pompiers interviennent",
+    url: "https://www.sudouest.fr/lot-et-garonne/rixe-f.php",
+    gepubliceerdOp: dagen(1),
+  },
 ];
 
-const uit = filterBron(ruw, bron, allowlist, NU);
+const { items: uit, geweigerd } = filterBron(ruw, bron, allowlist, NU);
 assert.equal(uit.length, 1, "alleen het geldige item mag overblijven");
 assert.equal(uit[0].url, "https://www.sudouest.fr/gironde/incendie-a.php");
 assert.ok(
@@ -92,4 +114,10 @@ assert.equal(uit[0].bron, bron.naam);
 assert.equal(uit[0].soort, "pers");
 assert.equal(uit[0].paywall, true);
 
-console.log("✓ alle nieuwsfilter-tests geslaagd");
+// De telling gaat alleen over items die host- en datumpoort al haalden: (d),
+// (e) en (f). Item (b) sneuvelde op de host, (c) op de datum.
+assert.equal(totaalGeweigerd(geweigerd), 3, "drie items moeten door de zeef zijn geweigerd");
+assert.equal(geweigerd.geenOnderwerp, 2, "(d) en (e) vallen op 'geen onderwerp'");
+assert.equal(geweigerd.faitsDivers, 1, "(f) valt op de faits-divers-laag");
+
+console.log("✓ alle 21 nieuwsfilter-tests geslaagd");

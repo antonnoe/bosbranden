@@ -3,6 +3,7 @@
 // zodat deze functies los te testen zijn (zie scripts/test-nieuws.ts).
 
 import type { BronSoort, Nieuwsbron } from "@/data/nieuwsbronnen";
+import { beoordeelKop, type Weigergrond } from "./nieuws-thema.ts";
 
 // ---- Gedeeld antwoordmodel (server → client) -------------------------------
 export interface EcosystemLink {
@@ -31,6 +32,7 @@ export interface BronStatus {
   bevestigd: boolean;
   ok: boolean; // slaagde de laatste ophaalpoging?
   aantal: number; // aantal getoonde items uit deze bron
+  geweigerd: number; // aantal items dat de onderwerpzeef tegenhield
   tijdstip: string | null; // ISO van de ophaalpoging
 }
 
@@ -52,46 +54,19 @@ export interface RuwItem {
 export const MAX_PER_GROEP = 8;
 export const DATUMPOORT_DAGEN = 7;
 
-// ---- Trefwoorden (persfeeds zijn algemene faits-divers-feeds) ---------------
-// Franse termen voor: brand, rook, evacuatie, luchtkwaliteit, brandgevaar,
-// natuurramp. Bewust op de woordstam, accent-ongevoelig (zie normaliseer()).
-// Toegepast op BEIDE groepen, zodat ook officiële feeds op het onderwerp blijven.
-export const TREFWOORDEN: string[] = [
-  "incendie", // brand
-  "feu de foret", // (bos)brand
-  "feux de foret",
-  "feu de vegetation",
-  "feux de vegetation",
-  "brule", // verbrand/brûlé
-  "sinistre", // getroffen gebied/ramp
-  "fumee", // rook
-  "evacuation", // evacuatie
-  "evacue", // geëvacueerd
-  "confinement", // schuilen/binnenblijven bij rook
-  "qualite de l air", // luchtkwaliteit
-  "pollution de l air",
-  "particules", // fijnstof
-  "atmo", // luchtkwaliteitsindex (Atmo)
-  "risque incendie", // brandgevaar
-  "risque feu", // brandgevaar
-  "vigilance", // waakzaamheidsniveau
-  "catastrophe naturelle", // natuurramp
-  "pompiers", // brandweer
-  "sdis", // brandweerdienst (Service départemental d'incendie et de secours)
-];
+// ---- Onderwerpzeef ---------------------------------------------------------
+// Stond hier vroeger als losse TREFWOORDEN-lijst: een kop mocht door zodra er
+// "incendie" of "pompiers" in stond. Dat liet uitgebrande auto's, vechtpartijen
+// en een ziekenhuisbrand in Islamabad in de lade komen. De zeef zit nu in
+// lib/nieuws-thema.ts: een positieve onderwerppoort plus een faits-divers- en
+// een buitenland-laag, met de weigergrond erbij zodat er geteld kan worden.
 
-// Diakritische tekens weg + kleine letters, zodat "forêt"/"foret" en
-// "évacuation"/"evacuation" gelijk matchen.
+// Diakritische tekens weg + kleine letters. Blijft hier voor de ontdubbeling.
 export function normaliseer(tekst: string): string {
   return tekst
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-}
-
-export function bevatTrefwoord(titel: string): boolean {
-  const genormaliseerd = normaliseer(titel);
-  return TREFWOORDEN.some((woord) => genormaliseerd.includes(woord));
 }
 
 // ---- Host-allowlist ---------------------------------------------------------
@@ -168,20 +143,53 @@ export function parseerFeed(xml: string): RuwItem[] {
   return items;
 }
 
+// Uitkomst van het filteren van één bron: wat er doorheen komt, plus hoeveel
+// items de onderwerpzeef tegenhield en om welke reden. Die telling is geen
+// statistiek om te showen maar een controlemiddel: loopt "geenOnderwerp" naar
+// nul terwijl de lade leeg blijft, dan liggen de feeds stil; loopt hij juist
+// hard op, dan doet de zeef zijn werk.
+export interface ZeefTelling {
+  buitenland: number;
+  faitsDivers: number;
+  geenOnderwerp: number;
+}
+
+export interface BronFilterUitkomst {
+  items: NieuwsItem[];
+  geweigerd: ZeefTelling;
+}
+
+export function legeTelling(): ZeefTelling {
+  return { buitenland: 0, faitsDivers: 0, geenOnderwerp: 0 };
+}
+
+export function totaalGeweigerd(t: ZeefTelling): number {
+  return t.buitenland + t.faitsDivers + t.geenOnderwerp;
+}
+
 // Bouwt uit één bron een genormaliseerde lijst NieuwsItems, met alle filters.
+// Volgorde: host-allowlist, datumpoort, dan de onderwerpzeef. De zeeftelling
+// gaat alleen over items die de eerste twee poorten al haalden — anders zou
+// elke off-topic feed-post als "geweigerd door de zeef" worden geteld.
 export function filterBron(
   ruw: RuwItem[],
   bron: Nieuwsbron,
   allowlist: Set<string>,
   nu: number
-): NieuwsItem[] {
+): BronFilterUitkomst {
   const gezien = new Set<string>();
   const uit: NieuwsItem[] = [];
+  const geweigerd = legeTelling();
 
   for (const item of ruw) {
     if (!hostToegestaan(item.url, allowlist)) continue; // host niet in bestand
     if (!binnenDatumpoort(item.gepubliceerdOp, nu)) continue; // datumpoort
-    if (!bevatTrefwoord(item.titel)) continue; // trefwoordfilter
+
+    const oordeel = beoordeelKop(item.titel);
+    if (!oordeel.door) {
+      tel(geweigerd, oordeel.grond);
+      continue;
+    }
 
     const sleutel = normaliseer(item.titel).replace(/\s+/g, " ").trim();
     if (gezien.has(sleutel)) continue;
@@ -197,7 +205,13 @@ export function filterBron(
     });
   }
 
-  return uit;
+  return { items: uit, geweigerd };
+}
+
+function tel(telling: ZeefTelling, grond: Weigergrond | null): void {
+  if (grond === "buitenland") telling.buitenland += 1;
+  else if (grond === "faits-divers") telling.faitsDivers += 1;
+  else if (grond === "geen-onderwerp") telling.geenOnderwerp += 1;
 }
 
 export function sorteerNieuwsteBoven(items: NieuwsItem[]): NieuwsItem[] {

@@ -9,15 +9,15 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { NieuwsAntwoord, NieuwsItem } from "@/lib/nieuws-filter";
+import { CLIENT_VERVERS_MS, teOud } from "@/lib/nieuws-vers";
 import styles from "@/components/Nieuwsgroepen.module.css";
-
-const VERVERS_MS = 15 * 60 * 1000; // 15 min, spiegelt de route-revalidate
 
 export interface NieuwsHaal {
   laden: boolean;
   data: NieuwsAntwoord | null; // laatst geslaagde stand, of de laatste poging
   allesMislukt: boolean; // laatste poging: álle bronnen faalden
   laatstGeslaagd: string | null; // ISO van de laatst geslaagde ronde
+  verouderd: boolean; // laatst geslaagde ronde is ouder dan MAX_LEEFTIJD_MS
   aantal: number; // zichtbare items over beide groepen (voor de teller)
 }
 
@@ -30,23 +30,40 @@ export function useNieuws(actief = true): NieuwsHaal {
     if (!actief) return;
     let leeft = true;
 
+    // `omzeilCache: true` hangt er een wegwerpparameter aan, zodat een
+    // tussenliggende cache (CDN, proxy, service worker) het verzoek niet uit
+    // zijn eigen voorraad kan beantwoorden. Alleen gebruikt als het antwoord
+    // dat we net kregen te oud bleek: normaal verkeer mag gewoon de CDN raken.
+    const haalEen = async (omzeilCache: boolean): Promise<NieuwsAntwoord | null> => {
+      const adres = omzeilCache ? `/api/nieuws?vers=${Date.now()}` : "/api/nieuws";
+      const res = await fetch(adres, { cache: "no-store" });
+      if (!res.ok) return null;
+      return (await res.json()) as NieuwsAntwoord;
+    };
+
     const haal = async () => {
       setLaden(true);
       try {
-        const res = await fetch("/api/nieuws", { cache: "no-store" });
-        const json: NieuwsAntwoord = await res.json();
-        if (!leeft) return;
+        let json = await haalEen(false);
+        // Te oud? Eén keer opnieuw, langs de cache heen. Zo kan een bevroren
+        // cache-ingang de lade niet blijven vullen met een oude stand.
+        if (json && teOud(json.bijgewerkt, Date.now())) {
+          const vers = await haalEen(true);
+          if (vers) json = vers;
+        }
+        if (!leeft || !json) return;
         setLaatste(json);
         if (json.bronnen.some((b) => b.ok)) setLaatstGoed(json);
       } catch {
-        /* netwerk-/parsefout: de laatst geslaagde stand blijft staan */
+        /* netwerk-/parsefout: de laatst geslaagde stand blijft staan, maar
+           veroudert wél — zie `verouderd` hieronder. */
       } finally {
         if (leeft) setLaden(false);
       }
     };
 
     haal();
-    const id = setInterval(haal, VERVERS_MS);
+    const id = setInterval(haal, CLIENT_VERVERS_MS);
     const opZichtbaar = () => {
       if (document.visibilityState === "visible") haal();
     };
@@ -64,12 +81,18 @@ export function useNieuws(actief = true): NieuwsHaal {
     ? laatste.bronnen.length > 0 && laatste.bronnen.every((b) => !b.ok)
     : false;
   const aantal = data ? data.officieel.length + data.pers.length : 0;
+  const laatstGeslaagd = laatstGoed?.laatstGeslaagd ?? null;
+  // Bij elke render opnieuw bepaald, dus ook zonder verse data: elke
+  // ophaalpoging zet `laden` twee keer om en veroorzaakt daarmee een render.
+  // Blijft ophalen mislukken, dan veroudert de getoonde stand dus vanzelf mee.
+  const verouderd = laatstGeslaagd !== null && teOud(laatstGeslaagd, Date.now());
 
   return {
     laden,
     data,
     allesMislukt,
-    laatstGeslaagd: laatstGoed?.laatstGeslaagd ?? null,
+    laatstGeslaagd,
+    verouderd,
     aantal,
   };
 }
@@ -81,7 +104,7 @@ export function Nieuwsgroepen({
   haal: NieuwsHaal;
   thema: "licht" | "donker";
 }) {
-  const { laden, data, allesMislukt, laatstGeslaagd } = haal;
+  const { laden, data, allesMislukt, laatstGeslaagd, verouderd } = haal;
   // Geopend artikel (H3): toont de volledige Nederlandse samenvatting in het
   // paneel, in plaats van meteen naar het originele artikel te linken.
   const [geopend, setGeopend] = useState<NieuwsItem | null>(null);
@@ -105,19 +128,32 @@ export function Nieuwsgroepen({
 
   return (
     <div className={styles.wrap} data-thema={thema}>
-      {allesMislukt && (
+      {/* Verouderd wint van 'alle bronnen mislukt': als de laatst geslaagde
+          ronde ouder is dan een uur, is dát wat de bezoeker moet weten. Zo
+          blijft een oude stand niet eindeloos als actueel staan. */}
+      {verouderd ? (
         <p className={styles.waarschuwing} role="status">
-          {laatstGeslaagd
-            ? `Alle bronnen waren bij de laatste poging onbereikbaar. Hieronder de laatst geslaagde stand — laatst bijgewerkt om ${formatteerTijd(
-                laatstGeslaagd
-              )}.`
-            : "De bronnen zijn op dit moment niet bereikbaar. Zie ‘Bronnen’ hieronder voor de status per bron."}
+          {`De berichten hieronder zijn ouder dan een uur (laatste geslaagde ophaalronde ${formatteerTijd(
+            laatstGeslaagd as string
+          )}). De bronnen zijn op dit moment niet bereikbaar; beschouw dit niet als de actuele stand.`}
         </p>
+      ) : (
+        allesMislukt && (
+          <p className={styles.waarschuwing} role="status">
+            {laatstGeslaagd
+              ? `Alle bronnen waren bij de laatste poging onbereikbaar. Hieronder de laatst geslaagde stand — laatst bijgewerkt om ${formatteerTijd(
+                  laatstGeslaagd
+                )}.`
+              : "De bronnen zijn op dit moment niet bereikbaar. Zie ‘Bronnen’ hieronder voor de status per bron."}
+          </p>
+        )
       )}
 
       {geenItems && !allesMislukt && (
         <p className={styles.status}>
-          Er zijn op dit moment geen recente berichten binnen zeven dagen.
+          Er zijn op dit moment geen berichten over brandrisico, droogte, hitte,
+          rook of evacuaties binnen zeven dagen. De feeds werken; er is alleen
+          niets binnengekomen dat over dit onderwerp gaat.
         </p>
       )}
 
@@ -136,6 +172,14 @@ export function Nieuwsgroepen({
         </p>
       )}
 
+      {/* Altijd zichtbaar, ook als alles goed gaat: het tijdstip van de laatste
+          geslaagde ophaalronde. */}
+      <p className={styles.opgehaald}>
+        {laatstGeslaagd
+          ? `Laatst met succes opgehaald om ${formatteerTijd(laatstGeslaagd)}.`
+          : "Nog geen geslaagde ophaalronde in deze sessie."}
+      </p>
+
       <details className={styles.bronnen}>
         <summary>Bronnen</summary>
         <ul className={styles.bronnenLijst}>
@@ -150,6 +194,7 @@ export function Nieuwsgroepen({
                 </span>
                 {b.tijdstip ? ` om ${formatteerTijd(b.tijdstip)}` : ""}
                 {b.ok && b.aantal > 0 ? ` · ${b.aantal} getoond` : ""}
+                {b.ok && b.geweigerd > 0 ? ` · ${b.geweigerd} buiten onderwerp` : ""}
                 {!b.bevestigd ? " · URL nog niet bevestigd" : ""}
               </span>
             </li>

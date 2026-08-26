@@ -20,6 +20,16 @@
   color: var(--op-merk-zacht);
 }
 
+/* Tijdstip van de laatste geslaagde ophaalronde. Staat altijd onder het nieuws,
+   ook als alles goed gaat: de bezoeker moet kunnen zien hoe vers dit is. */
+.opgehaald {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #800000;
+  opacity: 0.75;
+}
+
 /* ---- Groep ---- */
 .groep {
   margin-top: 12px;
@@ -142,6 +152,12 @@
 .wrap[data-thema="donker"] .meta,
 .wrap[data-thema="donker"] .bronMeta {
   color: var(--op-merk-zacht);
+}
+
+/* In de zijlade is wit afgedwongen (huisstijl: wit op bordeaux #800000). */
+.wrap[data-thema="donker"] .opgehaald {
+  color: #ffffff;
+  opacity: 0.8;
 }
 
 .wrap[data-thema="donker"] .item + .item {

@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "generate:map": "node scripts/generate-map.mjs"
+    "generate:map": "node scripts/generate-map.mjs",
+    "test": "node --experimental-strip-types scripts/test-nieuws.ts && node --experimental-strip-types scripts/test-nieuws-thema.ts && node --experimental-strip-types scripts/test-nieuws-vers.ts && node --experimental-strip-types scripts/test-zijlade-migratie.ts && node --experimental-strip-types scripts/test-assistent-getallen.ts",
+    "meet:cache": "node scripts/meet-nieuws-cache.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
