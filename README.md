@@ -261,18 +261,37 @@ Elke bron toont een van vier toestanden. Ze zijn met opzet uit elkaar getrokken:
 | `geen feed op dit adres` | HTTP 200, maar nul `<item>`/`<entry>` — meestal een HTML-pagina | URL vervangen |
 | `mislukt` | netwerkfout, time-out of HTTP-fout (403, 404) | URL vervangen of bron uitzetten |
 
-Een kapotte feed-URL opsporen zonder te gokken:
+### Kapotte feed-URL opsporen
+
+De bronnenlijst slijt: feeds verhuizen of verdwijnen, en dan staat de lade stil
+zonder dat iemand het merkt. `scripts/probeer-feeds.mjs` test elke ingestelde
+URL en vraagt bij een kapotte de site *zelf* waar zijn feeds staan (de
+`<link rel="alternate" type="application/rss+xml">` in de HTML). Het raadt dus
+geen adressen — dat verbiedt de kop van `data/nieuwsbronnen.ts` uitdrukkelijk.
+
+**Via github.com, zonder gereedschap.** Tabblad **Actions** → links
+**Feedcontrole** → rechts **Run workflow** → groene knop. Na ± 1 minuut staat de
+uitslag in de samenvatting van de run. Het veld "filter" mag leeg blijven; vul
+je er bijvoorbeeld `gironde` in, dan worden alleen bronnen met dat woord in de
+naam nagelopen. De workflow heeft geen sleutels nodig en wijzigt niets.
+
+**Vanaf een eigen machine** (vereist Node 22 en een lokale kloon):
 
 ```bash
 node scripts/probeer-feeds.mjs            # alle bronnen
 node scripts/probeer-feeds.mjs gironde    # alleen bronnen met "gironde" in de naam
 ```
 
-Dat script test elke ingestelde URL en vraagt bij een kapotte de site *zelf* waar
-zijn feeds staan (de `<link rel="alternate" type="application/rss+xml">` in de
-HTML). Het raadt dus geen adressen — dat verbiedt de kop van
-`data/nieuwsbronnen.ts` ook uitdrukkelijk. Neem alleen over wat "WERKT" scoort,
-en zet `bevestigd: true` pas als je het met dit script hebt zien werken.
+Wat je met de uitslag doet:
+
+| uitslag | wat het betekent | actie in `data/nieuwsbronnen.ts` |
+| --- | --- | --- |
+| `WERKT` bij het ingestelde adres | bron is in orde | niets; eventueel `bevestigd: true` |
+| `WERKT` bij een kandidaat | er is een nieuw adres gevonden | `url` vervangen, `bevestigd: true` |
+| `geen werkend adres gevonden` | de site biedt hier geen feed meer | `actief: false` |
+
+Zet `bevestigd: true` nooit op goed vertrouwen — alleen als de feedcontrole het
+adres heeft zien werken.
 
 Een term toevoegen? Zet hem in de juiste lijst in `lib/nieuws-thema.ts` en voeg
 een geval toe aan `scripts/test-nieuws-thema.ts`. Let op plaatsnamen die op

@@ -1,0 +1,66 @@
+# Feedcontrole — draait scripts/probeer-feeds.mjs op een GitHub-machine.
+# ---------------------------------------------------------------------------
+# WAAROM DIT BESTAAT. De bronnenlijst in data/nieuwsbronnen.ts slijt: feeds
+# verhuizen of verdwijnen, en dan staat de nieuwslade stil zonder dat iemand het
+# merkt. Dit uitzoeken vraagt normaal een terminal met Node. Deze workflow doet
+# hetzelfde met één knop op github.com, en zet de uitslag als leesbare pagina
+# onder het resultaat.
+#
+# GEBRUIK. Ga op github.com naar het tabblad "Actions", kies links
+# "Feedcontrole", klik rechts op "Run workflow" en daarna op de groene knop.
+# Na ongeveer een minuut staat de uitslag in de samenvatting van de run.
+#
+# Er zijn geen sleutels of instellingen voor nodig; de workflow leest alleen
+# openbare feeds en verandert niets in de repo.
+
+name: Feedcontrole
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'Alleen bronnen met deze tekst in de naam (leeg = alle bronnen)'
+        required: false
+        default: ''
+
+# Alleen lezen: deze workflow wijzigt niets.
+permissions:
+  contents: read
+
+jobs:
+  controleer:
+    name: Feeds nalopen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo ophalen
+        uses: actions/checkout@v4
+
+      - name: Node klaarzetten
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Geen npm install: het script gebruikt alleen ingebouwde Node-functies.
+      # De invoer gaat via een omgevingsvariabele naar de shell, niet via directe
+      # tekstvervanging in de regel: zo kan er geen commando in de invoer worden
+      # meegesmokkeld.
+      - name: Feeds nalopen
+        env:
+          FILTER: ${{ inputs.filter }}
+        run: |
+          node scripts/probeer-feeds.mjs "$FILTER" | tee uitslag.txt
+
+      - name: Uitslag als samenvatting tonen
+        if: always()
+        run: |
+          {
+            echo '## Feedcontrole'
+            echo ''
+            echo 'Neem hieronder alleen over wat **WERKT** scoort. Zet `bevestigd: true`'
+            echo 'pas als u het adres hier hebt zien werken; staat er "geen werkend adres'
+            echo 'gevonden", dan hoort die bron op `actief: false`.'
+            echo ''
+            echo '```'
+            cat uitslag.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
