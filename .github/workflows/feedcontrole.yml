@@ -16,6 +16,12 @@
 name: Feedcontrole
 
 on:
+  # Elke maandagochtend. Faalt de controle, dan stuurt GitHub de eigenaar
+  # vanzelf een melding — zo hoeft niemand er zelf aan te denken. Dat is precies
+  # wat er misging: negen bronnen lagen sinds eind juli stil zonder dat het
+  # opviel.
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       filter:
@@ -44,10 +50,14 @@ jobs:
       # De invoer gaat via een omgevingsvariabele naar de shell, niet via directe
       # tekstvervanging in de regel: zo kan er geen commando in de invoer worden
       # meegesmokkeld.
+      # Het script eindigt met exitcode 1 als een ACTIEVE bron geen feed meer
+      # levert. Bij de wekelijkse run laat dat de workflow falen, en dát is de
+      # melding. `tee` mag de exitcode niet opslokken, vandaar pipefail.
       - name: Feeds nalopen
         env:
           FILTER: ${{ inputs.filter }}
         run: |
+          set -o pipefail
           node scripts/probeer-feeds.mjs "$FILTER" | tee uitslag.txt
 
       - name: Uitslag als samenvatting tonen

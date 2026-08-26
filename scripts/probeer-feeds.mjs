@@ -19,6 +19,15 @@
 // pagina-aanvraag was geweigerd. Deze versie meldt per stap wát er misging, en
 // zegt nooit "geen feed" als hij niet heeft kunnen kijken.
 
+import {
+  conventioneleKandidaten,
+  eindOordeel,
+  isFeedDocument,
+  nieuwsteDatum,
+  ontdekkingsOordeel,
+  telItems,
+  vindAangekondigdeFeeds,
+} from "../lib/feedcontrole-logica.mjs";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -87,25 +96,6 @@ async function haal(url, accept, ua) {
   }
 }
 
-// Zelfde telling als lib/nieuws-filter.ts: RSS <item> én Atom <entry>.
-function telItems(xml) {
-  return (
-    [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/gi)].length +
-    [...xml.matchAll(/<entry[\s>][\s\S]*?<\/entry>/gi)].length
-  );
-}
-
-function nieuwsteDatum(xml) {
-  const datums = [];
-  for (const tag of ["pubDate", "published", "updated", "dc:date"]) {
-    for (const m of xml.matchAll(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "gi"))) {
-      const t = Date.parse(m[1].trim());
-      if (!Number.isNaN(t)) datums.push(t);
-    }
-  }
-  return datums.length ? new Date(Math.max(...datums)).toISOString() : null;
-}
-
 // Beschrijft in één regel wat er op een adres staat als het géén feed is.
 function watStaatEr(res) {
   const kop = res.tekst.slice(0, 400).replace(/\s+/g, " ").trim();
@@ -142,6 +132,13 @@ async function beoordeelFeed(url) {
   const bereikbaar = eerste.ok || tweede.ok;
   if (bereikbaar) {
     const res = eerste.ok ? eerste : tweede;
+    if (isFeedDocument(res.tekst)) {
+      return {
+        oordeel: "LEEG",
+        detail: "geldige feed, op dit moment zonder items — adres is in orde",
+        aantal: 0,
+      };
+    }
     return { oordeel: "GEEN FEED", detail: watStaatEr(res), aantal: 0 };
   }
   const detail =
@@ -159,52 +156,6 @@ function beschrijfFeed(res) {
   return `${aantal} items, nieuwste ${nieuwste.slice(0, 10)} (${dagen} dagen oud)`;
 }
 
-// Waar kondigt de site zelf zijn feeds aan?
-function vindAangekondigdeFeeds(html, basis) {
-  const uit = new Set();
-  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
-    const tag = m[0];
-    if (!/rel=["']?[^"'>]*alternate/i.test(tag)) continue;
-    if (!/type=["']?application\/(rss|atom)\+xml/i.test(tag)) continue;
-    const href = tag.match(/href=["']([^"']+)["']/i)?.[1];
-    if (!href) continue;
-    try {
-      uit.add(new URL(href.replace(/&amp;/g, "&"), basis).toString());
-    } catch {
-      /* onbruikbare href */
-    }
-  }
-  return [...uit];
-}
-
-// De gebruikelijke feed-paden, zowel op de map van het ingestelde adres als op
-// de hoofdmap van het domein. Elk hiervan wordt getest; alleen wat aantoonbaar
-// een feed mét items teruggeeft haalt de uitslag.
-const PADEN = ["rss", "rss.xml", "feed", "feed/", "feeds/rss.xml", "atom.xml", "index.rss", "?feed=rss2"];
-
-function conventioneleKandidaten(ingesteld) {
-  const uit = new Set();
-  let u;
-  try {
-    u = new URL(ingesteld);
-  } catch {
-    return [];
-  }
-  // Bij een adres in de hoofdmap zijn map en origin hetzelfde; niet dubbel doen.
-  const bases = [...new Set([new URL(".", u).toString(), u.origin + "/"])];
-  for (const basis of bases) {
-    for (const pad of PADEN) {
-      try {
-        uit.add(new URL(pad, basis).toString());
-      } catch {
-        /* overslaan */
-      }
-    }
-  }
-  uit.delete(ingesteld);
-  return [...uit];
-}
-
 const bronnen = leesBronnen().filter((b) => !filter || b.naam.toLowerCase().includes(filter));
 console.log(`Feedcontrole — ${bronnen.length} bron(nen)\n${"=".repeat(64)}\n`);
 
@@ -216,7 +167,7 @@ for (const bron of bronnen) {
   const eerste = await beoordeelFeed(bron.url);
   console.log(`  → ${eerste.oordeel}: ${eerste.detail}`);
 
-  if (eerste.oordeel.startsWith("WERKT")) {
+  if (eerste.oordeel.startsWith("WERKT") || eerste.oordeel === "LEEG") {
     uitslagen.push({
       naam: bron.naam,
       status: bron.actief ? "in orde" : "werkt weer",
@@ -249,11 +200,12 @@ for (const bron of bronnen) {
     for (const feed of vindAangekondigdeFeeds(html.tekst, html.url)) gevonden.add(feed);
   }
 
-  if (paginaGelezen === 0) {
+  const ontdekking = ontdekkingsOordeel(paginaGelezen, gevonden.size);
+  if (ontdekking === "onbeslist") {
     // NIET zeggen "geen feed aangekondigd": we hebben niet kunnen kijken.
     console.log("  site niet te lezen, dus niet vast te stellen of er een feed wordt aangekondigd:");
     for (const f of paginaFouten) console.log(`    ${f}`);
-  } else if (gevonden.size === 0) {
+  } else if (ontdekking === "geen-aankondiging") {
     console.log(`  site gelezen (${paginaGelezen} pagina's): geen feed aangekondigd in de HTML`);
   } else {
     console.log(`  site kondigt ${gevonden.size} feed(s) aan`);
@@ -275,7 +227,7 @@ for (const bron of bronnen) {
   }
 
   if (!beste) {
-    const status = paginaGelezen === 0 ? "onbeslist" : "niets gevonden";
+    const status = ontdekking === "onbeslist" ? "onbeslist" : "niets gevonden";
     console.log(`  geen enkele kandidaat leverde een feed (${gevonden.size} geprobeerd)`);
     uitslagen.push({ naam: bron.naam, status, vervanger: null, uaProbleem: false, actief: bron.actief });
   } else {
@@ -340,4 +292,28 @@ if (inOrde.some((u) => u.uaProbleem)) {
   console.log("UA-PROBLEEM — feed werkt alleen met de nette user-agent, niet met die van");
   console.log("de route. Pas de User-Agent aan in app/api/nieuws/route.ts:");
   for (const r of inOrde.filter((u) => u.uaProbleem)) console.log(`  ${r.naam}`);
+  console.log("");
+}
+
+// ---- Uitkomst als exitcode, voor de wekelijkse bewaking --------------------
+// Een ACTIEVE bron waarvan het ingestelde adres het niet meer doet, is een
+// storing: dan staat de lade stil zonder dat iemand het merkt. Die laat het
+// script falen, zodat GitHub de eigenaar vanzelf een melding stuurt. Uitgezette
+// bronnen tellen niet mee (die weten we al), en "onbeslist" evenmin: dat zegt
+// niets over de bron, alleen dat de controlemachine geen antwoord kreeg.
+const { storingen, nietTeZeggen } = eindOordeel(uitslagen);
+
+if (nietTeZeggen.length) {
+  console.log(`Let op: ${nietTeZeggen.length} actieve bron(nen) konden niet worden gecontroleerd.`);
+}
+
+if (storingen.length) {
+  console.log(`STORING: ${storingen.length} actieve bron(nen) leveren geen feed meer.`);
+  for (const r of storingen) console.log(`  ${r.naam}`);
+  console.log("");
+  console.log("De nieuwslade mist hierdoor materiaal. Zie hierboven of er een nieuw");
+  console.log("adres is gevonden; zo niet, zet de bron op actief: false.");
+  process.exitCode = 1;
+} else {
+  console.log("Alle actieve bronnen leveren een feed.");
 }

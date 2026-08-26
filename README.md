@@ -288,7 +288,15 @@ URL en vraagt bij een kapotte de site *zelf* waar zijn feeds staan (de
 `<link rel="alternate" type="application/rss+xml">` in de HTML). Het raadt dus
 geen adressen — dat verbiedt de kop van `data/nieuwsbronnen.ts` uitdrukkelijk.
 
-**Via github.com, zonder gereedschap.** Tabblad **Actions** → links
+**Automatisch, elke maandagochtend.** De workflow draait wekelijks vanzelf. Levert
+een bron die op `actief: true` staat geen feed meer, dan eindigt de controle met
+een foutcode en faalt de workflow — GitHub stuurt de eigenaar dan vanzelf een
+melding. Zo hoeft niemand er zelf aan te denken; precies dát ging mis, want negen
+bronnen lagen sinds eind juli stil zonder dat het opviel. Een lege maar geldige
+feed (zoals Atmo) telt niet als storing, en `onbeslist` evenmin — anders slaat de
+controle vals alarm en gelooft niemand hem meer.
+
+**Zelf starten.** Tabblad **Actions** → links
 **Feedcontrole** → rechts **Run workflow** → groene knop. Na ± 1 minuut staat de
 uitslag in de samenvatting van de run. Het veld "filter" mag leeg blijven; vul
 je er bijvoorbeeld `gironde` in, dan worden alleen bronnen met dat woord in de
