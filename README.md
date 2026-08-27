@@ -146,18 +146,33 @@ trok een pluim voor élke hittebron, waardoor de twee kaarten verschillende
 dingen zeiden over dezelfde meting. Dat is nu aangesloten.
 
 `lib/rookbeoordeling.ts` vat de beoordeling samen over de detecties van één
-cluster. Twee keuzes daarin zijn bewust en hebben een zelftest
-(`scripts/test-rookbeoordeling.ts`):
+cluster, achter **twee poorten** die verschillend werk doen. Alles hieronder
+heeft een zelftest (`scripts/test-rookbeoordeling.ts`, 15 gevallen):
 
-- **De drempel is asymmetrisch.** Eén beoordeelde detectie maakt het hele
-  cluster "waarschijnlijke natuurbrand". De classificatie in `firms.ts` is al
-  streng (samenhang in ruimte én tijd bóvenop een sterk signaal), en de fout die
-  hier pijn doet is de omgekeerde: een echte natuurbrand niet markeren. Ruimer
-  markeren kost aandacht, krapper markeren kost vertrouwen.
+- **De FRP-poort.** Valt het cluster in de kleinste band van de FRP-schaal
+  (onder `FRP_KLEIN_MAX_MW` = 10 MW), dan verschijnt de markering nooit — hoe
+  overtuigend de detectiesignalen ook zijn. Die grens komt uit
+  `lib/frp-schaal.ts`, dezelfde band waarin de tool zo'n bron zelf "klein,
+  vergelijkbaar met een brandende schuur of een klein perceel" noemt. Een
+  onbekende FRP telt níet als klein: afwezige data is geen meting.
+- **De detectiepoort.** Bóven die grens is één beoordeelde detectie genoeg voor
+  het hele cluster. Dat is bewust asymmetrisch: `firms.ts` is al streng
+  (samenhang in ruimte én tijd bóvenop een sterk signaal), en de fout die dáár
+  pijn doet is de omgekeerde — een echte natuurbrand niet markeren.
 - **De signalen komen alleen van de detecties die de drempel haalden.** Anders
   onderbouwt de getoonde tekst iets anders dan het oordeel erboven. De volgorde
   (aantal aflopend, dan alfabetisch) ligt vast omdat de route haar antwoord
   cachet: dezelfde invoer moet dezelfde uitvoer geven.
+
+**Waarom de FRP-poort er is.** De eerste versie had hem niet, en een bron in de
+Gers van 7,1 MW kreeg daardoor de kop "Waarschijnlijke natuurbrand" met, in
+dezelfde popup, de duiderzin "klein, vergelijkbaar met een brandende schuur"
+eronder. Twee onderdelen van dezelfde popup spraken elkaar tegen over precies
+het onderscheid dat ze moesten maken. De schaal staat daarom nu op één plek
+(`lib/frp-schaal.ts`) en wordt door beide gelezen — markering én tekst kunnen
+niet meer uit elkaar lopen. `maakCluster()` geeft dezelfde afgeronde FRP door
+die de popup toont, zodat ze ook niet aan weerszijden van de grens kunnen
+vallen.
 
 Op de kaart is dit **alleen een opwaardering**: een beoordeelde bron krijgt een
 extra ring, een niet beoordeelde bron blijft ongewijzigd. We markeren niet

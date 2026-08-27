@@ -817,7 +817,10 @@ function PluimDetails({ pluim }: { pluim: Pluim }) {
           </span>
           <span className={styles.detailWaarde}>
             <span className={styles.brandMerk}>Waarschijnlijke natuurbrand</span>
-            {pluim.natuurbrandDetecties != null && pluim.detecties > 1
+            {/* Alleen een breuk tonen als het er een is: "2 van 2 metingen"
+                voegt niets toe en leest als ruis. */}
+            {pluim.natuurbrandDetecties != null &&
+            pluim.natuurbrandDetecties < pluim.detecties
               ? ` — ${pluim.natuurbrandDetecties} van ${pluim.detecties} metingen`
               : ""}
             {pluim.signalen && pluim.signalen.length > 0

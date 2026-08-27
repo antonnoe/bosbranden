@@ -36,12 +36,14 @@ export const UITLEG = {
     kop: "Beoordeeld als waarschijnlijke natuurbrand",
     tekst:
       "Een beoordeling van de meting zelf, niet van de werkelijkheid: er is geen " +
-      "brand bevestigd. Ze weegt de betrouwbaarheid van de satellietmeting, de " +
-      "uitgestraalde warmte, of er meer metingen dicht bij elkaar liggen en of de " +
-      "bron door meerdere satellietpassages is gezien. Haalt geen enkele meting die " +
-      "drempel, dan staat er niets — en dat is nadrukkelijk géén vrijbrief: kleine " +
-      "of jonge branden halen de drempel vaak niet, en een vaste warmtebron zoals " +
-      "een fabriek kan hem juist wél halen.",
+      "brand bevestigd. Er moeten twee dingen kloppen. De bron moet groter zijn " +
+      "dan schuur-formaat — onder de tien megawatt verschijnt deze regel nooit, " +
+      "hoe overtuigend de meting verder ook is. En de meting zelf moet standhouden: " +
+      "betrouwbaarheid van de satellietmeting, meerdere metingen dicht bij elkaar, " +
+      "of de bron door meerdere satellietpassages is gezien. Staat er niets, dan " +
+      "is dat nadrukkelijk géén vrijbrief: kleine of jonge branden halen de " +
+      "drempel niet, en een vaste warmtebron zoals een fabriek kan hem juist wél " +
+      "halen.",
   },
   viirs: {
     kop: "VIIRS",
