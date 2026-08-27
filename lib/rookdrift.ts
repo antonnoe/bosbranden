@@ -14,6 +14,7 @@ import { KAART_PADEN } from "@/lib/kaart-paths";
 import { inverseProjectie } from "@/lib/kaart-projectie";
 import type { Waarneming } from "@/lib/waarnemingen";
 import { vatBeoordelingSamen } from "@/lib/rookbeoordeling";
+import type { MediaTreffer } from "@/lib/mediakoppeling";
 
 // ---- Constanten ----
 
@@ -84,6 +85,11 @@ export interface Pluim {
   waarschijnlijkNatuurbrand: boolean;
   natuurbrandDetecties: number;
   signalen: string[];
+  // Persbericht over vermoedelijk dezelfde brand, als dat ondubbelzinnig te
+  // koppelen viel. Wordt NIET hier gevuld maar in app/api/rookpluimen/route.ts,
+  // zodat een storing in de feeds of de geocoder de kaartberekening niet raakt.
+  // Ontbreekt bijna altijd — zie het voorbehoud in lib/mediakoppeling.ts.
+  media?: MediaTreffer;
 }
 
 export interface PostcodeAntwoord {

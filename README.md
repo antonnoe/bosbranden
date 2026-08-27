@@ -185,6 +185,57 @@ De beoordeling is ook de eerste sorteersleutel in `begrensPluimen()`. Dat telt
 alleen wanneer de caps bijten: moeten er pluimen afvallen, dan vallen de losse
 warmtebronnen af en niet de branden.
 
+### Persbevestiging bij een brandhaard
+
+Een satellietmeting zegt "hier is warmte". Een krant zegt "hier brandt het bos".
+Dat tweede is onafhankelijke, door mensen vastgestelde informatie — categorisch
+meer waard dan nóg een herberekening van dezelfde pixels. Vandaar dat een
+gemarkeerde brandhaard er een regel bij kan krijgen:
+
+> **In het nieuws** — Midi Libre meldt een brand bij Saint-Gaudens
+
+**De koppeling werkt maar één kant op.** Een treffer waardeert een melding op;
+het ontbreken van een treffer zegt *niets* en verschijnt daarom ook niet in
+beeld. De tool leest zes regionale feeds (Nouvelle-Aquitaine, Occitanie,
+Île-de-France, PACA). Corsica, Centre, Bourgogne, Grand Est, Bretagne en
+Auvergne hebben geen enkele bron. Bovendien is de satelliet meestal eerder dan
+de pers, en haalt een brand van vijf hectare de krant vaak nooit. "Geen nieuws"
+betekent hier dus overwegend "wij lezen daar geen krant" — dat mag nooit als
+geruststelling verschijnen.
+
+**De trigger is de satellietmelding, niet het nieuws.** Er wordt alleen gezocht
+bij haarden die de brandbeoordeling al heeft gemarkeerd. Dat houdt de bewering
+klein (we bevestigen wat we zagen) en scheelt geocoder-aanroepen.
+
+De keten, met `lib/mediakoppeling.ts` als pure, geteste kern
+(`scripts/test-mediakoppeling.ts`, 22 gevallen):
+
+1. **Feeds** — dezelfde `ACTIEVE_BRONNEN` en `filterBron()` als de nieuwslade,
+   dus de onderwerpzeef van `lib/nieuws-thema.ts` heeft autobranden en
+   gebouwbranden er al uit gegooid.
+2. **Plaatsnaam uit de kop** — alleen ná een voorzetsel (`à`, `près de`, `au`),
+   zodat een departement vooraan ("Haute-Garonne : …") niet voor een gemeente
+   wordt aangezien. Kleine tussenwoorden blijven binnen de naam staan, dus
+   `L'Isle-Jourdain` en `Villeneuve-lès-Avignon` overleven heel.
+3. **Geocoderen** — `data.geopf.fr/geocodage/search` met `type=municipality`,
+   dezelfde dienst als in `app/api/fr-alert/route.ts`. Een straat of POI kan
+   dus nooit als plaats doorgaan.
+4. **Ondubbelzinnigheid** — score ≥ 0,6 én minstens 0,1 boven de tweede
+   kandidaat. Frankrijk telt tientallen `Saint-*`-gemeenten; zonder dat verschil
+   zou de geocoder er willekeurig één kiezen.
+5. **Drie harde eisen** — hetzelfde departement (dit sluit gelijknamige
+   gemeenten elders uit), hooguit 20 km tussen gemeente en gemeten haard, en
+   hooguit 24 uur tussen publicatie en laatste meting (aan beide kanten: een
+   brand van gisteravond staat vanochtend in de krant).
+
+Eén treffer per haard — de dichtstbijzijnde, bij gelijke afstand de nieuwste.
+Een opsomming van drie artikelen over dezelfde brand voegt niets toe.
+
+De verrijking gebeurt in `app/api/rookpluimen/route.ts`, ná `berekenPluimen()`,
+achter een eigen `try`. Een storing in de feeds of de geocoder levert "geen
+treffers" op — precies dezelfde uitkomst als een rustige dag, en dus nooit een
+kapotte kaart.
+
 ### Kaartschil (Leaflet) en satellietlaag
 
 De rookmodule tekent sinds taak D op een echte kaartbibliotheek in plaats van een

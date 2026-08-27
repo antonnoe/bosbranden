@@ -380,6 +380,19 @@
     0 0 0 9.5px var(--hittebron);
 }
 
+/* Link naar het persbericht. Onderstreept, want het is een link en niet nog
+   een stuk data; kleur uit de huisstijl, niet de alarmkleur van de bron. */
+.medialink {
+  color: var(--primair);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.medialink:focus-visible {
+  outline: 2px solid var(--primair);
+  outline-offset: 2px;
+}
+
 /* Het merkje in de detailregel. Geen alarmkleur als vlak: de tekst is feitelijk
    en de nadruk komt van het gewicht, niet van een rode balk. */
 .brandMerk {
