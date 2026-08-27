@@ -13,6 +13,7 @@ import { DEP_BY_CODE, departementVoorPostcode } from "@/lib/departements";
 import { KAART_PADEN } from "@/lib/kaart-paths";
 import { inverseProjectie } from "@/lib/kaart-projectie";
 import type { Waarneming } from "@/lib/waarnemingen";
+import { vatBeoordelingSamen } from "@/lib/rookbeoordeling";
 
 // ---- Constanten ----
 
@@ -79,6 +80,10 @@ export interface Pluim {
   kmLeefniveau: number;
   kmOphoogte: number;
   richting: string; // 16-punts kompas, bijv. "OZO"
+  // Zie Cluster: dezelfde beoordeling, doorgegeven aan de client.
+  waarschijnlijkNatuurbrand: boolean;
+  natuurbrandDetecties: number;
+  signalen: string[];
 }
 
 export interface PostcodeAntwoord {
@@ -351,6 +356,12 @@ export interface Cluster {
   laatsteDetectie: string;
   departementCode: string | null;
   diameterKm: number; // diameter van de brandhaard (kaderdiagonaal in km)
+  // Beoordeling, overgenomen uit classificeerWaarnemingen() in lib/firms.ts.
+  // Die draaide al voor de brandkaart; de rookkaart negeerde haar, waardoor de
+  // twee kaarten verschillende dingen zeiden over dezelfde meting.
+  waarschijnlijkNatuurbrand: boolean;
+  natuurbrandDetecties: number; // hoeveel van `detecties` de drempel haalden
+  signalen: string[]; // ontdubbelde redenen, sterkste (meest voorkomende) eerst
 }
 
 // Geëxporteerd zodat de clustering met echte data controleerbaar is
@@ -500,6 +511,7 @@ function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
 
   const lat = somLat / indices.length;
   const lon = somLon / indices.length;
+  const beoordeling = beoordeelCluster(ws, indices);
   return {
     lat,
     lon,
@@ -508,7 +520,18 @@ function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
     laatsteDetectie: laatste,
     departementCode: vindDepartementCode(lat, lon),
     diameterKm: Math.round(frontDiameterKm(ws, indices) * 10) / 10,
+    ...beoordeling,
   };
+}
+
+// Vat de per-detectie beoordeling uit lib/firms.ts samen op clusterniveau. De
+// regels zelf staan in lib/rookbeoordeling.ts, met een zelftest — zie daar
+// waarom het oordeel asymmetrisch is en waarom de volgorde vastligt.
+function beoordeelCluster(
+  ws: Waarneming[],
+  indices: number[]
+): Pick<Cluster, "waarschijnlijkNatuurbrand" | "natuurbrandDetecties" | "signalen"> {
+  return vatBeoordelingSamen(indices.map((idx) => ws[idx]));
 }
 
 // Stap 3: weeg op omvang. We rangschikken alle clusters landelijk op aantal
@@ -518,8 +541,13 @@ function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
 // een groot brandcomplex meerdere fronten terwijl een los detectiepuntje geen
 // echt front verdringt.
 function begrensPluimen(clusters: Cluster[]): Cluster[] {
+  // Beoordeelde natuurbranden eerst. Dit telt alleen wanneer de caps bijten:
+  // moeten er pluimen afvallen, dan vallen de losse warmtebronnen af en niet de
+  // branden. Binnen elke groep blijft de weging op omvang en FRP staan.
   const sorteer = (a: Cluster, b: Cluster) =>
-    b.detecties - a.detecties || (b.frp ?? 0) - (a.frp ?? 0);
+    Number(b.waarschijnlijkNatuurbrand) - Number(a.waarschijnlijkNatuurbrand) ||
+    b.detecties - a.detecties ||
+    (b.frp ?? 0) - (a.frp ?? 0);
 
   // Per departement afkappen op MAX_PLUIMEN_PER_DEP (anti-monopolie).
   const perDep = new Map<string, Cluster[]>();
@@ -658,6 +686,9 @@ function maakBasisPluim(c: Cluster): Pluim {
     kmLeefniveau: 0,
     kmOphoogte: 0,
     richting: "",
+    waarschijnlijkNatuurbrand: c.waarschijnlijkNatuurbrand,
+    natuurbrandDetecties: c.natuurbrandDetecties,
+    signalen: c.signalen,
   };
 }
 

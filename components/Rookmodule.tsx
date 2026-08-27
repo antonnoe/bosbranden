@@ -54,6 +54,12 @@ interface Pluim {
   kmLeefniveau: number;
   kmOphoogte: number;
   richting: string;
+  // Beoordeling uit lib/firms.ts, via lib/rookdrift.ts. Optioneel getypeerd: de
+  // route cachet haar antwoord 15 minuten, dus vlak na een uitrol kan een client
+  // nog een payload van vóór deze velden krijgen. Ontbreken = niet beoordeeld.
+  waarschijnlijkNatuurbrand?: boolean;
+  natuurbrandDetecties?: number;
+  signalen?: string[];
 }
 
 interface Antwoord {
@@ -233,10 +239,26 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
       const bo = Number.isFinite(pluim.beginOffset) ? Math.min(0, pluim.beginOffset) : 0;
       if (data?.windBeschikbaar && uur < bo) continue;
       const isGekozen = pluim.id === gekozenId;
-      const label = `Hittebron${pluim.bronDepartement ? ` in ${pluim.bronDepartement}` : ""}, ${pluim.detecties} detecties — klik voor details`;
+      // Alleen opwaarderen: een beoordeelde bron krijgt een extra ring. Een niet
+      // beoordeelde bron blijft ongewijzigd — we markeren niet visueel dat iets
+      // "weinig voorstelt", want dat is precies de bewering die we niet kunnen
+      // hardmaken (zie UITLEG.beoordeling).
+      const isBrand = pluim.waarschijnlijkNatuurbrand === true;
+      const label =
+        `Hittebron${pluim.bronDepartement ? ` in ${pluim.bronDepartement}` : ""}, ` +
+        `${pluim.detecties} detecties` +
+        (isBrand ? ", beoordeeld als waarschijnlijke natuurbrand" : "") +
+        " — klik voor details";
+      const dotKlassen = [
+        styles.bronDot,
+        isBrand ? styles.bronDotBrand : "",
+        isGekozen ? styles.bronDotGekozen : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
       const icon = L.divIcon({
         className: styles.bronIcon,
-        html: `<span class="${styles.bronDot} ${isGekozen ? styles.bronDotGekozen : ""}"></span>`,
+        html: `<span class="${dotKlassen}"></span>`,
         iconSize: [22, 22],
         iconAnchor: [11, 11],
       });
@@ -621,6 +643,9 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
                 <span>
                   <i className={styles.legBron} /> Hittebron — hier is warmte gemeten
                 </span>
+                <span>
+                  <i className={styles.legBrand} /> Beoordeeld als waarschijnlijke natuurbrand
+                </span>
               </div>
             </details>
 
@@ -784,6 +809,23 @@ function PluimDetails({ pluim }: { pluim: Pluim }) {
           </span>
         </div>
       )}
+      {pluim.waarschijnlijkNatuurbrand && (
+        <div className={styles.detailRij}>
+          <span className={styles.detailLabel}>
+            Beoordeling
+            <InfoKnop kop={UITLEG.beoordeling.kop} tekst={UITLEG.beoordeling.tekst} />
+          </span>
+          <span className={styles.detailWaarde}>
+            <span className={styles.brandMerk}>Waarschijnlijke natuurbrand</span>
+            {pluim.natuurbrandDetecties != null && pluim.detecties > 1
+              ? ` — ${pluim.natuurbrandDetecties} van ${pluim.detecties} metingen`
+              : ""}
+            {pluim.signalen && pluim.signalen.length > 0
+              ? `. Signalen: ${pluim.signalen.join(", ")}.`
+              : ""}
+          </span>
+        </div>
+      )}
       <div className={styles.detailRij}>
         <span className={styles.detailLabel}>Laatste meting</span>
         <span className={styles.detailWaarde}>{volledigeDatum(pluim.laatsteDetectie)}</span>
@@ -857,6 +899,9 @@ function pluimMeting(pluim: Pluim): LegUitMeting {
     id: pluim.id,
     departementCode: pluim.bronDepartementCode ?? undefined,
     frp: pluim.frp,
+    // Hetzelfde veld dat FranceKaart meegeeft: hoort deze meting bij een
+    // samenhangend cluster? De server bouwt daar zijn eigen zin bij.
+    cluster: pluim.waarschijnlijkNatuurbrand,
     aantal: pluim.detecties,
     waargenomenOp: pluim.laatsteDetectie,
     richting: pluim.richting,

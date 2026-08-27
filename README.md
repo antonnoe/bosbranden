@@ -137,6 +137,39 @@ Het postcode-antwoord toetst per uurstap of het midden van een traject binnen he
 departement van de bezoeker valt en meldt het vroegste uur, de bron en de modus —
 of anders de minimale afstand tot dat departement.
 
+### Beoordeling "waarschijnlijke natuurbrand"
+
+`classificeerWaarnemingen()` in `lib/firms.ts` beoordeelt elke detectie al —
+VIIRS-betrouwbaarheid, FRP, buren binnen 4/8 km, aantal satellietpassages — en
+de brandkaart op `/` toonde dat ook. De rookkaart negeerde die beoordeling: zij
+trok een pluim voor élke hittebron, waardoor de twee kaarten verschillende
+dingen zeiden over dezelfde meting. Dat is nu aangesloten.
+
+`lib/rookbeoordeling.ts` vat de beoordeling samen over de detecties van één
+cluster. Twee keuzes daarin zijn bewust en hebben een zelftest
+(`scripts/test-rookbeoordeling.ts`):
+
+- **De drempel is asymmetrisch.** Eén beoordeelde detectie maakt het hele
+  cluster "waarschijnlijke natuurbrand". De classificatie in `firms.ts` is al
+  streng (samenhang in ruimte én tijd bóvenop een sterk signaal), en de fout die
+  hier pijn doet is de omgekeerde: een echte natuurbrand niet markeren. Ruimer
+  markeren kost aandacht, krapper markeren kost vertrouwen.
+- **De signalen komen alleen van de detecties die de drempel haalden.** Anders
+  onderbouwt de getoonde tekst iets anders dan het oordeel erboven. De volgorde
+  (aantal aflopend, dan alfabetisch) ligt vast omdat de route haar antwoord
+  cachet: dezelfde invoer moet dezelfde uitvoer geven.
+
+Op de kaart is dit **alleen een opwaardering**: een beoordeelde bron krijgt een
+extra ring, een niet beoordeelde bron blijft ongewijzigd. We markeren niet
+visueel dat iets "weinig voorstelt" — dat is precies de bewering die niet hard
+te maken valt. Een kleine of jonge brand haalt de drempel vaak niet, en een
+vaste warmtebron zoals een fabriek kan hem juist wél halen. `UITLEG.beoordeling`
+zegt dat met zoveel woorden achter het info-knopje.
+
+De beoordeling is ook de eerste sorteersleutel in `begrensPluimen()`. Dat telt
+alleen wanneer de caps bijten: moeten er pluimen afvallen, dan vallen de losse
+warmtebronnen af en niet de branden.
+
 ### Kaartschil (Leaflet) en satellietlaag
 
 De rookmodule tekent sinds taak D op een echte kaartbibliotheek in plaats van een
