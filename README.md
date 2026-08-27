@@ -151,18 +151,44 @@ een dynamische `import("leaflet")` (client-only) en opruimen in de teardown; de
 bundel (~145 kB, ~42 kB gzip) laadt lui, alleen wanneer de kaart mount. Houd dit
 een bewuste uitzondering — geen precedent voor losse dependencies.
 
-**Basiskaart:** CARTO *light_all*
-(`https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`), een lichte,
-gedempte ondergrond zodat de datalagen leesbaar blijven. Verplichte attributie
-staat in de kaart: *© OpenStreetMap-bijdragers, tegels © CARTO*.
-Gebruiksvoorwaarden: de kaartgegevens vallen onder de
-[ODbL van OpenStreetMap](https://www.openstreetmap.org/copyright); de tegels
-worden geleverd door [CARTO](https://carto.com/attributions) onder hun
-basemap-voorwaarden (attributie verplicht). We gebruiken bewust CARTO en **niet**
-de directe OSM-tegelserver (`tile.openstreetmap.org`), omdat de
+**Basiskaart:** Plan IGN v2 van de
+[Géoplateforme](https://geoservices.ign.fr/services-geoplateforme-diffusion) (IGN),
+als WMTS-tegels:
+
+```
+https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile
+  &LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM
+  &FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}
+```
+
+`TILEMATRIXSET=PM` is de gewone Web-Mercator-piramide, dus Leaflets `{z}/{x}/{y}`
+vertaalt rechtstreeks naar `TILEMATRIX`/`TILECOL`/`TILEROW`. Verplichte attributie
+staat in de kaart: *kaart © IGN — Géoplateforme*. De dienst is vrij toegankelijk
+**zonder sleutel**; `data.geopf.fr` levert ook al de geocodering in
+`app/api/fr-alert/route.ts`.
+
+Plan IGN v2 is een volwaardige topografische kaart en dus bonter dan een
+canvas-ondergrond. De datalagen zijn rood en moeten domineren, dus de tegellaag
+krijgt een dempende CSS-filter (`saturate(.3) brightness(1.08) contrast(.88)`) op
+haar eigen container-div — via de `className`-optie van Leaflet, níet op
+`.leaflet-tile-pane`, zodat een tweede tegellaag zijn eigen kleuren houdt. Onder
+`prefers-contrast: more` vervalt de filter.
+
+Géén `detectRetina`: de Géoplateforme levert geen `@2x`-tegels, dus Leaflet zou
+een zoomniveau dieper gaan — viermaal zoveel verzoeken aan een publieke dienst,
+en `maxZoom` één stap lager.
+
+**Waarom niet CARTO of de OSM-tegelserver.** Hier stond CARTO *light_all*
+(`basemaps.cartocdn.com`). CARTO heeft zijn gratis basemaps achter een
+API-sleutel gezet: de tegels laden nog wél, maar met *API KEY REQUIRED* dwars
+over elke tegel gebrand — de kaart was daarmee onbruikbaar zonder account. Een
+sleutel nemen zou betekenen dat er een `NEXT_PUBLIC_`-waarde in de client-bundel
+komt (onvermijdelijk bij tegels) en dat we opnieuw afhangen van een commerciële
+partij die de voorwaarden eenzijdig wijzigt. De directe OSM-tegelserver
+(`tile.openstreetmap.org`) valt af omdat de
 [OSM-tegelgebruiksvoorwaarden](https://operations.osmfoundation.org/policies/tiles/)
-zwaar productiegebruik ontmoedigen. Wisselen naar de OSM-server kan technisch
-(zelfde `{z}/{x}/{y}`-schema), maar alleen bij laag verkeer en met hun attributie.
+zwaar productiegebruik ontmoedigen. De Géoplateforme is Franse open overheidsdata,
+dekt precies het gebied van deze tool en kent dat leveranciersrisico niet.
 
 **Satellietlaag** (optioneel schakelbaar, onder de departementsgrenzen):
 

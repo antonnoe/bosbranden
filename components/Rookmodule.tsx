@@ -678,7 +678,11 @@ export default function Rookmodule({ embed }: { embed: boolean }) {
             <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">
               Open-Meteo
             </a>{" "}
-            (windmodel); kaart — © OpenStreetMap-bijdragers, tegels © CARTO.
+            (windmodel); kaart —{" "}
+            <a href="https://www.ign.fr/" target="_blank" rel="noopener noreferrer">
+              IGN
+            </a>{" "}
+            (Plan IGN v2, Géoplateforme).
             {data?.bijgewerkt ? ` Gegevens opgehaald: ${volledigeDatum(data.bijgewerkt)}.` : ""}
           </p>
 
