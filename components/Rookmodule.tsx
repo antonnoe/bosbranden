@@ -60,6 +60,15 @@ interface Pluim {
   waarschijnlijkNatuurbrand?: boolean;
   natuurbrandDetecties?: number;
   signalen?: string[];
+  // Persbericht over vermoedelijk dezelfde brand. Ontbreekt bijna altijd; de
+  // afwezigheid zegt niets en krijgt daarom geen eigen regel.
+  media?: {
+    titel: string;
+    url: string;
+    bron: string;
+    plaats: string;
+    gepubliceerdOp: string;
+  };
 }
 
 interface Antwoord {
@@ -826,6 +835,21 @@ function PluimDetails({ pluim }: { pluim: Pluim }) {
             {pluim.signalen && pluim.signalen.length > 0
               ? `. Signalen: ${pluim.signalen.join(", ")}.`
               : ""}
+          </span>
+        </div>
+      )}
+      {pluim.media && (
+        <div className={styles.detailRij}>
+          <span className={styles.detailLabel}>In het nieuws</span>
+          <span className={styles.detailWaarde}>
+            <a
+              className={styles.medialink}
+              href={pluim.media.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {pluim.media.bron} meldt een brand bij {pluim.media.plaats}
+            </a>
           </span>
         </div>
       )}
