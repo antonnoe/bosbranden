@@ -23,6 +23,7 @@
 import assert from "node:assert/strict";
 import { vatBeoordelingSamen, type BeoordeeldeMeting } from "../lib/rookbeoordeling.ts";
 import { FRP_KLEIN_MAX_MW } from "../lib/frp-schaal.ts";
+import { SIGNAAL } from "../lib/brandsignalen.ts";
 
 let geslaagd = 0;
 function test(naam: string, fn: () => void) {
@@ -134,6 +135,44 @@ test("een beoordeelde meting zonder redenen levert wél een oordeel", () => {
 });
 
 // ---- 3. De onderbouwing ---------------------------------------------------
+
+test("twee standen van dezelfde meter worden niet allebei getoond", () => {
+  // Het echte geval uit de Haute-Garonne: zes detecties, waarvan sommige boven
+  // en sommige onder de 10 MW. Per detectie sluiten "sterk" en "verhoogd"
+  // elkaar uit, maar over het cluster heen stonden ze allebei in de lijst.
+  const r = vatBeoordelingSamen(
+    [meting(true, [SIGNAAL.frpVerhoogd]), meting(true, [SIGNAAL.frpSterk])],
+    80.6
+  );
+  assert.deepEqual(r.signalen, [SIGNAAL.frpSterk], "de zwakkere stand valt weg");
+});
+
+test("ook de nabijheids-as ontdubbelt", () => {
+  const r = vatBeoordelingSamen(
+    [meting(true, [SIGNAAL.nabijheidEnkel]), meting(true, [SIGNAAL.nabijheidVeel])],
+    GROOT
+  );
+  assert.deepEqual(r.signalen, [SIGNAAL.nabijheidVeel]);
+});
+
+test("de zwakkere stand blijft staan als de sterkere ontbreekt", () => {
+  const r = vatBeoordelingSamen([meting(true, [SIGNAAL.frpVerhoogd])], GROOT);
+  assert.deepEqual(r.signalen, [SIGNAAL.frpVerhoogd]);
+});
+
+test("ontdubbelen raakt alleen de eigen as", () => {
+  const r = vatBeoordelingSamen(
+    [
+      meting(true, [SIGNAAL.frpVerhoogd, SIGNAAL.ruimtelijkCluster]),
+      meting(true, [SIGNAAL.frpSterk, SIGNAAL.betrouwbaarheidHoog]),
+    ],
+    GROOT
+  );
+  assert.ok(!r.signalen.includes(SIGNAAL.frpVerhoogd));
+  assert.ok(r.signalen.includes(SIGNAAL.ruimtelijkCluster));
+  assert.ok(r.signalen.includes(SIGNAAL.betrouwbaarheidHoog));
+  assert.ok(r.signalen.includes(SIGNAAL.frpSterk));
+});
 
 test("signalen van niet-beoordeelde metingen tellen niet mee", () => {
   const r = vatBeoordelingSamen(

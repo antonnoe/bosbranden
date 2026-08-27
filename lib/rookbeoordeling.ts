@@ -11,6 +11,7 @@
 // Hier wordt ze alleen samengevat over de detecties van één cluster.
 
 import { isSchuurFormaat } from "./frp-schaal.ts";
+import { ontdubbelSignalen } from "./brandsignalen.ts";
 
 // Structureel compatibel met Waarneming (lib/waarnemingen.ts). Bewust een eigen,
 // minimale vorm, zodat dit bestand niets uit de Next-boom hoeft te importeren.
@@ -70,9 +71,14 @@ export function vatBeoordelingSamen(
     }
   }
 
-  const signalen = [...telling.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "nl"))
-    .map(([reden]) => reden);
+  // Ontdubbelen ná het sorteren: twee standen van dezelfde meter (sterk/verhoogd,
+  // veel/enkel) sluiten elkaar per detectie uit, maar konden over een cluster
+  // heen allebei in de lijst belanden. Zie lib/brandsignalen.ts.
+  const signalen = ontdubbelSignalen(
+    [...telling.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "nl"))
+      .map(([reden]) => reden)
+  );
 
   return {
     waarschijnlijkNatuurbrand: natuurbrandDetecties > 0 && !isSchuurFormaat(clusterFrp),

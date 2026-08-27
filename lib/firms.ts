@@ -1,5 +1,6 @@
 import { vindDepartementCode } from "@/lib/departement-punt";
 import type { Betrouwbaarheid, Waarneming } from "@/lib/waarnemingen";
+import { SIGNAAL } from "@/lib/brandsignalen";
 
 const FIRMS_BBOX = "-5.6,41.1,9.9,51.3";
 const PERIODE_UREN = 24;
@@ -181,33 +182,33 @@ function classificeerWaarnemingen(waarnemingen: Waarneming[]): Waarneming[] {
 
     if (waarneming.betrouwbaarheid === "hoog") {
       score += 2;
-      redenen.push("hoge VIIRS-betrouwbaarheid");
+      redenen.push(SIGNAAL.betrouwbaarheidHoog);
     }
 
     if ((waarneming.frp ?? 0) >= 10) {
       score += 2;
-      redenen.push("sterk uitgestraald warmtevermogen");
+      redenen.push(SIGNAAL.frpSterk);
     } else if ((waarneming.frp ?? 0) >= 3) {
       score += 1;
-      redenen.push("verhoogd uitgestraald warmtevermogen");
+      redenen.push(SIGNAAL.frpVerhoogd);
     }
 
     if (dichtbij >= 3) {
       score += 3;
-      redenen.push("meerdere nabijgelegen metingen binnen tien uur");
+      redenen.push(SIGNAAL.nabijheidVeel);
     } else if (dichtbij >= 1) {
       score += 2;
-      redenen.push("nabijgelegen aanvullende meting");
+      redenen.push(SIGNAAL.nabijheidEnkel);
     }
 
     if (bredeCluster >= 4) {
       score += 1;
-      redenen.push("ruimtelijk cluster van hittemetingen");
+      redenen.push(SIGNAAL.ruimtelijkCluster);
     }
 
     if (passages.size >= 2) {
       score += 1;
-      redenen.push("waargenomen tijdens meerdere satellietpassages");
+      redenen.push(SIGNAAL.meerderePassages);
     }
 
     const heeftSamenhang = dichtbij >= 1 || bredeCluster >= 4 || passages.size >= 2;
