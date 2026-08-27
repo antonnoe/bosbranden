@@ -20,6 +20,14 @@ const FRANKRIJK_ZUIDWEST: [number, number] = [41.33, -5.15];
 const FRANKRIJK_NOORDOOST: [number, number] = [51.09, 9.56];
 const MAX_ZOOM = 11;
 
+// Plan IGN v2 (Géoplateforme, IGN) als WMTS-tegels. TILEMATRIXSET=PM is de
+// gewone Web-Mercator-piramide, dus {z}/{x}/{y} van Leaflet vertaalt rechtstreeks
+// naar TILEMATRIX/TILECOL/TILEROW.
+const TEGEL_URL =
+  "https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile" +
+  "&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM" +
+  "&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}";
+
 export const PANE_GRENZEN = "grenzen";
 const Z_GRENZEN = 400;
 
@@ -93,12 +101,23 @@ export default function LeafletKaart({ className, ariaLabel, coöperatief, onKaa
       pasMinZoomAan();
       kaart.setView(hoeken.getCenter(), Math.max(kaart.getZoom(), kaart.getBoundsZoom(hoeken, true)));
 
-      L.tileLayer("https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+      // Basiskaart: Plan IGN v2 van de Géoplateforme. Vrij toegankelijk zonder
+      // sleutel en officieel Frans — de tool dekt toch alleen Frankrijk, en
+      // data.geopf.fr leverde al de geocodering. Voorheen stond hier CARTO
+      // light_all; CARTO zette zijn gratis basemaps achter een API-sleutel en
+      // brandde daarna "API KEY REQUIRED" dwars over elke tegel.
+      //
+      // Geen detectRetina: de Géoplateforme levert geen @2x-tegels, dus Leaflet
+      // zou een zoomniveau dieper gaan — viermaal zoveel verzoeken aan een
+      // publieke dienst, én maxZoom één stap lager.
+      L.tileLayer(TEGEL_URL, {
         attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-bijdragers, tegels &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: "abcd",
+          'kaart &copy; <a href="https://www.ign.fr/">IGN</a> — Géoplateforme',
         maxZoom: MAX_ZOOM,
-        detectRetina: true,
+        // De laag krijgt een eigen container-div; de dempende filter uit de
+        // CSS-module hangt daaraan, niet aan de tegelpane. Zo blijft een
+        // eventuele tweede tegellaag (satelliet) onaangetast.
+        className: styles.tegels,
       }).addTo(kaart);
 
       kaart.createPane(PANE_GRENZEN);

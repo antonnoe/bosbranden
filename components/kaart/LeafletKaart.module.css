@@ -8,6 +8,24 @@
   background: #eef1f4;
 }
 
+/* Plan IGN v2 is een volwaardige topografische kaart: groen bos, gele wegen,
+   blauw water. De datalagen zijn rood en moeten domineren, dus dempen we de
+   ondergrond tot iets wat op de vorige (CARTO light_all) lijkt. De filter hangt
+   aan de container-div van déze tegellaag (className-optie), niet aan
+   .leaflet-tile-pane — een tweede tegellaag houdt zo zijn eigen kleuren. */
+.tegels {
+  filter: saturate(0.3) brightness(1.08) contrast(0.88);
+}
+
+/* Wie bewegingsarm werkt, krijgt geen ander beeld — de filter is puur kleur,
+   dus hier valt niets uit te zetten. Wel respecteren we een hoog-contrastwens:
+   dan blijft de kaart onbewerkt en dus beter leesbaar. */
+@media (prefers-contrast: more) {
+  .tegels {
+    filter: none;
+  }
+}
+
 /* Zichtbare focus wanneer de kaart met het toetsenbord wordt bediend. */
 .kaart:global(.leaflet-container):focus {
   outline: 3px solid var(--primair);
