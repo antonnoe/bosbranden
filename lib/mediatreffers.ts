@@ -113,8 +113,23 @@ async function geocodeerGemeente(naam: string): Promise<GeocodeKandidaat | null>
       });
     }
 
-    return kiesOndubbelzinnig(kandidaten);
-  } catch {
+    const gekozen = kiesOndubbelzinnig(kandidaten);
+    if (!gekozen) {
+      // NIET stil laten weglopen. Een naam die niets oplevert ziet er van buiten
+      // precies zo uit als een rustige dag zonder nieuws, en dat is juist de
+      // faalwijze die we niet mogen missen. Zelfde reden als de logregel in
+      // lib/nieuws-samenvatting.ts.
+      console.warn(
+        `[mediatreffers] geen ondubbelzinnige gemeente voor "${naam}" ` +
+          `(${kandidaten.length} kandidaten van de geocoder)`
+      );
+    }
+    return gekozen;
+  } catch (fout) {
+    console.warn(
+      `[mediatreffers] geocoder mislukt voor "${naam}": ` +
+        (fout instanceof Error ? fout.message : String(fout))
+    );
     return null;
   }
 }
@@ -172,4 +187,91 @@ export async function zoekMediatreffers(
   }
 
   return treffers;
+}
+
+// ---- Diagnose --------------------------------------------------------------
+
+// Laat zien wáár de keten stopt. Zonder dit is "geen treffers" niet te
+// onderscheiden van "de geocoder antwoordt anders dan wij aannemen" — en dat
+// tweede is een stille fout die er van buiten uitziet als een rustige dag.
+// Gebruikt door app/api/debug/media/route.ts.
+export async function diagnoseMediaketen(proefnaam = "Saint-Gaudens") {
+  const allowlist = bouwAllowlist(ACTIEVE_BRONNEN);
+  const nu = Date.now();
+
+  const feeds = await Promise.all(
+    ACTIEVE_BRONNEN.map(async (bron: Nieuwsbron) => {
+      try {
+        const res = await fetch(bron.url, {
+          headers: {
+            "User-Agent": "Infofrankrijk-Bosbranden/1.0",
+            Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml",
+          },
+          signal: AbortSignal.timeout(FEED_TIMEOUT_MS),
+          next: { revalidate: FEED_REVALIDATE_S },
+        });
+        if (!res.ok) {
+          return { bron: bron.naam, ok: false, status: res.status, ruw: 0, naZeef: 0 };
+        }
+        const ruw = parseerFeed(await res.text());
+        const { items } = filterBron(ruw, bron, allowlist, nu);
+        return {
+          bron: bron.naam,
+          ok: true,
+          status: res.status,
+          ruw: ruw.length,
+          naZeef: items.length,
+        };
+      } catch (fout) {
+        return {
+          bron: bron.naam,
+          ok: false,
+          fout: fout instanceof Error ? fout.message : String(fout),
+          ruw: 0,
+          naZeef: 0,
+        };
+      }
+    })
+  );
+
+  // De berichten die de zeef overleefden, mét de plaatsnamen die eruit komen.
+  const berichten = (await haalBrandberichten()).map((bericht) => ({
+    titel: bericht.titel,
+    bron: bericht.bron,
+    gepubliceerdOp: bericht.gepubliceerdOp,
+    plaatsnamen: haalPlaatsnamenUitKop(bericht.titel),
+  }));
+
+  // DE KERNPROEF: antwoordt de geocoder zoals wij aannemen? We vragen een
+  // gemeente op waarvan we weten dat hij bestaat en tonen de RUWE eigenschappen
+  // van het eerste resultaat. Ontbreken score of citycode, dan koppelt de keten
+  // structureel nooit iets — ongeacht het nieuws.
+  let geocoderProef: unknown;
+  try {
+    const url = new URL("https://data.geopf.fr/geocodage/search");
+    url.searchParams.set("q", proefnaam);
+    url.searchParams.set("type", "municipality");
+    url.searchParams.set("limit", "3");
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", "User-Agent": "Infofrankrijk-Bosbranden/1.0" },
+      signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS),
+      cache: "no-store",
+    });
+    const json = (await res.json()) as { features?: GeopfFeature[] };
+    geocoderProef = {
+      naam: proefnaam,
+      status: res.status,
+      aantalFeatures: json.features?.length ?? 0,
+      eersteProperties: json.features?.[0]?.properties ?? null,
+      eersteCoordinaten: json.features?.[0]?.geometry?.coordinates ?? null,
+      gekozen: await geocodeerGemeente(proefnaam),
+    };
+  } catch (fout) {
+    geocoderProef = {
+      naam: proefnaam,
+      fout: fout instanceof Error ? fout.message : String(fout),
+    };
+  }
+
+  return { feeds, aantalBerichten: berichten.length, berichten, geocoderProef };
 }
