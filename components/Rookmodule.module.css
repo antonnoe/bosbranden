@@ -90,6 +90,19 @@
   background: var(--hittebron);
 }
 
+/* Beoordeelde natuurbrand: dezelfde rode stip met een losse ring eromheen.
+   Zelfde vorm als .legBron, want het is dezelfde soort bron — de ring is de
+   toevoeging, niet een andere categorie. */
+.legBrand {
+  width: 12px !important;
+  border-radius: 50% !important;
+  background: var(--hittebron);
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--hittebron);
+  /* De ring steekt 3,5px buiten het vierkant; compenseren zodat de witruimte
+     naar de tekst gelijk oogt met de andere legendaregels. */
+  margin-right: 3px;
+}
+
 /* Gemeten rook: doorgetrokken houtskoollijn. Verwachte rook: gestippeld amber. */
 .legGemeten {
   height: 0 !important;
@@ -342,8 +355,36 @@
   cursor: pointer;
 }
 
+/* Beoordeeld als waarschijnlijke natuurbrand: een scherpe ring buiten de zachte
+   halo. Puur box-shadow, dus de icoonmaat (22px) verandert niet en de stip
+   blijft op zijn coördinaat staan. De witte tussenring maakt hem leesbaar op
+   een bonte ondergrond. Alleen een opwaardering — een niet beoordeelde bron
+   krijgt geen eigen markering. */
+.bronDotBrand {
+  box-shadow:
+    0 0 0 4px rgba(232, 32, 42, 0.22),
+    0 0 0 5.5px rgba(255, 255, 255, 0.9),
+    0 0 0 7.5px var(--hittebron);
+}
+
 .bronDotGekozen {
   box-shadow: 0 0 0 6px rgba(232, 32, 42, 0.34);
+}
+
+/* Gekozen én beoordeeld: de bredere halo van de selectie, met de ring erbuiten.
+   Staat ná beide losse regels, zodat deze combinatie wint. */
+.bronDotBrand.bronDotGekozen {
+  box-shadow:
+    0 0 0 6px rgba(232, 32, 42, 0.34),
+    0 0 0 7.5px rgba(255, 255, 255, 0.9),
+    0 0 0 9.5px var(--hittebron);
+}
+
+/* Het merkje in de detailregel. Geen alarmkleur als vlak: de tekst is feitelijk
+   en de nadruk komt van het gewicht, niet van een rode balk. */
+.brandMerk {
+  font-weight: 700;
+  color: var(--hittebron);
 }
 
 .kaartVlak :global(.leaflet-marker-icon):focus-visible {

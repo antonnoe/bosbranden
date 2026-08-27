@@ -32,6 +32,17 @@ export const UITLEG = {
       "doorbrandt, maar kan ook van een vaste warmtebron komen, zoals een fabriek of " +
       "gasfakkel. Een losse meting hoort niet bij zo'n groep.",
   },
+  beoordeling: {
+    kop: "Beoordeeld als waarschijnlijke natuurbrand",
+    tekst:
+      "Een beoordeling van de meting zelf, niet van de werkelijkheid: er is geen " +
+      "brand bevestigd. Ze weegt de betrouwbaarheid van de satellietmeting, de " +
+      "uitgestraalde warmte, of er meer metingen dicht bij elkaar liggen en of de " +
+      "bron door meerdere satellietpassages is gezien. Haalt geen enkele meting die " +
+      "drempel, dan staat er niets — en dat is nadrukkelijk géén vrijbrief: kleine " +
+      "of jonge branden halen de drempel vaak niet, en een vaste warmtebron zoals " +
+      "een fabriek kan hem juist wél halen.",
+  },
   viirs: {
     kop: "VIIRS",
     tekst:

@@ -157,8 +157,10 @@ function uitlegGecachet(
   waargenomenOp: string | undefined,
   maak: () => Promise<UitlegResultaat>
 ): Promise<UitlegResultaat> {
-  // Cache-sleutel v2: de context is gewijzigd (tijdstip, Grootteorde, cijfer-
-  // controle), dus oude v1-antwoorden mogen niet blijven hangen.
+  // Cache-sleutel v3: de context is opnieuw gewijzigd — een pluim stuurt nu ook
+  // haar clusterstatus mee, dus de prompt is een andere dan bij v2. Zonder deze
+  // ophoging bleven pluimen een etmaal lang het oude antwoord tonen, waarin die
+  // status ontbreekt. Zelfde reden als bij v1 → v2: context wijzigt, sleutel op.
   const dag = (waargenomenOp ?? "").slice(0, 10) || new Date().toISOString().slice(0, 10);
-  return unstable_cache(maak, ["assistent-uitleg-v2", id, dag], { revalidate: 86400 })();
+  return unstable_cache(maak, ["assistent-uitleg-v3", id, dag], { revalidate: 86400 })();
 }
