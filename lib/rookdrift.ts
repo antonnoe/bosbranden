@@ -511,12 +511,16 @@ function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
 
   const lat = somLat / indices.length;
   const lon = somLon / indices.length;
-  const beoordeling = beoordeelCluster(ws, indices);
+  // Eén keer afronden en die waarde overal gebruiken: de beoordeling moet op
+  // exact hetzelfde getal steunen als de popup toont, anders kan de markering
+  // net aan de andere kant van de schaalgrens vallen dan de tekst eronder.
+  const frp = heeftFrp ? Math.round(somFrp * 10) / 10 : null;
+  const beoordeling = beoordeelCluster(ws, indices, frp);
   return {
     lat,
     lon,
     detecties: indices.length,
-    frp: heeftFrp ? Math.round(somFrp * 10) / 10 : null,
+    frp,
     laatsteDetectie: laatste,
     departementCode: vindDepartementCode(lat, lon),
     diameterKm: Math.round(frontDiameterKm(ws, indices) * 10) / 10,
@@ -529,9 +533,13 @@ function maakCluster(ws: Waarneming[], indices: number[]): Cluster {
 // waarom het oordeel asymmetrisch is en waarom de volgorde vastligt.
 function beoordeelCluster(
   ws: Waarneming[],
-  indices: number[]
+  indices: number[],
+  clusterFrp: number | null
 ): Pick<Cluster, "waarschijnlijkNatuurbrand" | "natuurbrandDetecties" | "signalen"> {
-  return vatBeoordelingSamen(indices.map((idx) => ws[idx]));
+  return vatBeoordelingSamen(
+    indices.map((idx) => ws[idx]),
+    clusterFrp
+  );
 }
 
 // Stap 3: weeg op omvang. We rangschikken alle clusters landelijk op aantal

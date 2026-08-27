@@ -146,16 +146,11 @@ export function formatteerMetingTijdstip(iso: string | undefined): string {
   return `Tijdstip van de meting: ${tekst}.`;
 }
 
-// Vaste schaalvergelijking voor een FRP-waarde (fix 2). De grenzen liggen in code
-// vast, niet bij het model; de uitkomst gaat als voorgekauwde regel mee zodat het
-// model zelf nooit een categorie hoeft te bedenken (35 MW is klein — geen
-// "middelgrote bosbrand"). Grenzen: <10 / 10–100 / 100–500 / >500 MW.
-export function grootteordeFrp(frp: number): string {
-  if (frp < 10) return "klein, vergelijkbaar met een brandende schuur of een klein perceel";
-  if (frp < 100) return "beperkt van omvang";
-  if (frp <= 500) return "aanzienlijk";
-  return "zeer groot";
-}
+// De schaal zelf staat in lib/frp-schaal.ts — één bron van waarheid, zodat de
+// markering op de rookkaart en deze tekst dezelfde grenzen lezen. Hier alleen
+// doorgegeven, zodat bestaande aanroepers ongewijzigd blijven werken.
+export { grootteordeFrp } from "@/lib/frp-schaal";
+import { grootteordeFrp } from "@/lib/frp-schaal";
 
 // ---- Duiding-context: alles rond een postcode -----------------------------
 export async function bouwDuidingContext(
@@ -313,6 +308,16 @@ export function bouwUitlegContext(m: MetingPayload): string {
         ? "Clusterstatus: hoort bij een ruimtelijk en in tijd samenhangend cluster."
         : "Clusterstatus: losse meting, hoort niet bij een samenhangend cluster."
   );
+
+  // De systeemprompt draagt het model op rookvragen naar /rook te verwijzen. Bij
+  // een pluim staat de lezer daar al, en kreeg hij het advies te gaan kijken op
+  // de pagina die hij open heeft. Deze regel zet dat recht.
+  if (m.soort === "pluim") {
+    regels.push(
+      "Context: de lezer bekijkt deze uitleg al ín de rookmodule op /rook. " +
+        "Verwijs dus niet naar /rook of naar 'de rookmodule' — dat is deze pagina."
+    );
+  }
 
   // Driftrichting is alleen zinvol bij een berekende windbaan (pluim).
   if (m.soort === "pluim") {
