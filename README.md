@@ -66,26 +66,80 @@ gebieden hebben eigen endpoints en zitten er niet in. De route geeft die dekking
 mee in het veld `dekking`, zodat een interface die dit "Frankrijk" noemt in elk
 geval niet per ongeluk meer belooft dan de bron levert.
 
-**Een ontbrekend fenomeen betekent "niet beoordeeld", nooit niveau 1.** Op
-03-09-2026 stuurde de API alleen de ID's 1 t/m 6 mee; 7, 8 en 9 (strenge kou,
-lawines, hoge golven) zijn winter- en kustgevaren die er in september niet zijn.
-Wie de afwezigheid van ID 8 leest als "geen lawinegevaar", verzint een
-geruststelling die Météo-France niet heeft afgegeven. De route zegt dat ook in
-het antwoord zelf, in het veld `ontbrekendFenomeen`.
+**De fenomeen-ID's komen uit de primaire bron.** Het "Descriptif technique des
+informations Vigilance METROPOLE – Flux public Vigilance" van Météo-France,
+sectie Carte, pagina 7. Het document draagt zelf geen versienummer en geen
+datum; de enige datering zit in de bestandsnaam
+`donnees-expertisees-descriptif-technique-vigilance-metropole-20230911.pdf`
+(data.gouv.fr, resource `85a64f7e-8b3f-47be-80f0-b3dd9cdd01d0`, dataset
+"Vigilance météorologique archivée", `last_modified` 2026-04-02).
 
-**De ID-tabel is grotendeels nog een aanname.** Eén ID is hard bevestigd: 6
-(hitte) stond op geel in 07, 11, 26, 30, 34, 66 en 84, precies de mediterrane
-departementen begin september. De overige acht komen uit werkende
-implementaties van derden. In `lib/vigilance-normalisatie.ts` heeft elk fenomeen
-daarom een veld `bevestigd`; zolang dat false is, is de Nederlandse naam een
-aanname over een veiligheidssignaal. `/api/vigilance/debug` lijst op welke ID's
-er werkelijk in de respons voorkwamen en in hoeveel departementen, zodat een
-volgende storm of winterse bui de rest kan bevestigen.
+| ID | Bron (`phenomenon_id`) | In de tool |
+| --- | --- | --- |
+| 1 | vent | wind |
+| 2 | pluie | regen |
+| 3 | orages | onweer |
+| 4 | crues | hoogwater in rivieren |
+| 5 | neige / verglas | sneeuw en ijzel |
+| 6 | canicule | hitte |
+| 7 | grand froid | strenge kou |
+| 8 | avalanches | lawines |
+| 9 | vagues submersion | hoge golven en overstroming vanaf zee |
 
-**De schaal is een andere dan die van het brandrisico.** Bij Vigilance betekent
-groen "geen bijzonderheid"; bij de Météo des forêts betekent niveau 1 "laag
-risico", wat iets anders is dan geen risico. De twee schalen mogen daarom nooit
-in dezelfde legenda staan of in elkaar worden omgerekend.
+Dezelfde tabel staat in het document onder Textes als `hazard_code`.
+
+**Twee namen stonden fout voordat deze bron was gelezen**, en dat is de reden om
+geen implementatie van derden als bron te gebruiken. ID 2 heette hier
+"pluie-inondation" en ID 4 heette "inondation" (overstroming). Dat tweede was
+inhoudelijk mis: `crues` is hoogwater in rivieren, het domein van Vigicrues, en
+dat is iets anders dan overstroming in het algemeen. Het verschil met ID 9
+(water dat vanaf zee komt) was daarmee verdwenen, en iemand aan een rivier zou
+het verkeerde signaal hebben gekregen.
+
+**Een ontbrekend fenomeen betekent "niet beoordeeld", nooit niveau 1.** Wie de
+afwezigheid van ID 8 leest als "geen lawinegevaar", verzint een geruststelling
+die Météo-France niet heeft afgegeven. De route zegt dat in het antwoord zelf,
+in het veld `ontbrekendFenomeen`. Dat geldt ook wanneer het ontbreken volstrekt
+normaal is: canicule (6) en grand froid (7) zitten alleen seizoensgebonden in
+het carte-product. Officiële documentatiepagina van de API (Confluence
+OpenDataMeteoFrance, "API Bulletin Vigilance (EN)", bijgewerkt 02-09-2025,
+sectie "Common mistakes"): *"'heatwave' and 'extreme cold' phenomena absent from
+the mainland France 'carte' product: these two phenomena are only measured
+seasonally (see products documentation)."*
+
+**Crues (ID 4) heeft altijd een lege `timelaps`.** Uit hetzelfde document: voor
+dat fenomeen zijn de timelaps-tabellen leeg voor zowel J als J1, en komt de
+kleur uit `phenomenon_max_color_id`. Wie de kleur uit een timelaps-reeks zou
+halen, ziet crues dus altijd als ontbrekend, dus als niet beoordeeld, terwijl
+het wél beoordeeld is.
+
+**Tussen 00:00 en 06:00 Parijse tijd is er maar één periode.** Ook uit het
+document: normaal twee blokken (J en J1), maar in die zes uur alleen J. "Morgen"
+bestaat dan niet. Dat levert geen 502 op en geen afgeleide waarde; het
+morgen-vak blijft leeg, en de route zegt in `ontbrekendeMorgen` waarom dat geen
+"morgen is er niets aan de hand" betekent.
+
+**Diffusie:** "nominalement tous les jours au moins à 6h et à 16h (heures
+locales)", en bij een opkomende situatie vaker. De tijden ín de bestanden zijn
+UTC; die publicatietijden zijn Parijse tijd.
+
+**Twee valkuilen bij de kleurschaal.** De eerste: dit is een andere schaal dan
+die van het brandrisico. Bij Vigilance betekent groen "geen bijzonderheid"; bij
+de Météo des forêts betekent niveau 1 "laag risico", wat iets anders is dan geen
+risico. Ze mogen nooit in dezelfde legenda staan of in elkaar worden omgerekend.
+
+De tweede zit binnen Vigilance zélf: het kaartproduct gebruikt `color_id` 1 t/m
+4 (vert, jaune, orange, rouge), maar het tekstproduct (`/textesvigilance`)
+gebruikt `risk_level` "0" t/m "3" voor diezelfde vier kleuren, met daarnaast
+`risk_code` "1" t/m "4". Wie ooit de teksten gaat lezen en die 0-3 als deze 1-4
+behandelt, verschuift elke kleur een stap omlaag en maakt van rood oranje.
+
+De officiële RVB-waarden uit het document zijn `#15ed13` vert, `#f9ff00` jaune,
+`#f7a401` orange en `#e71919` rouge. De interface gebruikt verdiepte tinten,
+dezelfde afweging als in `lib/niveaus.ts`: het officiële geel haalt geen
+bruikbaar contrast met zwarte noch witte tekst. Beide staan in
+`VIGILANCE_KLEUREN` (`officieleKleur` naast `kleur`), zodat de afwijking
+zichtbaar is en niet stilzwijgend.
 
 Etalab Licence Ouverte, net als de Météo des forêts. Limiet 60 requests per
 minuut; de route cachet 15 minuten, wat neerkomt op vier requests per uur.
@@ -747,8 +801,10 @@ gelezen; zie `scripts/test-feedcontrole.ts`.
 - [ ] Vraag `/api/status/vervaldata` op. Dat geldt het hele jaar: Vigilance
       draait ook buiten het brandseizoen, dus een verlopen sleutel valt hier
       niet vanzelf in september op.
-- [ ] Zijn er fenomeen-ID's waargenomen die nog op `bevestigd: false` staan?
-      Een winterse storm bevestigt 5 en 8, een najaarsdepressie 1 en 9.
+- [ ] Staat er in `/api/vigilance/debug` een fenomeen-ID dat niet in het
+      descriptif technique voorkomt (`bevestigd: false`)? Dan heeft
+      Météo-France er een toegevoegd en is er een nieuwe versie van dat
+      document.
 - [ ] Controleer steekproefsgewijs prefectuur-links.
 - [ ] Controleer na wijzigingen de bronvermeldingen en disclaimers.
 - [ ] Controleer of NASA FIRMS de sensornamen of CSV-kolommen heeft gewijzigd.

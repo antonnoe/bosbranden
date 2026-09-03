@@ -6,10 +6,27 @@
 // De responsstructuur is op 03-09-2026 tegen de live API vastgesteld; ze staat
 // beschreven in de README. Kort:
 //
-//   product.periods[]           twee stuks, echeance "J" (vandaag) en "J1"
+//   product.periods[]           echeance "J" (vandaag) en "J1" (morgen)
 //     .timelaps.domain_ids[]      per departement: domain_id, max_color_id,
 //                                 phenomenon_items[]
 //     .per_phenomenon_items[]     dezelfde gegevens per fenomeen gegroepeerd
+//
+// Twee dingen uit het descriptif technique die deze doorloop raken:
+//
+//   "Tableau periods – en général deux blocs, un pour J et un autre pour J1.
+//    Entre 0h et 6h locales un seul bloc (J)."
+//
+// Tussen middernacht en 06:00 Parijse tijd bestaat "morgen" dus niet. Dat is
+// normaal en geen storing: er komt eenvoudig geen morgen-vak, en er wordt niets
+// afgeleid om het gat te vullen.
+//
+//   "Tableau timelaps – pour le phénomène crues (phenomenon_id 4), les tableaux
+//    sont vides pour J et J1."
+//
+// De kleur van crues komt daarom uit `phenomenon_max_color_id` en niet uit een
+// timelaps-reeks. Wie de kleur uit timelaps zou halen, zou crues altijd als
+// ontbrekend zien — dat wil zeggen: als niet beoordeeld, terwijl het wél
+// beoordeeld is.
 //
 // De doorloop hieronder is desondanks vormvrij gebleven. Niet uit
 // besluiteloosheid: dezelfde API leverde eerder onder een ander abonnement een
@@ -19,42 +36,86 @@
 
 import { DEP_BY_CODE } from "./departements.ts";
 
-// De negen fenomenen van de Vigilance, met hun ID zoals de API die gebruikt.
+// De negen fenomenen van de Vigilance, met hun ID's en Franse namen letterlijk
+// uit de primaire bron: het "Descriptif technique des informations Vigilance
+// METROPOLE – Flux public Vigilance" van Météo-France, sectie Carte, pagina 7,
+// "Valeurs du champ phenomenon_id". Zie de README voor de vindplaats; het
+// document draagt zelf geen versienummer of datum.
 //
-// BEWIJSSTATUS. Op 03-09-2026 kwamen alleen de ID's 1 t/m 6 in de respons voor;
-// 7, 8 en 9 (strenge kou, lawines, hoge golven) zijn winter- en kustgevaren die
-// er in september simpelweg niet zijn. Van die zes is er één hard bevestigd:
-// ID 6 stond op geel in 07, 11, 26, 30, 34, 66 en 84, precies de mediterrane
-// departementen begin september, wat alleen hitte kan zijn. De overige acht
-// ID's komen uit werkende implementaties van derden en zijn nog niet tegen een
-// waarneming getoetst.
+// `bevestigd` betekent hier precies één ding: dit ID staat in die tabel. Het is
+// géén oordeel over of we het gevaar ooit in een respons hebben zien
+// langskomen. Voegt Météo-France een tiende fenomeen toe, dan staat dat niet in
+// de tabel, komt het op false te staan en is dat zichtbaar in
+// /api/vigilance/debug in plaats van dat er een verzonnen naam bij komt.
 //
-// Daarom is `bevestigd` een veld en geen voetnoot: zolang het false is, is de
-// Nederlandse naam een aanname over een veiligheidssignaal. Wie een van deze
-// gevaren in de interface gaat tonen, hoort eerst één waarneming af te wachten
-// waarin het ID en het weerbeeld elkaar bevestigen, zoals hierboven bij hitte.
-// /api/vigilance/debug lijst de waargenomen ID's op om dat mogelijk te maken.
+// TWEE NAMEN WAREN FOUT vóór deze bron werd gelezen, en dat is precies waarom
+// een implementatie van derden geen bron is:
+//
+//   ID 2 heette hier "pluie-inondation"; het document zegt "pluie".
+//   ID 4 heette hier "inondation" (overstroming); het document zegt "crues".
+//
+// Dat tweede was inhoudelijk mis. `Crues` is hoogwater in rivieren, het domein
+// van Vigicrues, en dat is iets anders dan overstroming in het algemeen. Het
+// verschil met ID 9 (vagues submersion, water dat vanaf zee komt) was daarmee
+// weg, en een lezer aan een rivier zou het verkeerde signaal hebben gekregen.
+//
+// De Nederlandse namen zijn vertalingen die niet méér beweren dan het Franse
+// origineel. Waar het Frans kort is ("pluie"), is het Nederlands dat ook.
 export const FENOMENEN: Record<number, { fr: string; nl: string; bevestigd: boolean }> = {
-  1: { fr: "vent violent", nl: "zware wind", bevestigd: false },
-  2: { fr: "pluie-inondation", nl: "regen en wateroverlast", bevestigd: false },
-  3: { fr: "orages", nl: "onweer", bevestigd: false },
-  4: { fr: "inondation", nl: "overstroming", bevestigd: false },
-  5: { fr: "neige-verglas", nl: "sneeuw en ijzel", bevestigd: false },
+  1: { fr: "vent", nl: "wind", bevestigd: true },
+  2: { fr: "pluie", nl: "regen", bevestigd: true },
+  3: { fr: "orages", nl: "onweer", bevestigd: true },
+  4: { fr: "crues", nl: "hoogwater in rivieren", bevestigd: true },
+  5: { fr: "neige / verglas", nl: "sneeuw en ijzel", bevestigd: true },
   6: { fr: "canicule", nl: "hitte", bevestigd: true },
-  7: { fr: "grand froid", nl: "strenge kou", bevestigd: false },
-  8: { fr: "avalanches", nl: "lawines", bevestigd: false },
-  9: { fr: "vagues-submersion", nl: "hoge golven en overstroming vanaf zee", bevestigd: false },
+  7: { fr: "grand froid", nl: "strenge kou", bevestigd: true },
+  8: { fr: "avalanches", nl: "lawines", bevestigd: true },
+  9: { fr: "vagues submersion", nl: "hoge golven en overstroming vanaf zee", bevestigd: true },
 };
 
-// De vier Vigilance-kleuren. LET OP: dit is een andere schaal dan de
-// brandrisicoschaal in lib/niveaus.ts. Daar betekent 1 "laag risico"; hier
-// betekent 1 "geen bijzonderheid". Ze mogen daarom nooit door elkaar worden
-// gebruikt of in dezelfde legenda staan.
-export const VIGILANCE_KLEUREN: Record<number, { fr: string; nl: string; kleur: string }> = {
-  1: { fr: "vert", nl: "geen bijzonderheid", kleur: "#2f6b3a" },
-  2: { fr: "jaune", nl: "wees oplettend", kleur: "#d4a017" },
-  3: { fr: "orange", nl: "wees zeer waakzaam", kleur: "#c2560f" },
-  4: { fr: "rouge", nl: "absolute waakzaamheid", kleur: "#a4161a" },
+// Canicule (6) en grand froid (7) zitten alleen seizoensgebonden in het
+// carte-product. Officiële documentatiepagina van de API (Confluence
+// OpenDataMeteoFrance, "API Bulletin Vigilance (EN)", bijgewerkt 02-09-2025,
+// sectie "Common mistakes"), letterlijk:
+//
+//   "'heatwave' and 'extreme cold' phenomena absent from the mainland France
+//    'carte' product: these two phenomena are only measured seasonally
+//    (see products documentation)."
+//
+// Hun afwezigheid is dus geen storing, en al helemaal geen "geen hittegevaar".
+// Het blijft wat elk ontbrekend fenomeen is: niet beoordeeld.
+export const SEIZOENSGEBONDEN_FENOMENEN = [6, 7] as const;
+
+// De vier Vigilance-kleuren, uit dezelfde bron, sectie Carte: "Valeurs des
+// champs color_id": 1 vert, 2 jaune, 3 orange, 4 rouge.
+//
+// LET OP, TWEE VALKUILEN.
+//
+// 1. Dit is een andere schaal dan de brandrisicoschaal in lib/niveaus.ts. Daar
+//    betekent 1 "laag risico"; hier betekent 1 "geen bijzonderheid". Ze mogen
+//    nooit door elkaar worden gebruikt of in dezelfde legenda staan.
+//
+// 2. Binnen Vigilance zélf gebruikt het tekstproduct (/textesvigilance) een
+//    ándere schaal dan het kaartproduct: daar loopt `risk_level` van "0" (vert)
+//    tot "3" (rouge), en staat `risk_code` op "1" t/m "4". Wie ooit de teksten
+//    gaat lezen en die 0-3 als deze 1-4 behandelt, verschuift elke kleur één
+//    stap omlaag en maakt van rood oranje. Deze tabel geldt alleen voor de
+//    kaart.
+//
+// `officieleKleur` is de RVB-waarde uit het document. `kleur` is de tint die de
+// interface gebruikt: verdiept voor leesbaarheid tegen een lichte ondergrond,
+// dezelfde afweging als in lib/niveaus.ts. Het officiële geel (#f9ff00) haalt
+// geen bruikbaar contrast met zwarte noch witte tekst, en het officiële groen
+// (#15ed13) is feller dan de rest van de kaart verdraagt. De officiële waarde
+// staat ernaast zodat de afwijking zichtbaar is en niet stilzwijgend.
+export const VIGILANCE_KLEUREN: Record<
+  number,
+  { fr: string; nl: string; kleur: string; officieleKleur: string }
+> = {
+  1: { fr: "vert", nl: "geen bijzonderheid", kleur: "#2f6b3a", officieleKleur: "#15ed13" },
+  2: { fr: "jaune", nl: "wees oplettend", kleur: "#d4a017", officieleKleur: "#f9ff00" },
+  3: { fr: "orange", nl: "wees zeer waakzaam", kleur: "#c2560f", officieleKleur: "#f7a401" },
+  4: { fr: "rouge", nl: "absolute waakzaamheid", kleur: "#a4161a", officieleKleur: "#e71919" },
 };
 
 export type Termijn = "vandaag" | "morgen";

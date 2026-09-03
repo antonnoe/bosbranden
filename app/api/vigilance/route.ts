@@ -9,6 +9,7 @@ import {
   VIGILANCE_CACHE_SECONDEN,
   VIGILANCE_DEKKING,
   VIGILANCE_KLEUREN,
+  VIGILANCE_MORGEN_KAN_ONTBREKEN,
   haalRuweVigilanceOp,
   normaliseerVigilance,
   structuurSchets,
@@ -78,6 +79,7 @@ export async function GET() {
         // hoort mee te reizen met de data in plaats van alleen in de README te
         // staan: wie deze route consumeert, leest dit veld eerder dan de docs.
         ontbrekendFenomeen: "niet beoordeeld — nooit lezen als niveau 1",
+        ontbrekendeMorgen: VIGILANCE_MORGEN_KAN_ONTBREKEN,
         fenomenen: FENOMENEN,
         kleuren: VIGILANCE_KLEUREN,
         bron: "Météo-France — Vigilance",

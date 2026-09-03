@@ -3,10 +3,11 @@
 //
 // WAAROM DEZE TEST BESTAAT. Deze module leest een veiligheidssignaal: staat er
 // oranje, dan zegt de tool tegen een lezer dat hij zeer waakzaam moet zijn. De
-// responsstructuur van deze API is niet publiek gedocumenteerd, dus de
-// normalisatie is noodgedwongen ruim opgezet. Precies daar zit het gevaar: een
-// ruime parser die overal getallen oppikt, verzint met genoeg goede wil een
-// complete kaart. Deze test legt vast wat hij NIET mag doen.
+// normalisatie is ruim opgezet, omdat dezelfde API onder een oudere sleutel nog
+// een 403 gaf en de zusterapi CSV bleek te sturen waar JSON werd verwacht.
+// Precies daar zit het gevaar: een ruime parser die overal getallen oppikt,
+// verzint met genoeg goede wil een complete kaart. Deze test legt vast wat hij
+// NIET mag doen.
 //
 // Drie eigenschappen staan hieronder vast:
 //
@@ -24,6 +25,8 @@
 import assert from "node:assert/strict";
 import {
   FENOMENEN,
+  SEIZOENSGEBONDEN_FENOMENEN,
+  VIGILANCE_KLEUREN,
   normaliseerVigilance,
   telDepartementen,
   termijnVan,
@@ -100,7 +103,7 @@ const data = normaliseerVigilance(respons);
 check(data.departementen["11"].vandaag.max === 2, "Aude staat vandaag op geel");
 check(
   data.departementen["11"].vandaag.fenomenen[6] === 2,
-  "hitte (6) staat vandaag op geel in de Aude — het ID dat empirisch bevestigd is"
+  "hitte (6) staat vandaag op geel in de Aude"
 );
 check(data.departementen["2A"].vandaag.max === 1, "Corsica 2A wordt als departement herkend");
 check(data.bijgewerkt === "2026-09-03T04:00:07Z", "de publicatietijd komt uit product.update_time");
@@ -138,17 +141,57 @@ check(
   "een leeg phenomenon_items levert geen enkel fenomeen op, ook niet op groen"
 );
 
-// --- 2c. De waarnemingslijst waarmee de ID-tabel te toetsen is -------------
+// --- 2c. De waarnemingslijst -----------------------------------------------
 const waargenomen = waargenomenFenomenen(data);
 check(waargenomen.length === 2, "twee verschillende fenomeen-ID's in deze respons");
 const hitte = waargenomen.find((f) => f.id === 6)!;
-check(hitte.naam === "hitte" && hitte.bevestigd === true, "ID 6 staat als bevestigd te boek");
+check(hitte.naam === "hitte", "ID 6 is hitte");
 check(hitte.aantalDepartementen === 2, "hitte is in twee departementen gezien (11 vandaag, 84 morgen)");
-const wind = waargenomen.find((f) => f.id === 1)!;
-check(wind.bevestigd === false, "ID 1 is nog niet tegen een waarneming getoetst");
+
+// --- 2d. De tabel komt uit de primaire bron --------------------------------
+// "Descriptif technique des informations Vigilance METROPOLE", sectie Carte,
+// pagina 7. Alle negen ID's staan daarin, dus alle negen zijn bevestigd; wat
+// er níét in staat, hoort false te zijn.
 check(
-  Object.values(FENOMENEN).filter((f) => f.bevestigd).length === 1,
-  "precies één fenomeen is empirisch bevestigd; de rest is een aanname"
+  Object.values(FENOMENEN).every((f) => f.bevestigd),
+  "alle negen fenomenen staan in het descriptif technique"
+);
+check(Object.keys(FENOMENEN).length === 9, "precies negen, niet meer en niet minder");
+check(FENOMENEN[10] === undefined, "een tiende bestaat niet in de bron");
+
+// De twee namen die vóór het lezen van de bron fout stonden. ID 4 is de
+// belangrijkste: crues is hoogwater in rivieren (het domein van Vigicrues), en
+// niet "inondation". Zonder dat onderscheid valt het verschil met ID 9 weg, dat
+// juist over water vanáf zee gaat.
+check(FENOMENEN[2].fr === "pluie", 'ID 2 heet "pluie" in de bron, niet "pluie-inondation"');
+check(FENOMENEN[4].fr === "crues", 'ID 4 heet "crues", niet "inondation"');
+check(
+  FENOMENEN[4].nl === "hoogwater in rivieren",
+  "…en de Nederlandse naam maakt het onderscheid met ID 9 zichtbaar"
+);
+check(
+  FENOMENEN[9].nl.includes("zee") && !FENOMENEN[4].nl.includes("zee"),
+  "9 komt van zee, 4 niet: die twee mogen niet op elkaar lijken"
+);
+
+// Canicule en grand froid zitten alleen seizoensgebonden in het carte-product.
+// Hun afwezigheid is dus normaal, en nog steeds "niet beoordeeld".
+check(
+  SEIZOENSGEBONDEN_FENOMENEN.includes(6) && SEIZOENSGEBONDEN_FENOMENEN.includes(7),
+  "canicule (6) en grand froid (7) staan als seizoensgebonden te boek"
+);
+check(SEIZOENSGEBONDEN_FENOMENEN.length === 2, "en verder geen enkel fenomeen");
+
+// --- 2e. De kleurschaal: officiële waarde náást de gebruikte tint -----------
+check(VIGILANCE_KLEUREN[1].fr === "vert" && VIGILANCE_KLEUREN[4].fr === "rouge", "1 vert … 4 rouge");
+check(Object.keys(VIGILANCE_KLEUREN).length === 4, "vier kleuren, niet vijf");
+check(
+  VIGILANCE_KLEUREN[2].officieleKleur === "#f9ff00",
+  "de officiële RVB uit het document staat vast"
+);
+check(
+  Object.values(VIGILANCE_KLEUREN).every((k) => k.kleur !== k.officieleKleur),
+  "de gebruikte tinten wijken bewust af van de officiële; beide staan er"
 );
 
 // --- 3. Leegte blijft leeg, en wordt nooit groen ----------------------------
@@ -294,6 +337,76 @@ const zonderTermijn = normaliseerVigilance({
 check(
   telDepartementen(zonderTermijn) === 0,
   "zonder termijn valt er niets te plaatsen, dus wordt er niets bewaard"
+);
+
+// --- 9. Crues (ID 4): lege timelaps, kleur uit phenomenon_max_color_id ------
+// Uit het descriptif technique: "pour le phénomène crues (phenomenon_id 4), les
+// tableaux [timelaps] sont vides pour J et J1". Wie de kleur uit een
+// timelaps-reeks zou halen, ziet crues dus altijd als ontbrekend — dat wil
+// zeggen: als niet beoordeeld, terwijl Météo-France het wél heeft beoordeeld.
+// Voor iemand aan een rivier is dat het verkeerde soort stilte.
+const metCrues = normaliseerVigilance({
+  product: {
+    periods: [
+      {
+        echeance: "J",
+        timelaps: {
+          domain_ids: [
+            {
+              domain_id: "45",
+              max_color_id: 3,
+              phenomenon_items: [
+                { phenomenon_id: "4", phenomenon_max_color_id: 3, timelaps_items: [] },
+                { phenomenon_id: "1", phenomenon_max_color_id: 2, timelaps_items: [{ color_id: 2 }] },
+              ],
+            },
+          ],
+        },
+      },
+    ],
+  },
+});
+check(
+  metCrues.departementen["45"].vandaag.fenomenen[4] === 3,
+  "crues krijgt zijn kleur uit phenomenon_max_color_id, ondanks lege timelaps"
+);
+check(
+  metCrues.departementen["45"].vandaag.fenomenen[1] === 2,
+  "…en de andere fenomenen blijven gewoon werken"
+);
+
+// --- 10. Eén periode vóór 06:00 Parijse tijd -------------------------------
+// Uit het descriptif technique: "Entre 0h et 6h locales un seul bloc (J)".
+// "Morgen" bestaat dan niet. Dat mag geen afgeleide waarde opleveren, en het
+// mag de kaart van vandaag niet ongeldig maken.
+const alleenVandaag = normaliseerVigilance({
+  product: {
+    update_time: "2026-11-14T02:30:00Z",
+    periods: [
+      {
+        echeance: "J",
+        timelaps: {
+          domain_ids: [
+            {
+              domain_id: "38",
+              max_color_id: 3,
+              phenomenon_items: [{ phenomenon_id: "8", phenomenon_max_color_id: 3 }],
+            },
+          ],
+        },
+      },
+    ],
+  },
+});
+check(telDepartementen(alleenVandaag) === 1, "één periode levert gewoon een bruikbare kaart op");
+check(alleenVandaag.departementen["38"].vandaag.max === 3, "vandaag staat op oranje");
+check(
+  alleenVandaag.departementen["38"].morgen.max === null,
+  "morgen blijft leeg en wordt niet uit vandaag afgeleid"
+);
+check(
+  Object.keys(alleenVandaag.departementen["38"].morgen.fenomenen).length === 0,
+  "…ook geen fenomenen die van vandaag zijn overgewaaid"
 );
 
 console.log(`OK — ${geslaagd} eigenschappen vastgelegd voor de Vigilance-normalisatie.`);

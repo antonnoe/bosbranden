@@ -23,11 +23,20 @@ export const VIGILANCE_PAD = "/cartevigilance/encours";
 // levert; de route geeft deze dekking daarom expliciet mee in het antwoord.
 export const VIGILANCE_DEKKING = "metropolitaans Frankrijk (incl. Corsica), zonder overzee";
 
-// Vigilance wordt twee keer per dag vastgesteld (rond 06:00 en 16:00) maar kan
-// bij een opkomende situatie tussentijds worden bijgewerkt. Zes uur cache zoals
-// bij de Météo des forêts is hier dus te grof: dan mist de kaart een opschaling
-// naar oranje. Een kwartier is vers genoeg en kost 4 requests per uur, ruim
-// binnen de 60 per minuut die het abonnement toestaat.
+// Tussen middernacht en 06:00 Parijse tijd publiceert Météo-France maar één
+// periode (J). "Morgen" bestaat dan nog niet. Dat is normaal en geen storing,
+// maar het is wel iets waarvan een consument moet weten dat het kan gebeuren:
+// anders leest een leeg morgen-vak als "morgen is er niets aan de hand".
+export const VIGILANCE_MORGEN_KAN_ONTBREKEN =
+  "Tussen 00:00 en 06:00 Parijse tijd publiceert Météo-France alleen de periode van vandaag. Een leeg 'morgen' is dan normaal en betekent niet beoordeeld, niet veilig.";
+
+// Diffusie volgens het descriptif technique: "nominalement tous les jours au
+// moins à 6h et à 16h (heures locales)" — dus minstens twee keer per dag, en
+// bij een opkomende situatie vaker. De tijden ín de bestanden zijn UTC; de
+// publicatietijden zijn Parijse tijd. Zes uur cache zoals bij de Météo des
+// forêts is hier te grof: die zou een tussentijdse opschaling naar oranje
+// missen. Een kwartier is vers genoeg en kost 4 requests per uur, ruim binnen
+// de 60 per minuut die het abonnement toestaat.
 export const VIGILANCE_CACHE_SECONDEN = 15 * 60;
 
 export async function haalRuweVigilanceOp(): Promise<{ status: number; body: string }> {
