@@ -20,8 +20,18 @@ export interface FrAlertAntwoord {
   bijgewerkt: string | null;
   bron: "FR-Alert";
   // liveBron is true wanneer de meldingen zojuist live zijn uitgelezen; false
-  // wanneer de route terugvalt op de laatst bekende momentopname.
+  // wanneer de route terugvalt op de laatst bekende momentopname. Bij nul
+  // meldingen valt er niets terug te vallen en zegt het veld dus alleen dat de
+  // bron zelf gelezen is.
   liveBron: boolean;
+  // bronBereikt zegt uitsluitend of er werkelijk een FR-Alert-pagina is
+  // gelezen, los van wat erin stond. Dit is het veld voor een monitor: zonder
+  // dit onderscheid ziet "rustige dag, geen meldingen" er precies zo uit als
+  // "de scrape vindt niets meer omdat de opmaak is veranderd", en dat is de
+  // fout die de feedcontrole in augustus 2026 al een keer heeft gemaakt (zie
+  // scripts/test-feedcontrole.ts: nul gelezen pagina's mag nooit tot een
+  // uitspraak over de bron leiden).
+  bronBereikt: boolean;
   // momentopnameVan geeft aan van wanneer die momentopname dateert (ISO), of
   // null wanneer de gegevens live zijn.
   momentopnameVan: string | null;

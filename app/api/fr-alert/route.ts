@@ -29,7 +29,7 @@ export async function GET() {
   const nu = new Date().toISOString();
 
   try {
-    const ids = await haalAlertIdsOp();
+    const { ids, paginasGelezen } = await haalAlertIdsOp();
     const liveResultaten =
       ids.length > 0
         ? await verwerkInBatches(ids.slice(0, MAX_DETAILPAGINAS), 5, leesMelding)
@@ -52,6 +52,7 @@ export async function GET() {
         bijgewerkt: liveBron ? nu : FR_ALERT_FALLBACK_BIJGEWERKT,
         bron: "FR-Alert",
         liveBron,
+        bronBereikt: paginasGelezen > 0,
         momentopnameVan: liveBron ? null : FR_ALERT_FALLBACK_BIJGEWERKT,
         opmerking: liveBron
           ? undefined
@@ -59,14 +60,25 @@ export async function GET() {
       });
     }
 
+    // Nul meldingen. Twee heel verschillende situaties zien er hier hetzelfde
+    // uit, en het verschil zit uitsluitend in paginasGelezen: een rustige
+    // periode zonder actuele natuurbrandmeldingen (de bron is gelezen en zegt
+    // niets), tegenover een scrape die niets meer vindt omdat de opmaak van de
+    // pagina is veranderd (we hebben de bron niet gezien). Voor een lezer is
+    // het gevolg hetzelfde — geen meldingen — maar voor een monitor is het
+    // eerste normaal en het tweede een storing.
+    const bronBereikt = paginasGelezen > 0;
     return antwoord({
       beschikbaar: false,
       meldingen: [],
-      bijgewerkt: null,
+      bijgewerkt: bronBereikt ? nu : null,
       bron: "FR-Alert",
-      liveBron: false,
+      liveBron: bronBereikt,
+      bronBereikt,
       momentopnameVan: null,
-      opmerking: "FR-Alert leverde tijdelijk geen bruikbare natuurbrandmeldingen.",
+      opmerking: bronBereikt
+        ? "FR-Alert is gelezen en meldt op dit moment geen actuele natuurbranden."
+        : "De FR-Alert-pagina was niet uitleesbaar; er is dus niets bekend over actuele meldingen.",
     });
   } catch (fout) {
     console.error("FR-Alert ophalen mislukt", fout);
@@ -78,6 +90,7 @@ export async function GET() {
       bijgewerkt: fallback.length > 0 ? FR_ALERT_FALLBACK_BIJGEWERKT : null,
       bron: "FR-Alert",
       liveBron: false,
+      bronBereikt: false,
       momentopnameVan: fallback.length > 0 ? FR_ALERT_FALLBACK_BIJGEWERKT : null,
       opmerking:
         fallback.length > 0
@@ -96,12 +109,18 @@ function antwoord(body: FrAlertAntwoord, status = 200) {
   });
 }
 
-async function haalAlertIdsOp(): Promise<string[]> {
+// Geeft naast de gevonden ID's terug hoeveel lijstpagina's er werkelijk zijn
+// gelezen. Dat aantal is het enige verschil tussen "de bron zegt dat er niets
+// speelt" en "we hebben de bron niet gezien"; zonder dat getal zijn beide een
+// lege verzameling en is elke uitspraak erover een gok.
+async function haalAlertIdsOp(): Promise<{ ids: string[]; paginasGelezen: number }> {
   const ids = new Set<string>();
+  let paginasGelezen = 0;
 
   for (const lijstUrl of LIJST_URLS) {
     try {
       const html = await haalTekstOp(lijstUrl, 120);
+      paginasGelezen += 1;
       for (const id of vindAlertIds(html)) ids.add(id);
       if (ids.size >= 20) break;
     } catch (fout) {
@@ -109,7 +128,10 @@ async function haalAlertIdsOp(): Promise<string[]> {
     }
   }
 
-  return [...ids].sort((a, b) => tijdUitIdentifiant(b) - tijdUitIdentifiant(a));
+  return {
+    ids: [...ids].sort((a, b) => tijdUitIdentifiant(b) - tijdUitIdentifiant(a)),
+    paginasGelezen,
+  };
 }
 
 function vindAlertIds(html: string): string[] {

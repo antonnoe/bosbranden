@@ -9,8 +9,9 @@
     "start": "next start",
     "lint": "next lint",
     "generate:map": "node scripts/generate-map.mjs",
-    "test": "node --experimental-strip-types scripts/test-nieuws.ts && node --experimental-strip-types scripts/test-nieuws-thema.ts && node --experimental-strip-types scripts/test-nieuws-vers.ts && node --experimental-strip-types scripts/test-feedcontrole.ts && node --experimental-strip-types scripts/test-zijlade-migratie.ts && node --experimental-strip-types scripts/test-assistent-getallen.ts && node --experimental-strip-types scripts/test-rookbeoordeling.ts && node --experimental-strip-types scripts/test-mediakoppeling.ts",
-    "meet:cache": "node scripts/meet-nieuws-cache.mjs"
+    "test": "node --experimental-strip-types scripts/test-nieuws.ts && node --experimental-strip-types scripts/test-nieuws-thema.ts && node --experimental-strip-types scripts/test-nieuws-vers.ts && node --experimental-strip-types scripts/test-feedcontrole.ts && node --experimental-strip-types scripts/test-zijlade-migratie.ts && node --experimental-strip-types scripts/test-assistent-getallen.ts && node --experimental-strip-types scripts/test-rookbeoordeling.ts && node --experimental-strip-types scripts/test-mediakoppeling.ts && node --experimental-strip-types scripts/test-vigilance.ts && node --experimental-strip-types scripts/test-vervaldata.ts",
+    "meet:cache": "node scripts/meet-nieuws-cache.mjs",
+    "key:vervaldatum": "node --experimental-strip-types scripts/key-vervaldatum.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
