@@ -211,6 +211,7 @@ export default function FranceKaart({
             bijgewerkt: null,
             bron: "FR-Alert",
             liveBron: false,
+            bronBereikt: false,
             momentopnameVan: null,
             opmerking: "Officiële FR-Alert-meldingen zijn tijdelijk niet beschikbaar.",
           });

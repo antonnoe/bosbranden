@@ -6,26 +6,22 @@
 // storm en overstroming tot hitte, vorst en lawines. Brandrisico wordt daarmee
 // één laag naast andere, in plaats van de enige reden om de tool te openen.
 //
-// Portaal-administratie (afgelezen van het ingelogde API-portaal op
-// 03-09-2026, zie README). De API heet in de catalogus "Vigilance Bulletin"
-// en hangt al onder DefaultApplication, dezelfde applicatie als Forest weather.
-// Er is dus GEEN tweede env var: dezelfde METEOFRANCE_API_KEY werkt.
-// Limiet 60 requests/minuut, abonnement loopt tot 10-07-2028.
-//
 // De key staat uitsluitend in de Vercel env var METEOFRANCE_API_KEY en wordt
 // nooit aan de client doorgegeven.
 
-// Het basepath is niet publiek gedocumenteerd. De catalogus toont
-// "DonneesPubliquesVigilance" in de URL, terwijl de runtime-host bij de
-// zusterapi "DPMeteoForets" gebruikt (niet "DonneesPubliquesMeteoForets").
-// We proberen daarom beide vormen en rapporteren welke werkte, in plaats van
-// één te gokken en bij een 404 te blijven staan.
-export const VIGILANCE_BASISPADEN = [
-  "https://public-api.meteofrance.fr/public/DPVigilance/v1",
-  "https://public-api.meteofrance.fr/public/DonneesPubliquesVigilance/v1",
-] as const;
-
+// Vastgesteld op 03-09-2026 met een live call: status 200, JSON. Er was eerder
+// een tweede kandidaat (DonneesPubliquesVigilance, de naam uit de catalogus-URL)
+// omdat de zusterapi op de runtime-host DPMeteoForets gebruikt en niet zijn
+// volledige catalogusnaam. Die kandidaat is vervallen.
+export const VIGILANCE_BASIS = "https://public-api.meteofrance.fr/public/DPVigilance/v1";
 export const VIGILANCE_PAD = "/cartevigilance/encours";
+
+// Dit product beslaat uitsluitend het Europese deel van Frankrijk: 01 t/m 95
+// plus Corsica 2A en 2B, samen 96 departementen, zoals de eerste live respons
+// bevestigde. De overzeese gebieden hebben eigen endpoints en zitten hier NIET
+// in. Een interface die dit "Frankrijk" noemt, belooft dus meer dan de bron
+// levert; de route geeft deze dekking daarom expliciet mee in het antwoord.
+export const VIGILANCE_DEKKING = "metropolitaans Frankrijk (incl. Corsica), zonder overzee";
 
 // Vigilance wordt twee keer per dag vastgesteld (rond 06:00 en 16:00) maar kan
 // bij een opkomende situatie tussentijds worden bijgewerkt. Zes uur cache zoals
@@ -34,34 +30,17 @@ export const VIGILANCE_PAD = "/cartevigilance/encours";
 // binnen de 60 per minuut die het abonnement toestaat.
 export const VIGILANCE_CACHE_SECONDEN = 15 * 60;
 
-export async function haalRuweVigilanceOp(): Promise<{
-  status: number;
-  body: string;
-  basispad: string;
-}> {
+export async function haalRuweVigilanceOp(): Promise<{ status: number; body: string }> {
   const key = process.env.METEOFRANCE_API_KEY;
   if (!key) {
     throw new Error("METEOFRANCE_API_KEY ontbreekt (Vercel env var).");
   }
-
-  let laatste: { status: number; body: string; basispad: string } | null = null;
-
-  for (const basis of VIGILANCE_BASISPADEN) {
-    const res = await fetch(`${basis}${VIGILANCE_PAD}`, {
-      headers: { apikey: key, accept: "*/*" },
-      next: { revalidate: VIGILANCE_CACHE_SECONDEN },
-    });
-    const body = await res.text();
-    const poging = { status: res.status, body, basispad: basis };
-    if (res.status === 200) return poging;
-    // Een 404 betekent "verkeerd basepath, probeer de andere". Een 401 of 403
-    // betekent een sleutelprobleem en geldt voor beide paden gelijk: dan heeft
-    // doorproberen geen zin en verdwijnt de echte oorzaak uit beeld.
-    if (res.status === 401 || res.status === 403) return poging;
-    laatste = poging;
-  }
-
-  return laatste!;
+  const res = await fetch(`${VIGILANCE_BASIS}${VIGILANCE_PAD}`, {
+    headers: { apikey: key, accept: "*/*" },
+    next: { revalidate: VIGILANCE_CACHE_SECONDEN },
+  });
+  const body = await res.text();
+  return { status: res.status, body };
 }
 
 // De pure logica staat aliasvrij apart zodat ze een offline zelftest kan
@@ -73,6 +52,7 @@ export {
   structuurSchets,
   telDepartementen,
   termijnVan,
+  waargenomenFenomenen,
 } from "./vigilance-normalisatie.ts";
 export type {
   Termijn,

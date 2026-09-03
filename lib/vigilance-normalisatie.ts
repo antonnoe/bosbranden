@@ -1,26 +1,49 @@
 // Pure normalisatielogica voor de Vigilance-API. Bewust framework- én
 // aliasvrij, zoals lib/rookbeoordeling.ts en lib/nieuws-thema.ts: alleen zo is
 // de logica los te testen op kale node zonder Next-resolutie. De fetch en de
-// portaal-administratie staan in lib/vigilance.ts, dat hier alles uit
-// doorgeeft. Zie scripts/test-vigilance.ts.
+// portaal-administratie staan in lib/vigilance.ts. Zie scripts/test-vigilance.ts.
+//
+// De responsstructuur is op 03-09-2026 tegen de live API vastgesteld; ze staat
+// beschreven in de README. Kort:
+//
+//   product.periods[]           twee stuks, echeance "J" (vandaag) en "J1"
+//     .timelaps.domain_ids[]      per departement: domain_id, max_color_id,
+//                                 phenomenon_items[]
+//     .per_phenomenon_items[]     dezelfde gegevens per fenomeen gegroepeerd
+//
+// De doorloop hieronder is desondanks vormvrij gebleven. Niet uit
+// besluiteloosheid: dezelfde API leverde eerder onder een ander abonnement een
+// 403, en de zusterapi bleek CSV te sturen waar JSON werd verwacht. Een parser
+// die op één vorm staat, valt bij zo'n wijziging stil zonder dat iemand het
+// merkt. Deze valt terug op minder gegevens, niet op verkeerde.
 
 import { DEP_BY_CODE } from "./departements.ts";
 
 // De negen fenomenen van de Vigilance, met hun ID zoals de API die gebruikt.
-// De ID's zijn overgenomen uit werkende implementaties van derden en zijn nog
-// niet tegen de officiële documentatie geverifieerd (het API-portaal is
-// ingelogd-only). /api/vigilance/debug toont de ID's die de API werkelijk
-// terugstuurt; een onbekend ID wordt hieronder nooit stilzwijgend hernoemd.
-export const FENOMENEN: Record<number, { fr: string; nl: string }> = {
-  1: { fr: "vent violent", nl: "zware wind" },
-  2: { fr: "pluie-inondation", nl: "regen en wateroverlast" },
-  3: { fr: "orages", nl: "onweer" },
-  4: { fr: "inondation", nl: "overstroming" },
-  5: { fr: "neige-verglas", nl: "sneeuw en ijzel" },
-  6: { fr: "canicule", nl: "hitte" },
-  7: { fr: "grand froid", nl: "strenge kou" },
-  8: { fr: "avalanches", nl: "lawines" },
-  9: { fr: "vagues-submersion", nl: "hoge golven en overstroming vanaf zee" },
+//
+// BEWIJSSTATUS. Op 03-09-2026 kwamen alleen de ID's 1 t/m 6 in de respons voor;
+// 7, 8 en 9 (strenge kou, lawines, hoge golven) zijn winter- en kustgevaren die
+// er in september simpelweg niet zijn. Van die zes is er één hard bevestigd:
+// ID 6 stond op geel in 07, 11, 26, 30, 34, 66 en 84, precies de mediterrane
+// departementen begin september, wat alleen hitte kan zijn. De overige acht
+// ID's komen uit werkende implementaties van derden en zijn nog niet tegen een
+// waarneming getoetst.
+//
+// Daarom is `bevestigd` een veld en geen voetnoot: zolang het false is, is de
+// Nederlandse naam een aanname over een veiligheidssignaal. Wie een van deze
+// gevaren in de interface gaat tonen, hoort eerst één waarneming af te wachten
+// waarin het ID en het weerbeeld elkaar bevestigen, zoals hierboven bij hitte.
+// /api/vigilance/debug lijst de waargenomen ID's op om dat mogelijk te maken.
+export const FENOMENEN: Record<number, { fr: string; nl: string; bevestigd: boolean }> = {
+  1: { fr: "vent violent", nl: "zware wind", bevestigd: false },
+  2: { fr: "pluie-inondation", nl: "regen en wateroverlast", bevestigd: false },
+  3: { fr: "orages", nl: "onweer", bevestigd: false },
+  4: { fr: "inondation", nl: "overstroming", bevestigd: false },
+  5: { fr: "neige-verglas", nl: "sneeuw en ijzel", bevestigd: false },
+  6: { fr: "canicule", nl: "hitte", bevestigd: true },
+  7: { fr: "grand froid", nl: "strenge kou", bevestigd: false },
+  8: { fr: "avalanches", nl: "lawines", bevestigd: false },
+  9: { fr: "vagues-submersion", nl: "hoge golven en overstroming vanaf zee", bevestigd: false },
 };
 
 // De vier Vigilance-kleuren. LET OP: dit is een andere schaal dan de
@@ -40,26 +63,20 @@ export interface VigilanceDepartement {
   // Hoogste kleur over alle fenomenen heen, zoals de API die zelf meegeeft.
   // Null wanneer de API geen totaal noemt: dan wordt hier NIETS berekend.
   max: number | null;
-  // Alleen de fenomenen die de API werkelijk noemt, op ID.
+  // Uitsluitend de fenomenen die de API werkelijk noemt, op ID. Een ontbrekend
+  // fenomeen betekent "niet beoordeeld" en NOOIT kleur 1. Op 03-09-2026 stuurde
+  // de API alleen de ID's 1 t/m 6 mee; wie de afwezigheid van 8 als "geen
+  // lawinegevaar" leest, verzint een geruststelling die Météo-France niet
+  // heeft afgegeven.
   fenomenen: Record<number, number>;
 }
 
 export interface VigilanceData {
   departementen: Record<string, Record<Termijn, VigilanceDepartement>>;
   bijgewerkt: string | null;
-  // Welk basepath de respons opleverde: hoort in de README zodra het vaststaat.
-  basispad: string | null;
 }
 
 type Json = unknown;
-
-// ---------------------------------------------------------------------------
-// Normalisatie. Net als bij de Météo des forêts is de exacte responsstructuur
-// niet publiek gedocumenteerd. In plaats van één vorm te veronderstellen lopen
-// we de hele JSON-boom door en verzamelen we (departement, fenomeen, kleur)
-// binnen hun dichtstbijzijnde termijncontext. Waarden worden 1-op-1 overgenomen
-// en nooit herberekend, geraden of afgerond.
-// ---------------------------------------------------------------------------
 
 const DEP_KEYS = [
   "domain_id", "domain", "dep", "departement", "department", "code_dep",
@@ -70,6 +87,7 @@ const FENOMEEN_ID_KEYS = ["phenomenon_id", "phenomenon", "phenomene_id", "phenom
 const FENOMEEN_KLEUR_KEYS = [
   "phenomenon_max_color_id", "phenomenon_color_id", "color_id", "colour_id", "niveau", "level",
 ];
+const ECHEANCE_KEYS = ["echeance", "écheance", "ech", "period", "periode", "validity", "term"];
 const DATE_KEYS = [
   "update_time", "updated_at", "date_production", "dateproduction",
   "production_date", "reference_time", "basetime", "date_publication",
@@ -82,6 +100,13 @@ const DATE_KEYS = [
 // vandaag. Wie die twee door elkaar haalt, schuift de hele kaart een dag op.
 const TERMIJN_VANDAAG = ["j", "j0", "j+0", "aujourdhui", "aujourd'hui", "today"];
 const TERMIJN_MORGEN = ["j1", "j+1", "demain", "tomorrow"];
+
+// Drie toestanden, en de derde is het hele punt. "onbekend" betekent: hier
+// stáát een termijn, maar niet een die wij kennen. Zo'n tak wordt overgeslagen
+// in plaats van op de termijn van de ouder of op "vandaag" te vallen. Zou
+// Météo-France ooit een J2 toevoegen, dan verschijnt overmorgen anders als de
+// situatie van nu — precies de fout die deze module niet mag maken.
+type Context = Termijn | "onbekend" | null;
 
 function alsDepCode(v: Json): string | null {
   if (typeof v !== "string" && typeof v !== "number") return null;
@@ -119,6 +144,17 @@ export function termijnVan(s: string): Termijn | null {
   return null;
 }
 
+// Leest een echeance-veld uit dit object. Geeft null als er geen staat, en
+// "onbekend" als er wél een staat maar de waarde niet herkend wordt.
+function echeanceIn(obj: Record<string, Json>): Context {
+  for (const [k, v] of Object.entries(obj)) {
+    if (!ECHEANCE_KEYS.includes(k.toLowerCase())) continue;
+    if (typeof v !== "string" && typeof v !== "number") continue;
+    return termijnVan(String(v)) ?? "onbekend";
+  }
+  return null;
+}
+
 function leegDepartement(): Record<Termijn, VigilanceDepartement> {
   return {
     vandaag: { max: null, fenomenen: {} },
@@ -135,27 +171,21 @@ export function normaliseerVigilance(raw: Json): VigilanceData {
     return departementen[dep][termijn];
   };
 
-  const loop = (node: Json, termijn: Termijn | null) => {
+  const loop = (node: Json, context: Context) => {
+    if (context === "onbekend") return;
+
     if (Array.isArray(node)) {
-      for (const item of node) loop(item, termijn);
+      for (const item of node) loop(item, context);
       return;
     }
     if (node === null || typeof node !== "object") return;
     const obj = node as Record<string, Json>;
 
-    // Termijncontext bepalen: {"echeance":"J1", ...} of een sleutel "J1".
-    let hier = termijn;
-    for (const [k, v] of Object.entries(obj)) {
-      if (
-        ["echeance", "écheance", "ech", "period", "periode", "validity", "term"].includes(
-          k.toLowerCase()
-        ) &&
-        (typeof v === "string" || typeof v === "number")
-      ) {
-        const t = termijnVan(String(v));
-        if (t) hier = t;
-      }
-    }
+    // context is hierboven al op "onbekend" afgevangen, dus wat hier overblijft
+    // is een echte termijn of niets.
+    const eigen = echeanceIn(obj);
+    if (eigen === "onbekend") return;
+    const hier: Termijn | null = eigen ?? context;
 
     if (!bijgewerkt) {
       const d = pakVeld(obj, DATE_KEYS);
@@ -166,33 +196,34 @@ export function normaliseerVigilance(raw: Json): VigilanceData {
     // departement, inclusief de fenomeenlijst die eraan hangt.
     const dep = alsDepCode(pakVeld(obj, DEP_KEYS));
     if (dep) {
-      // Zonder termijncontext geldt de waarde voor vandaag: dat is wat de
-      // gebruiker als eerste ziet en de veiligste van de twee om te tonen.
-      const t: Termijn = hier ?? "vandaag";
-      const max = alsKleur(pakVeld(obj, MAX_KLEUR_KEYS));
-      if (max != null && vak(dep, t).max == null) vak(dep, t).max = max;
+      // Zonder termijn valt er niets te plaatsen. Eerder viel dit terug op
+      // "vandaag"; dat leverde een waarde op die er in de bron niet stond.
+      if (hier === null) return;
 
-      verzamelFenomenen(obj, dep, t);
-      for (const [k, v] of Object.entries(obj)) {
-        const kt = termijnVan(k);
-        loopFenomeen(v, dep, kt ?? t);
-      }
+      const max = alsKleur(pakVeld(obj, MAX_KLEUR_KEYS));
+      if (max != null && vak(dep, hier).max == null) vak(dep, hier).max = max;
+
+      verzamelFenomenen(obj, dep, hier);
+      for (const v of Object.values(obj)) loopFenomeen(v, dep, hier);
       return;
     }
 
     for (const [k, v] of Object.entries(obj)) {
       const kDep = alsDepCode(k);
       if (kDep) {
-        const t: Termijn = hier ?? "vandaag";
+        if (hier === null) continue;
         const n = alsKleur(v);
         if (n != null) {
-          if (vak(kDep, t).max == null) vak(kDep, t).max = n;
+          if (vak(kDep, hier).max == null) vak(kDep, hier).max = n;
         } else {
-          loopFenomeen(v, kDep, t);
+          loopFenomeen(v, kDep, hier);
         }
         continue;
       }
-      loop(v, termijnVan(k) ?? hier);
+      // Een sleutel die zelf een termijn benoemt ({"J1": {...}}) verfijnt de
+      // context; een gewone sleutel laat hem staan.
+      const uitSleutel = termijnVan(k);
+      loop(v, uitSleutel ?? hier);
     }
   };
 
@@ -205,16 +236,9 @@ export function normaliseerVigilance(raw: Json): VigilanceData {
     if (node === null || typeof node !== "object") return;
     const obj = node as Record<string, Json>;
 
-    let hier = termijn;
-    for (const [k, v] of Object.entries(obj)) {
-      if (
-        ["echeance", "écheance", "ech", "period", "periode"].includes(k.toLowerCase()) &&
-        (typeof v === "string" || typeof v === "number")
-      ) {
-        const t = termijnVan(String(v));
-        if (t) hier = t;
-      }
-    }
+    const eigen = echeanceIn(obj);
+    if (eigen === "onbekend") return;
+    const hier = eigen ?? termijn;
 
     const max = alsKleur(pakVeld(obj, MAX_KLEUR_KEYS));
     if (max != null && vak(dep, hier).max == null) vak(dep, hier).max = max;
@@ -237,7 +261,7 @@ export function normaliseerVigilance(raw: Json): VigilanceData {
   };
 
   loop(raw, null);
-  return { departementen, bijgewerkt, basispad: null };
+  return { departementen, bijgewerkt };
 }
 
 // Aantal departementen waarvoor werkelijk iets is gevonden. De route gebruikt
@@ -249,6 +273,36 @@ export function telDepartementen(data: VigilanceData): number {
       (t) => d[t].max != null || Object.keys(d[t].fenomenen).length > 0
     )
   ).length;
+}
+
+// Welke fenomeen-ID's kwamen er werkelijk in deze respons voor, en met welke
+// hoogste kleur? Dit is het gereedschap om de ID-tabel hierboven te toetsen:
+// verschijnt er bij een winterse storm een ID 5 in de Alpen, dan is "sneeuw en
+// ijzel" bevestigd. De debugroute toont deze lijst.
+export function waargenomenFenomenen(
+  data: VigilanceData
+): Array<{ id: number; naam: string | null; bevestigd: boolean; hoogsteKleur: number; aantalDepartementen: number }> {
+  const teller = new Map<number, { hoogste: number; deps: Set<string> }>();
+  for (const [dep, termijnen] of Object.entries(data.departementen)) {
+    for (const t of ["vandaag", "morgen"] as const) {
+      for (const [idTekst, kleur] of Object.entries(termijnen[t].fenomenen)) {
+        const id = Number(idTekst);
+        const bestaand = teller.get(id) ?? { hoogste: 0, deps: new Set<string>() };
+        bestaand.hoogste = Math.max(bestaand.hoogste, kleur);
+        bestaand.deps.add(dep);
+        teller.set(id, bestaand);
+      }
+    }
+  }
+  return [...teller.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([id, v]) => ({
+      id,
+      naam: FENOMENEN[id]?.nl ?? null,
+      bevestigd: FENOMENEN[id]?.bevestigd ?? false,
+      hoogsteKleur: v.hoogste,
+      aantalDepartementen: v.deps.size,
+    }));
 }
 
 // Compacte schets van een onbekende JSON-structuur, voor de debugroute.

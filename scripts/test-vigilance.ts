@@ -27,6 +27,7 @@ import {
   normaliseerVigilance,
   telDepartementen,
   termijnVan,
+  waargenomenFenomenen,
 } from "../lib/vigilance-normalisatie.ts";
 
 let geslaagd = 0;
@@ -43,78 +44,111 @@ check(termijnVan("demain") === "morgen", "demain is morgen");
 check(termijnVan("J2") === null, "Vigilance kent geen J2; onbekend blijft onbekend");
 check(termijnVan("kwark") === null, "onzin levert geen termijn op");
 
-// --- 2. De verwachte structuur van /cartevigilance/encours ------------------
-// Vorm zoals bekend uit werkende implementaties van derden. Nog niet tegen de
-// officiële documentatie geverifieerd; /api/vigilance/debug toont de echte.
+// --- 2. De werkelijke structuur van /cartevigilance/encours ----------------
+// Vorm vastgesteld op 03-09-2026 tegen de live API (status 200, 96
+// departementen). De veldnamen hieronder zijn die van de echte respons.
 const respons = {
   product: {
-    update_time: "2026-09-03T06:00:00Z",
+    warning_type: "vigilance",
+    version_vigilance: 2,
+    update_time: "2026-09-03T04:00:07Z",
+    domain_id: "FRA",
+    global_max_color_id: 2,
     periods: [
       {
         echeance: "J",
+        begin_validity_time: "2026-09-03T04:00:00Z",
+        end_validity_time: "2026-09-04T04:00:00Z",
+        text_items: { title: "Vigilance", text: "…" },
         timelaps: {
           domain_ids: [
             {
               domain_id: "11",
-              max_color_id: 3,
-              phenomenon_items: [
-                { phenomenon_id: "1", phenomenon_max_color_id: 3 },
-                { phenomenon_id: "3", phenomenon_max_color_id: 2 },
-              ],
+              max_color_id: 2,
+              phenomenon_items: [{ phenomenon_id: "6", phenomenon_max_color_id: 2 }],
             },
             {
               domain_id: "2A",
+              max_color_id: 1,
+              phenomenon_items: [{ phenomenon_id: "1", phenomenon_max_color_id: 1 }],
+            },
+            { domain_id: "84", max_color_id: 1, phenomenon_items: [] },
+          ],
+        },
+      },
+      {
+        echeance: "J1",
+        begin_validity_time: "2026-09-04T04:00:00Z",
+        end_validity_time: "2026-09-05T04:00:00Z",
+        timelaps: {
+          domain_ids: [
+            {
+              domain_id: "84",
               max_color_id: 2,
               phenomenon_items: [{ phenomenon_id: "6", phenomenon_max_color_id: 2 }],
             },
           ],
         },
       },
-      {
-        echeance: "J1",
-        timelaps: {
-          domain_ids: [
-            {
-              domain_id: "11",
-              max_color_id: 4,
-              phenomenon_items: [{ phenomenon_id: "2", phenomenon_max_color_id: 4 }],
-            },
-          ],
-        },
-      },
     ],
   },
+  meta: { snapshot_id: "abc", product_datetime: "2026-09-03T04:00:07Z" },
 };
 
 const data = normaliseerVigilance(respons);
 
-check(data.departementen["11"].vandaag.max === 3, "Aude staat vandaag op oranje");
-check(data.departementen["11"].morgen.max === 4, "Aude staat morgen op rood");
+check(data.departementen["11"].vandaag.max === 2, "Aude staat vandaag op geel");
 check(
-  data.departementen["11"].vandaag.fenomenen[1] === 3,
-  "zware wind (1) staat vandaag op oranje in de Aude"
+  data.departementen["11"].vandaag.fenomenen[6] === 2,
+  "hitte (6) staat vandaag op geel in de Aude — het ID dat empirisch bevestigd is"
 );
-check(
-  data.departementen["11"].vandaag.fenomenen[3] === 2,
-  "onweer (3) staat vandaag op geel in de Aude"
-);
-check(
-  data.departementen["11"].morgen.fenomenen[2] === 4,
-  "regen en wateroverlast (2) staat morgen op rood in de Aude"
-);
-check(data.departementen["2A"].vandaag.max === 2, "Corsica 2A wordt als departement herkend");
-check(data.bijgewerkt === "2026-09-03T06:00:00Z", "de publicatietijd komt uit de API");
-check(telDepartementen(data) === 2, "twee departementen met data");
+check(data.departementen["2A"].vandaag.max === 1, "Corsica 2A wordt als departement herkend");
+check(data.bijgewerkt === "2026-09-03T04:00:07Z", "de publicatietijd komt uit product.update_time");
+check(telDepartementen(data) === 3, "drie departementen met data");
 
-// De kern van eigenschap 1: het fenomeen van morgen mag niet naar vandaag
-// lekken, en andersom. Dit is de fout die een storm een dag verkeerd zet.
+// product.domain_id is "FRA" en global_max_color_id staat ernaast. Een parser
+// die alles oppikt zou daar een departement in zien; dat mag niet.
 check(
-  data.departementen["11"].vandaag.fenomenen[2] === undefined,
-  "de regen van morgen staat niet bij vandaag"
+  Object.keys(data.departementen).sort().join(",") === "11,2A,84",
+  "alleen echte departementcodes, geen FRA uit product.domain_id"
+);
+
+// De kern van eigenschap 1: Vaucluse (84) is vandaag rustig en morgen geel.
+// Lekt de termijn, dan staat er vandaag al een waarschuwing die er niet is.
+check(data.departementen["84"].vandaag.max === 1, "Vaucluse is vandaag rustig");
+check(data.departementen["84"].morgen.max === 2, "Vaucluse is morgen geel");
+check(
+  data.departementen["84"].vandaag.fenomenen[6] === undefined,
+  "de hitte van morgen staat niet bij vandaag"
 );
 check(
-  data.departementen["11"].morgen.fenomenen[1] === undefined,
-  "de wind van vandaag staat niet bij morgen"
+  data.departementen["11"].morgen.max === null,
+  "de Aude komt in J1 niet voor en krijgt dus geen waarde uit J"
+);
+
+// --- 2b. Ontbrekend fenomeen is "niet beoordeeld", nooit niveau 1 ----------
+// Op 03-09-2026 stuurde de API alleen de ID's 1 t/m 6 mee. Wie de afwezigheid
+// van 8 leest als "geen lawinegevaar", verzint een geruststelling.
+check(
+  data.departementen["11"].vandaag.fenomenen[8] === undefined,
+  "een fenomeen dat de API niet noemt, ontbreekt — het wordt géén 1"
+);
+check(
+  Object.keys(data.departementen["84"].vandaag.fenomenen).length === 0,
+  "een leeg phenomenon_items levert geen enkel fenomeen op, ook niet op groen"
+);
+
+// --- 2c. De waarnemingslijst waarmee de ID-tabel te toetsen is -------------
+const waargenomen = waargenomenFenomenen(data);
+check(waargenomen.length === 2, "twee verschillende fenomeen-ID's in deze respons");
+const hitte = waargenomen.find((f) => f.id === 6)!;
+check(hitte.naam === "hitte" && hitte.bevestigd === true, "ID 6 staat als bevestigd te boek");
+check(hitte.aantalDepartementen === 2, "hitte is in twee departementen gezien (11 vandaag, 84 morgen)");
+const wind = waargenomen.find((f) => f.id === 1)!;
+check(wind.bevestigd === false, "ID 1 is nog niet tegen een waarneming getoetst");
+check(
+  Object.values(FENOMENEN).filter((f) => f.bevestigd).length === 1,
+  "precies één fenomeen is empirisch bevestigd; de rest is een aanname"
 );
 
 // --- 3. Leegte blijft leeg, en wordt nooit groen ----------------------------
@@ -202,5 +236,64 @@ const ruis = normaliseerVigilance({
   meta: { total: 96, code: "99" },
 });
 check(telDepartementen(ruis) === 0, "losse getallen in metadata leveren geen departementen op");
+
+// --- 8. Een onbekende termijn wordt genegeerd, niet op vandaag gelegd -------
+// Zou Météo-France een derde periode toevoegen (J2, overmorgen), dan viel die
+// eerder terug op "vandaag" en stond overmorgen als de situatie van nu op de
+// kaart. Een dag te vroeg waarschuwen is verwarrend; een dag te vroeg
+// gerúststellen is gevaarlijk. Onbekend hoort dus nergens te belanden.
+const metJ2 = normaliseerVigilance({
+  product: {
+    periods: [
+      {
+        echeance: "J",
+        timelaps: {
+          domain_ids: [
+            {
+              domain_id: "13",
+              max_color_id: 1,
+              phenomenon_items: [{ phenomenon_id: "1", phenomenon_max_color_id: 1 }],
+            },
+          ],
+        },
+      },
+      {
+        echeance: "J2",
+        timelaps: {
+          domain_ids: [
+            {
+              domain_id: "13",
+              max_color_id: 4,
+              phenomenon_items: [{ phenomenon_id: "1", phenomenon_max_color_id: 4 }],
+            },
+          ],
+        },
+      },
+    ],
+  },
+});
+check(metJ2.departementen["13"].vandaag.max === 1, "de J-periode wordt gewoon gelezen");
+check(
+  metJ2.departementen["13"].vandaag.fenomenen[1] === 1,
+  "…inclusief het fenomeen van vandaag"
+);
+check(
+  metJ2.departementen["13"].morgen.max === null,
+  "het rood van J2 belandt niet op morgen"
+);
+check(
+  Object.values(metJ2.departementen["13"]).every((v) => v.max !== 4),
+  "het rood van J2 belandt nergens: onbekende termijn wordt overgeslagen"
+);
+
+// Datzelfde geldt zonder termijn. Een departement dat buiten elke periode in de
+// boom opduikt, is niet te plaatsen in de tijd en levert dus geen waarde op.
+const zonderTermijn = normaliseerVigilance({
+  domain_ids: [{ domain_id: "44", max_color_id: 3 }],
+});
+check(
+  telDepartementen(zonderTermijn) === 0,
+  "zonder termijn valt er niets te plaatsen, dus wordt er niets bewaard"
+);
 
 console.log(`OK — ${geslaagd} eigenschappen vastgelegd voor de Vigilance-normalisatie.`);

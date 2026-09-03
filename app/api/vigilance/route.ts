@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import {
   FENOMENEN,
   VIGILANCE_CACHE_SECONDEN,
+  VIGILANCE_DEKKING,
   VIGILANCE_KLEUREN,
   haalRuweVigilanceOp,
   normaliseerVigilance,
@@ -18,17 +19,16 @@ export const revalidate = 900; // 15 minuten, zie VIGILANCE_CACHE_SECONDEN
 
 export async function GET() {
   try {
-    const { status, body, basispad } = await haalRuweVigilanceOp();
+    const { status, body } = await haalRuweVigilanceOp();
 
     if (status !== 200) {
       return NextResponse.json(
         {
           fout: `Météo-France (Vigilance) antwoordde met status ${status}.`,
           detail: body.slice(0, 300),
-          basispad,
           opmerking:
             status === 401 || status === 403
-              ? "De API-key wordt geweigerd. Controleer in het API-portaal of Vigilance Bulletin nog onder dezelfde applicatie hangt en of de key zelf niet is verlopen (npm run key:vervaldatum)."
+              ? "De API-key wordt geweigerd. Een key dekt alleen de API's waarop de applicatie geabonneerd was op het moment dat de key werd gegenereerd; na een nieuwe subscription moet er dus een nieuwe key komen. Controleer ook /api/status/vervaldata."
               : undefined,
         },
         { status: 502 }
@@ -43,7 +43,6 @@ export async function GET() {
         {
           fout: "De respons van Vigilance was geen leesbare JSON.",
           detail: body.slice(0, 300),
-          basispad,
         },
         { status: 502 }
       );
@@ -60,8 +59,7 @@ export async function GET() {
         {
           fout: "Geen departementsniveaus gevonden in de respons van Vigilance.",
           opmerking:
-            "De structuur van deze API is niet publiek gedocumenteerd. Zie /api/vigilance/debug voor de ruwe vorm.",
-          basispad,
+            "De structuur is op 03-09-2026 vastgesteld en staat in de README. Wijkt de respons daarvan af, dan is dit de plek om dat te zien.",
           structuur: structuurSchets(raw),
           bijgewerkt: data.bijgewerkt,
         },
@@ -74,9 +72,14 @@ export async function GET() {
         departementen: data.departementen,
         bijgewerkt: data.bijgewerkt,
         aantalDepartementen: aantal,
+        dekking: VIGILANCE_DEKKING,
+        // Een fenomeen dat niet in een departement staat, is NIET beoordeeld.
+        // Dat is iets anders dan kleur 1 ("geen bijzonderheid"), en het verschil
+        // hoort mee te reizen met de data in plaats van alleen in de README te
+        // staan: wie deze route consumeert, leest dit veld eerder dan de docs.
+        ontbrekendFenomeen: "niet beoordeeld — nooit lezen als niveau 1",
         fenomenen: FENOMENEN,
         kleuren: VIGILANCE_KLEUREN,
-        basispad,
         bron: "Météo-France — Vigilance",
       },
       {

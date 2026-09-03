@@ -29,33 +29,58 @@ dagelijks gepubliceerd.
 
 ### Météo-France — Vigilance (het hele jaar)
 
-Météo-France — [Vigilance](https://vigilance.meteofrance.fr/fr), via de API die
-in de catalogus van het portaal **Vigilance Bulletin** heet (endpoint
-`GET /cartevigilance/encours`, kleur per departement voor vandaag en morgen).
+Météo-France — [Vigilance](https://vigilance.meteofrance.fr/fr), via de API
+`https://public-api.meteofrance.fr/public/DPVigilance/v1` (endpoint
+`GET /cartevigilance/encours`). In de catalogus van het portaal heet die
+**Vigilance Bulletin**; het basepath is `DPVigilance` en niet de volledige
+catalogusnaam, net zoals bij `DPMeteoForets`.
 
 **Waarom deze bron er is.** De Météo des forêts wordt alleen in het seizoen
 gepubliceerd, dus zeven maanden per jaar staat die kaart leeg. Vigilance draait
-het hele jaar en dekt negen gevaren: zware wind, regen en wateroverlast, onweer,
-overstroming, sneeuw en ijzel, hitte, strenge kou, lawines, en hoge golven met
-overstroming vanaf zee. Brandrisico wordt daarmee één laag naast andere in
-plaats van de enige reden om de tool te openen.
+het hele jaar en dekt negen gevaren. Brandrisico wordt daarmee één laag naast
+andere in plaats van de enige reden om de tool te openen.
 
-**Geen tweede sleutel.** De API hangt al onder dezelfde applicatie
-(`DefaultApplication`) als Forest weather, dus dezelfde `METEOFRANCE_API_KEY`
-werkt. Er is niets te abonneren en er is geen nieuwe env var.
+**Geverifieerde responsstructuur (03-09-2026):** JSON, status 200, 96
+departementen (01 t/m 95 plus Corsica 2A en 2B).
 
-**Nog niet geverifieerd.** Twee dingen staan open tot de eerste echte call:
+```
+product
+  update_time, domain_id ("FRA"), global_max_color_id, version_vigilance
+  periods[2]
+    echeance                "J" = vandaag, "J1" = morgen
+    begin_validity_time, end_validity_time, text_items{title,text}
+    timelaps.domain_ids[]   domain_id, max_color_id, phenomenon_items[]
+    per_phenomenon_items[]  dezelfde gegevens, per fenomeen gegroepeerd
+meta
+  snapshot_id, product_datetime, generation_timestamp
+```
 
-1. Het **basepath**. De catalogus toont `DonneesPubliquesVigilance` in de URL,
-   terwijl de zusterapi op de runtime-host `DPMeteoForets` gebruikt en niet
-   `DonneesPubliquesMeteoForets`. `lib/vigilance.ts` probeert daarom beide en
-   rapporteert in het antwoord welke werkte (veld `basispad`). Zet de uitkomst
-   hier zodra hij vaststaat en laat de andere vervallen.
-2. De **responsstructuur**, die alleen achter het ingelogde portaal is
-   gedocumenteerd, en de **fenomeen-ID's** (1 wind t/m 9 vagues-submersion),
-   die uit werkende implementaties van derden komen. `/api/vigilance/debug`
-   toont wat de API werkelijk terugstuurt. Dit is dezelfde volgorde als bij
-   `/carte/encours`, waar pas na één echte call bleek dat de respons CSV was.
+**De termijntelling is een andere dan bij de Météo des forêts.** Vigilance
+gebruikt `J` voor vandaag en `J1` voor morgen; de Météo des forêts gebruikt J1
+voor vandaag en J2 voor morgen. Wie die twee door elkaar haalt, schuift de hele
+kaart een dag op. Een `echeance` die niet wordt herkend (een toekomstige `J2`)
+wordt overgeslagen en belandt nergens, in plaats van op "vandaag" te vallen.
+
+**Dit product beslaat alleen het Europese deel van Frankrijk.** De overzeese
+gebieden hebben eigen endpoints en zitten er niet in. De route geeft die dekking
+mee in het veld `dekking`, zodat een interface die dit "Frankrijk" noemt in elk
+geval niet per ongeluk meer belooft dan de bron levert.
+
+**Een ontbrekend fenomeen betekent "niet beoordeeld", nooit niveau 1.** Op
+03-09-2026 stuurde de API alleen de ID's 1 t/m 6 mee; 7, 8 en 9 (strenge kou,
+lawines, hoge golven) zijn winter- en kustgevaren die er in september niet zijn.
+Wie de afwezigheid van ID 8 leest als "geen lawinegevaar", verzint een
+geruststelling die Météo-France niet heeft afgegeven. De route zegt dat ook in
+het antwoord zelf, in het veld `ontbrekendFenomeen`.
+
+**De ID-tabel is grotendeels nog een aanname.** Eén ID is hard bevestigd: 6
+(hitte) stond op geel in 07, 11, 26, 30, 34, 66 en 84, precies de mediterrane
+departementen begin september. De overige acht komen uit werkende
+implementaties van derden. In `lib/vigilance-normalisatie.ts` heeft elk fenomeen
+daarom een veld `bevestigd`; zolang dat false is, is de Nederlandse naam een
+aanname over een veiligheidssignaal. `/api/vigilance/debug` lijst op welke ID's
+er werkelijk in de respons voorkwamen en in hoeveel departementen, zodat een
+volgende storm of winterse bui de rest kan bevestigen.
 
 **De schaal is een andere dan die van het brandrisico.** Bij Vigilance betekent
 groen "geen bijzonderheid"; bij de Météo des forêts betekent niveau 1 "laag
@@ -131,9 +156,14 @@ is geen limietprobleem, dus `MAX_DETAILPAGINAS` is bewust niet verhoogd.
   route geeft nooit een 500.
 - `app/api/vigilance` — serverless route voor Vigilance (negen gevaren, het
   hele jaar); 15 minuten cache. Zelfde key als `/api/danger`.
+- `app/api/status/vervaldata` — sleutel- en abonnementsvervaldata voor een
+  monitor; niet gecachet, en zonder ooit de sleutel zelf te tonen.
 - `app/api/debug` — testroute voor de Météo-France-responsstructuur.
-- `app/api/vigilance/debug` — idem voor Vigilance: toont welk basepath
-  antwoordde en de werkelijke responsstructuur.
+- `app/api/vigilance/debug` — idem voor Vigilance, plus welke fenomeen-ID's er
+  werkelijk voorkwamen. **Staat standaard dicht** (404): vereist `VIGILANCE_DEBUG=1`
+  én een omgeving die niet production is. Die route vertelt of de sleutel wordt
+  geaccepteerd, en dat is diagnostiek over onze configuratie, geen publieke
+  informatie.
 - `lib/vigilance.ts` — fetch en portaal-administratie; de pure normalisatie
   staat aliasvrij in `lib/vigilance-normalisatie.ts` zodat ze een offline
   zelftest kan hebben (`scripts/test-vigilance.ts`).
@@ -643,59 +673,82 @@ wat op NING staat.
 
 ## Wat er een keer verloopt
 
-Deze tool leest overheidsbronnen met sleutels en certificaten die alle drie hun
-eigen klok hebben. Verloopt er één, dan valt een module stil zonder dat er iets
-aan de code mankeert, en dat ziet er in de logs uit als een 401 of een
-TLS-fout. Daarom staan ze hier bij elkaar.
+Deze tool leest overheidsbronnen met sleutels, abonnementen en certificaten die
+elk hun eigen klok hebben. Verloopt er één, dan valt een module stil zonder dat
+er iets aan de code mankeert, en in de logs ziet dat eruit als een 401 of een
+TLS-fout. Daarom staan ze bij elkaar, en daarom zijn ze op te vragen in plaats
+van met de hand bij te houden:
 
-| Wat | Vervalt | Gevolg als het verloopt |
-| --- | --- | --- |
-| Abonnement Vigilance Bulletin | 10-07-2028 | `/api/vigilance` geeft 401/403 |
-| Abonnement Forest weather | 07-07-2028 | `/api/danger` geeft 401/403 |
-| Abonnement Climatological data | 10-07-2028 | (nog niet in gebruik) |
-| `METEOFRANCE_API_KEY` zelf | **onbekend** | álle Météo-France-routes tegelijk |
-| Leaf-certificaat `fr-alert.gouv.fr` | 19-08-2026 | zie hieronder |
-
-De drie abonnementsdata zijn op 03-09-2026 rechtstreeks afgelezen van het
-ingelogde API-portaal, onder "My API" bij `DefaultApplication`. Ze staan alle
-drie op "In progress" en hebben een Renew-knop die nu nog grijs is. Let op het
-datumformaat: het portaal schrijft dd/mm/jjjj, dus dit is juli 2028, niet
-oktober.
-
-**De sleutel zelf heeft een kortere looptijd dan het abonnement.** Het portaal
-stelt bij het genereren van een token een "Validity period" in, los van de
-abonnementstermijn. Die datum staat nergens in het portaaloverzicht, maar wel in
-de sleutel zelf, als JWT-claim `exp`. Lees hem lokaal af, zonder netwerk en
-zonder de sleutel ergens heen te sturen:
-
-```bash
-METEOFRANCE_API_KEY=… npm run key:vervaldatum
+```
+GET /api/status/vervaldata
 ```
 
-Het script drukt de sleutel nooit af, ook niet gedeeltelijk. Zet de datum die
-eruit komt in de tabel hierboven. Is de sleutel geen JWT, dan zegt het script
-dat en moet de datum uit het token-dialoog van het portaal komen.
+Die route leest `data/vervaldata.ts` en de vervaldatum uit de sleutel zelf, en
+geeft bij elke datum een `dagenTot` mee. Bedoeld voor een monitor, zodat een
+aflopende sleutel opvalt vóórdat de tool stilvalt. **De sleutel zelf komt er
+nooit in**, ook geen deel ervan en ook niet in een foutmelding;
+`lib/sleutel-vervaldatum.ts` geeft alleen datums terug en
+`scripts/test-vervaldata.ts` legt dat vast voor elk geval (geldig, geen JWT,
+onleesbaar, zonder exp).
 
-**Het FR-Alert-certificaat is inmiddels verlopen (19-08-2026).** Dat is op
-zichzelf normaal, de overheid vernieuwt zo'n certificaat, en `lib/fr-alert-tls.ts`
-is er juist op gebouwd: het haalt het intermediate op via de AIA-URL uit het
-leaf-certificaat en niet uit een hardgecodeerde PEM, dus een routinevernieuwing
-overleeft het vanzelf. Wat het níét overleeft is een vernieuwing waarbij
-`fr-alert.gouv.fr` naar een andere certificaatketen overstapt: dan wijst de
-AIA-URL naar een ander intermediate en faalt de verificatie opnieuw met
-`UNABLE_TO_VERIFY_LEAF_SIGNATURE`. Controleer daarom of `/api/fr-alert` nog
-`liveBron: true` teruggeeft; staat die op `false`, dan draait de meldingenlaag
-op de laatst bekende momentopname en is dit de eerste plek om te kijken.
+Is een datum onbekend, dan is `verlooptOp` en `dagenTot` **null** en staat er een
+`opmerking` bij. Een monitor hoort op null te alarmeren en niet door te lopen:
+"onbekend" is hier de stille variant van "verlopen", niet van "nog lang goed".
+
+### Drie klokken, niet twee
+
+| Klok | Waar | Vervalt |
+| --- | --- | --- |
+| Abonnement Vigilance Bulletin | `data/vervaldata.ts` | 10-07-2028 |
+| Abonnement Forest weather | `data/vervaldata.ts` | 07-07-2028 |
+| Abonnement Climatological data | `data/vervaldata.ts` | 10-07-2028 |
+| De sleutel zelf (JWT-claim `exp`) | uit `METEOFRANCE_API_KEY` | zie endpoint |
+| Dekking van de sleutel | geen datum, zie hieronder | bij elke nieuwe subscription |
+
+De drie abonnementsdata zijn op 03-09-2026 rechtstreeks afgelezen van het
+ingelogde API-portaal, onder "My API" bij `DefaultApplication`. Let op het
+datumformaat: het portaal schrijft dd/mm/jjjj, dus dit is juli 2028 en niet
+oktober.
+
+**De derde klok is de gemene.** Een sleutel dekt alleen de API's waarop de
+applicatie geabonneerd was **op het moment dat de sleutel werd gegenereerd**.
+Dat is geen theorie: de Vigilance-koppeling gaf eerst een 403, terwijl het
+abonnement al sinds 10-08-2026 onder dezelfde applicatie hing als Forest
+weather. Er was niets mis met het abonnement en niets mis met de code; de
+sleutel was ouder dan de subscription. **Na elke nieuwe subscription hoort er
+dus een nieuwe sleutel gegenereerd en in Vercel gezet te worden**, ook als er
+verder niets lijkt te zijn veranderd. Deze klok heeft geen datum en is dus niet
+te monitoren; hij zit alleen in dit kopje en in `data/vervaldata.ts`.
+
+### FR-Alert
+
+Het leaf-certificaat van `fr-alert.gouv.fr` verliep 19-08-2026. Op 03-09-2026 op
+productie gecontroleerd: de route bereikt de bron nog, dus de AIA-aanpak in
+`lib/fr-alert-tls.ts` heeft die vernieuwing opgevangen. Dat is precies waarvoor
+ze is gebouwd: het intermediate komt uit de AIA-URL van het leaf-certificaat en
+niet uit een hardgecodeerde PEM, dus een routinevernieuwing overleeft ze
+vanzelf. Wat ze niet overleeft is een overstap naar een andere certificaatketen;
+dan faalt de verificatie opnieuw met `UNABLE_TO_VERIFY_LEAF_SIGNATURE`.
+
+Monitor daarvoor op het veld **`bronBereikt`** van `/api/fr-alert`, niet op
+`beschikbaar`. Die twee zeggen verschillende dingen: `beschikbaar: false` met
+`bronBereikt: true` betekent "gelezen, en er speelt niets", wat een normale
+rustige dag is. `bronBereikt: false` betekent dat er geen enkele FR-Alert-pagina
+is gelezen, en dát is de storing. Zonder dat onderscheid ziet een rustige dag er
+precies zo uit als een scrape die niets meer vindt omdat de opmaak is veranderd.
+Dezelfde fout is in augustus 2026 al een keer gemaakt met de feedcontrole, die
+elf werkende bronnen "geen feed aangekondigd" gaf terwijl ze nooit waren
+gelezen; zie `scripts/test-feedcontrole.ts`.
 
 ## Jaarlijkse checklist
 
 - [ ] Vóór seizoensstart: controleer de Météo-France-endpoint en `/api/debug`.
 - [ ] Controleer vóór het seizoen de geldigheid van beide API-keys in Vercel.
-- [ ] Loop de tabel onder "Wat er een keer verloopt" na. Die geldt het hele
-      jaar: Vigilance draait ook buiten het brandseizoen, dus een verlopen
-      sleutel valt hier niet vanzelf in september op.
-- [ ] Controleer `/api/vigilance/debug`: klopt het basepath nog en zijn er
-      fenomeen-ID's bijgekomen die nog niet in `FENOMENEN` staan?
+- [ ] Vraag `/api/status/vervaldata` op. Dat geldt het hele jaar: Vigilance
+      draait ook buiten het brandseizoen, dus een verlopen sleutel valt hier
+      niet vanzelf in september op.
+- [ ] Zijn er fenomeen-ID's waargenomen die nog op `bevestigd: false` staan?
+      Een winterse storm bevestigt 5 en 8, een najaarsdepressie 1 en 9.
 - [ ] Controleer steekproefsgewijs prefectuur-links.
 - [ ] Controleer na wijzigingen de bronvermeldingen en disclaimers.
 - [ ] Controleer of NASA FIRMS de sensornamen of CSV-kolommen heeft gewijzigd.
